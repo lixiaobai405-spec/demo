@@ -70,6 +70,7 @@ All models auto-created via `create_all()`:
 | LLM_MODE | mock | Set to `openai` for real LLM |
 | OPENAI_API_KEY | empty | Required for LLM mode |
 | LLM_REPORT_ENABLED | false | Set to `true` for LLM reports |
+<<<<<<< HEAD
 | FRONTEND_ORIGIN | `http://localhost:3001` | Keep aligned with frontend dev port |
 | RAG_ENABLED | false | Leave disabled |
 
@@ -79,3 +80,6 @@ All models auto-created via `create_all()`:
 - `.env.example` uses `FRONTEND_ORIGIN=http://localhost:3001`
 - RAG routes use `/rag/*`, not `/api/rag/*`
 - DOCX export is implemented; PDF export is not implemented yet
+=======
+| RAG_ENABLED | false | Leave disabled |
+>>>>>>> 7c801e5cd2276d02a68da5a7f720b02c018936bd
