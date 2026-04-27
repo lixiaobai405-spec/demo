@@ -1,0 +1,280 @@
+cases:
+  - id: manufacturing_schedule_delivery
+    title: 装备制造企业案例：排产与交付协同优化
+    industry: 装备制造
+    applicable_industries: ["装备制造", "制造", "工业设备"]
+    summary: 围绕订单波动、排产冲突和交付不稳的问题，先打通订单、工单和产能数据，再用 AI 做排产建议和交付风险预警。
+    pain_keywords: ["排产", "交付", "订单波动", "延期", "协同"]
+    canvas_blocks: ["关键活动", "关键资源", "成本结构"]
+    scenario_keywords: ["生产排程优化建议", "订单交付风险预警", "经营驾驶舱异常归因"]
+    reference_points: ["先做订单到交付单链路试点", "统一 ERP 与 MES 的订单口径", "把延期原因分类为标准标签"]
+    data_foundation: ["ERP 订单数据", "MES 工单与设备负荷", "延期与异常记录"]
+    cautions: ["不要在基础数据未统一前直接做复杂优化", "需要业务负责人参与异常规则定义"]
+
+  - id: manufacturing_after_sales_knowledge
+    title: 医疗器械企业案例：售后故障知识助手
+    industry: 医疗器械
+    applicable_industries: ["医疗器械", "设备制造", "制造"]
+    summary: 针对售后工程师知识分散、重复问答多的问题，把工单、维修手册和 FAQ 沉淀成统一知识入口，提高响应速度。
+    pain_keywords: ["售后", "故障", "知识分散", "响应慢", "工单"]
+    canvas_blocks: ["客户关系", "关键资源", "价值主张"]
+    scenario_keywords: ["售后故障知识助手", "员工知识问答助手", "客服工单分类与答复建议"]
+    reference_points: ["优先覆盖高频故障类型", "建立故障标签和处理模板", "同步沉淀工程师经验"]
+    data_foundation: ["售后工单", "维修手册", "FAQ 文档"]
+    cautions: ["知识库需要持续维护", "敏感设备信息需做权限控制"]
+
+  - id: retail_forecast_replenishment
+    title: 连锁零售企业案例：门店预测与补货联动
+    industry: 连锁零售
+    applicable_industries: ["零售", "连锁零售", "消费品"]
+    summary: 通过门店销售预测、库存补货优化和促销复盘，降低缺货与积压，并提升门店经营节奏。
+    pain_keywords: ["门店", "补货", "库存", "缺货", "预测"]
+    canvas_blocks: ["渠道通路", "客户细分", "成本结构"]
+    scenario_keywords: ["门店销量预测", "库存补货优化", "需求预测"]
+    reference_points: ["先选 10-20 家样板门店", "把促销与节假日因素单独打标", "每周复盘预测偏差"]
+    data_foundation: ["POS 销售数据", "库存台账", "促销日历"]
+    cautions: ["节假日与活动因素必须单独处理", "不同门店类型要分层建模"]
+
+  - id: b2b_sales_conversion
+    title: B2B 软件企业案例：商机转化与客户流失预警
+    industry: B2B 软件
+    applicable_industries: ["软件", "B2B", "企业服务"]
+    summary: 通过商机赢单预测、客户流失预警和客户分层运营，提升销售转化与续约率。
+    pain_keywords: ["商机", "转化", "续约", "流失", "销售预测"]
+    canvas_blocks: ["客户关系", "收入来源", "客户细分"]
+    scenario_keywords: ["商机赢单概率预测", "客户流失预警", "销售线索优先级排序"]
+    reference_points: ["建立商机阶段标准", "把续约风险和工单问题联动", "让销售和客户成功团队共同复盘"]
+    data_foundation: ["CRM 商机数据", "续约记录", "客户工单与回访"]
+    cautions: ["销售阶段定义不清会导致预测失真", "要避免只看模型分数不看业务上下文"]
+
+  - id: engineering_quote_contract
+    title: 工程服务企业案例：报价与合同风险协同
+    industry: 工程服务
+    applicable_industries: ["工程", "服务", "项目型企业"]
+    summary: 把历史报价、合同条款与项目交付数据联动，缩短报价响应时间，并降低履约和回款风险。
+    pain_keywords: ["报价", "合同", "履约", "回款", "响应慢"]
+    canvas_blocks: ["价值主张", "收入来源", "关键合作伙伴"]
+    scenario_keywords: ["智能报价助手", "合同审阅助手", "回款风险预警"]
+    reference_points: ["沉淀标准报价模板", "把高风险条款单独标记", "报价与项目复盘闭环"]
+    data_foundation: ["历史报价单", "合同文本", "回款记录"]
+    cautions: ["合同审阅结论不能替代法务复核", "报价模板要按项目类型分层"]
+
+  - id: supply_chain_procurement_risk
+    title: 工业分销企业案例：采购价格与供应风险分析
+    industry: 工业分销
+    applicable_industries: ["工业分销", "供应链", "制造"]
+    summary: 针对价格波动和供应不稳的问题，建立采购价格监控和供应商履约分析，提升供应链稳定性。
+    pain_keywords: ["采购", "价格波动", "供应风险", "交期", "履约"]
+    canvas_blocks: ["关键合作伙伴", "成本结构", "关键资源"]
+    scenario_keywords: ["采购价格与供应风险分析", "库存补货优化", "需求预测"]
+    reference_points: ["供应商按交期与价格波动分层", "建立异常预警阈值", "同步采购与库存周会"]
+    data_foundation: ["采购订单", "供应商绩效记录", "库存与交付数据"]
+    cautions: ["供应商绩效口径需要统一", "不能只按最低价格做决策"]
+
+  - id: finance_receivable_dashboard
+    title: 区域服务企业案例：回款预警与经营看板归因
+    industry: 区域服务
+    applicable_industries: ["服务", "区域服务", "企业服务"]
+    summary: 通过回款风险预警和经营驾驶舱异常归因，帮助管理层更快定位客户回款和经营波动问题。
+    pain_keywords: ["回款", "逾期", "经营异常", "现金流", "波动"]
+    canvas_blocks: ["收入来源", "客户关系", "成本结构"]
+    scenario_keywords: ["回款风险预警", "经营驾驶舱异常归因", "客户流失预警"]
+    reference_points: ["先抓逾期客户分层", "建立经营异常归因标签", "形成周报机制"]
+    data_foundation: ["财务应收台账", "合同账期", "客户交易记录"]
+    cautions: ["财务和业务数据必须按客户统一主键", "经营归因结论需要人工复核"]
+
+  - id: customer_service_voc
+    title: 消费品企业案例：客服工单与 VOC 洞察联动
+    industry: 消费品
+    applicable_industries: ["消费品", "零售", "服务"]
+    summary: 把客服工单、投诉和回访问卷整合，识别高频问题和产品改进方向，提升满意度和复购。
+    pain_keywords: ["客服", "投诉", "满意度", "重复问答", "VOC"]
+    canvas_blocks: ["客户关系", "价值主张", "客户细分"]
+    scenario_keywords: ["客服工单分类与答复建议", "VOC 与投诉洞察分析", "客户流失预警"]
+    reference_points: ["建立统一问题标签体系", "每周沉淀 Top 投诉问题", "让客服与产品团队共用洞察"]
+    data_foundation: ["客服工单", "投诉记录", "回访文本"]
+    cautions: ["投诉样本质量会影响洞察结果", "需要区分门店问题和产品问题"]
+
+  - id: hr_knowledge_onboarding
+    title: 多部门服务企业案例：员工知识问答与新员工上手
+    industry: 综合服务
+    applicable_industries: ["服务", "通用", "综合服务"]
+    summary: 通过员工知识问答助手和会议纪要跟踪，减少重复咨询，让新员工更快理解制度和业务流程。
+    pain_keywords: ["知识分散", "培训", "重复咨询", "新员工", "协同"]
+    canvas_blocks: ["关键资源", "关键活动"]
+    scenario_keywords: ["员工知识问答助手", "会议纪要与行动项跟踪"]
+    reference_points: ["优先沉淀高频制度问题", "给知识内容做责任人", "把问答与制度更新联动"]
+    data_foundation: ["制度流程文档", "FAQ", "培训材料"]
+    cautions: ["旧制度和新制度要版本隔离", "敏感内容要加权限控制"]
+
+  - id: software_presales_knowledge
+    title: 企业服务公司案例：售前知识复用与方案响应提速
+    industry: 企业服务
+    applicable_industries: ["企业服务", "软件", "B2B"]
+    summary: 把历史方案、标书和产品资料沉淀为知识助手，缩短售前响应时间并提高方案一致性。
+    pain_keywords: ["售前", "方案", "标书", "知识沉淀", "响应慢"]
+    canvas_blocks: ["价值主张", "关键资源", "客户关系"]
+    scenario_keywords: ["方案与标书知识助手", "智能报价助手", "员工知识问答助手"]
+    reference_points: ["优先收敛高复用方案模板", "标书知识按行业分层", "追踪内容复用率"]
+    data_foundation: ["历史方案文档", "标书资料", "产品知识库"]
+    cautions: ["旧版本方案需要清理", "对外口径必须经过售前负责人确认"]
+
+  - id: electronics_predictive_maintenance
+    title: 电子制造企业案例：设备预测性维护
+    industry: 电子制造
+    applicable_industries: ["电子制造", "制造", "工厂"]
+    summary: 将设备运行日志、维修记录和报警信息整合，识别潜在故障趋势，减少停机和交付波动。
+    pain_keywords: ["设备", "停机", "故障", "维护", "产线"]
+    canvas_blocks: ["关键资源", "关键活动", "成本结构"]
+    scenario_keywords: ["设备维护预测", "订单交付风险预警", "经营驾驶舱异常归因"]
+    reference_points: ["先覆盖关键瓶颈设备", "用停机原因做统一标签", "让设备与生产团队共同复盘"]
+    data_foundation: ["设备日志", "报警记录", "维修工单"]
+    cautions: ["传感器数据质量必须先验证", "不要忽略人工维护记录"]
+
+  - id: distribution_demand_inventory
+    title: 区域分销企业案例：需求预测与库存联动优化
+    industry: 区域分销
+    applicable_industries: ["分销", "供应链", "零售"]
+    summary: 通过需求预测和库存补货联动，改善多仓库存平衡，降低积压并提升周转效率。
+    pain_keywords: ["库存", "需求预测", "积压", "多仓", "周转"]
+    canvas_blocks: ["关键资源", "成本结构", "收入来源"]
+    scenario_keywords: ["需求预测", "库存补货优化", "经营驾驶舱异常归因"]
+    reference_points: ["按区域和 SKU 分层预测", "把滞销与缺货分开治理", "建立月度滚动复盘"]
+    data_foundation: ["库存台账", "销售订单", "SKU 主数据"]
+    cautions: ["SKU 主数据不准会直接影响预测", "多仓调拨规则需要业务确认"]
+
+  # ========== 新增案例：制造业 5个 ==========
+  - id: manufacturing_quality_inspection
+    title: 汽车零部件企业案例：质量检测与缺陷预警
+    industry: 汽车制造
+    applicable_industries: ["汽车", "制造", "零部件", "工业"]
+    summary: 将质检数据、缺陷记录和产线参数整合，识别质量波动规律，提前预警潜在缺陷批次，降低返工和召回风险。
+    pain_keywords: ["质量", "缺陷", "返工", "质检", "召回"]
+    canvas_blocks: ["关键活动", "关键资源", "成本结构"]
+    scenario_keywords: ["产品质量检测分析", "设备维护预测", "经营驾驶舱异常归因"]
+    reference_points: ["先覆盖关键质量检验点", "建立缺陷类型标准标签", "质检与生产数据联动分析"]
+    data_foundation: ["质检记录", "缺陷分类数据", "产线参数日志"]
+    cautions: ["质检标准需要业务确认", "缺陷根因分析要结合工艺知识"]
+
+  - id: manufacturing_food_safety
+    title: 食品加工企业案例：食品安全追溯与合规检查
+    industry: 食品制造
+    applicable_industries: ["食品", "制造", "消费品", "快消"]
+    summary: 整合原料批次、生产过程和检验记录，建立全链路追溯能力，提升合规检查效率，降低食品安全风险。
+    pain_keywords: ["追溯", "食品安全", "合规", "批次", "召回"]
+    canvas_blocks: ["关键活动", "关键资源", "客户关系"]
+    scenario_keywords: ["供应商风险监控", "合同审阅助手", "经营驾驶舱异常归因"]
+    reference_points: ["建立批次号统一编码", "原料到成品全链路记录", "检验结果与批次关联"]
+    data_foundation: ["原料批次记录", "生产过程数据", "检验报告"]
+    cautions: ["追溯链路必须完整不断链", "温度等环境数据要同步采集"]
+
+  - id: manufacturing_energy_optimization
+    title: 化工企业案例：能耗优化与排放监控
+    industry: 化工制造
+    applicable_industries: ["化工", "制造", "能源", "工业"]
+    summary: 整合能耗数据、设备运行参数和排放记录，识别节能空间，优化用能策略，降低成本并满足环保要求。
+    pain_keywords: ["能耗", "排放", "成本", "环保", "设备效率"]
+    canvas_blocks: ["关键活动", "成本结构", "关键资源"]
+    scenario_keywords: ["设备维护预测", "经营驾驶舱异常归因", "生产排程优化建议"]
+    reference_points: ["先抓高能耗设备", "建立能耗基准线", "排产与能源价格联动"]
+    data_foundation: ["能耗计量数据", "设备运行参数", "排放监测记录"]
+    cautions: ["能耗数据采集频率要够", "不要忽略峰谷电价因素"]
+
+  - id: manufacturing_textile_scheduling
+    title: 纺织服装企业案例：订单排产与交期协同
+    industry: 纺织制造
+    applicable_industries: ["纺织", "服装", "制造", "消费品"]
+    summary: 打通订单、面料库存和产能数据，优化排产顺序，提升交期达成率，减少急单和插单带来的成本损耗。
+    pain_keywords: ["排产", "交期", "急单", "产能", "面料"]
+    canvas_blocks: ["关键活动", "关键资源", "客户关系"]
+    scenario_keywords: ["生产排程优化建议", "订单交付风险预警", "库存补货优化"]
+    reference_points: ["建立面料与订单关联", "产能与订单匹配可视化", "急单插单规则透明化"]
+    data_foundation: ["订单数据", "面料库存", "产能数据"]
+    cautions: ["面料库存数据要实时", "工艺路线要提前确认"]
+
+  - id: manufacturing_furniture_customization
+    title: 家具制造企业案例：定制化生产协同
+    industry: 家具制造
+    applicable_industries: ["家具", "制造", "定制化", "消费品"]
+    summary: 将设计、生产和交付流程数字化，提升定制订单处理效率，减少错漏件和返工，改善客户体验。
+    pain_keywords: ["定制", "错漏", "返工", "协同", "交付"]
+    canvas_blocks: ["价值主张", "关键活动", "客户关系"]
+    scenario_keywords: ["生产排程优化建议", "订单交付风险预警", "方案与标书知识助手"]
+    reference_points: ["标准化定制模块", "设计到生产数据打通", "交付进度可视化"]
+    data_foundation: ["设计图纸", "生产工单", "交付记录"]
+    cautions: ["设计变更要版本控制", "定制件标准要提前定义"]
+
+  # ========== 新增案例：服务业 2个 ==========
+  - id: logistics_route_optimization
+    title: 物流配送企业案例：路线优化与时效提升
+    industry: 物流服务
+    applicable_industries: ["物流", "配送", "供应链", "服务"]
+    summary: 整合订单地址、车辆位置和路况数据，优化配送路线和调度，提升时效达成率，降低运输成本。
+    pain_keywords: ["配送", "时效", "路线", "调度", "成本"]
+    canvas_blocks: ["关键活动", "关键资源", "成本结构"]
+    scenario_keywords: ["订单交付风险预警", "经营驾驶舱异常归因", "需求预测"]
+    reference_points: ["先抓高密度配送区域", "建立时效基准线", "异常情况及时重调度"]
+    data_foundation: ["订单地址", "车辆位置", "路况数据"]
+    cautions: ["地址数据要标准化", "实时路况数据要可靠"]
+
+  - id: hospitality_satisfaction
+    title: 连锁酒店企业案例：客户满意度与服务优化
+    industry: 酒店服务
+    applicable_industries: ["酒店", "餐饮", "服务", "连锁"]
+    summary: 整合客户评价、服务工单和运营数据，识别服务短板，优化服务流程，提升复住率和口碑。
+    pain_keywords: ["满意度", "评价", "复住", "服务", "口碑"]
+    canvas_blocks: ["客户关系", "价值主张", "客户细分"]
+    scenario_keywords: ["VOC 与投诉洞察分析", "客户流失预警", "客服工单分类与答复建议"]
+    reference_points: ["统一评价标签体系", "服务问题与部门关联", "建立复住率追踪"]
+    data_foundation: ["客户评价", "服务工单", "入住记录"]
+    cautions: ["评价样本要覆盖多渠道", "服务问题要闭环追踪"]
+
+  # ========== 新增案例：互联网/软件 2个 ==========
+  - id: saas_user_activation
+    title: SaaS 企业案例：用户激活与留存优化
+    industry: SaaS 软件
+    applicable_industries: ["SaaS", "软件", "互联网", "B2B"]
+    summary: 通过用户行为分析和留存预测，识别流失风险用户，优化激活路径，提升付费转化和续费率。
+    pain_keywords: ["激活", "留存", "转化", "续费", "流失"]
+    canvas_blocks: ["客户关系", "收入来源", "客户细分"]
+    scenario_keywords: ["客户流失预警", "商机赢单概率预测", "销售线索优先级排序"]
+    reference_points: ["建立激活阶段定义", "关键行为与价值关联", "流失预警与运营联动"]
+    data_foundation: ["用户行为日志", "付费记录", "功能使用数据"]
+    cautions: ["行为数据要业务化定义", "不能只看数据不看用户反馈"]
+
+  - id: ecommerce_recommendation
+    title: 电商平台案例：商品推荐与转化优化
+    industry: 电子商务
+    applicable_industries: ["电商", "零售", "互联网", "消费品"]
+    summary: 通过用户行为和商品特征分析，优化个性化推荐策略，提升点击率、转化率和客单价。
+    pain_keywords: ["推荐", "转化", "点击率", "客单价", "留存"]
+    canvas_blocks: ["收入来源", "客户关系", "价值主张"]
+    scenario_keywords: ["需求预测", "客户流失预警", "经营驾驶舱异常归因"]
+    reference_points: ["建立用户分层标签", "商品特征结构化", "推荐效果持续跟踪"]
+    data_foundation: ["用户行为数据", "商品数据", "交易记录"]
+    cautions: ["冷启动问题要有策略", "推荐解释性要考虑用户体验"]
+
+  # ========== 新增案例：通用管理 2个 ==========
+  - id: finance_invoice_processing
+    title: 集团企业案例：发票处理与对账自动化
+    industry: 通用管理
+    applicable_industries: ["通用", "集团", "财务", "共享服务"]
+    summary: 通过发票识别、自动对账和异常预警，提升财务共享中心处理效率，降低人工错误和延误风险。
+    pain_keywords: ["发票", "对账", "效率", "错误", "延误"]
+    canvas_blocks: ["关键活动", "成本结构", "关键资源"]
+    scenario_keywords: ["合同审阅助手", "回款风险预警", "经营驾驶舱异常归因"]
+    reference_points: ["建立发票类型标准", "对账规则与业务匹配", "异常发票自动标记"]
+    data_foundation: ["发票图像/数据", "采购订单", "付款记录"]
+    cautions: ["发票识别准确率要验证", "异常规则要财务确认"]
+
+  - id: hr_recruitment_screening
+    title: 快速发展企业案例：招聘筛选与人才画像
+    industry: 通用管理
+    applicable_industries: ["通用", "人力资源", "快速扩张"]
+    summary: 通过简历智能解析和岗位匹配分析，提升招聘筛选效率，缩短招聘周期，提高人岗匹配质量。
+    pain_keywords: ["招聘", "筛选", "效率", "人岗匹配", "周期"]
+    canvas_blocks: ["关键资源", "关键活动", "成本结构"]
+    scenario_keywords: ["员工知识问答助手", "经营驾驶舱异常归因", "方案与标书知识助手"]
+    reference_points: ["简历标签标准化", "岗位能力模型构建", "筛选结果与绩效关联"]
+    data_foundation: ["简历数据", "岗位需求", "面试记录"]
+    cautions: ["筛选标准要业务确认", "避免过度依赖算法忽视候选人体验"]

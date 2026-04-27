@@ -1,0 +1,2 @@
+"""Meitai backend application package."""
+

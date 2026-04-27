@@ -1,0 +1,242 @@
+scenarios:
+  - id: sales_lead_prioritization
+    name: 销售线索优先级排序
+    category: 销售增长
+    summary: 基于线索来源、跟进行为和成交历史，对销售线索进行优先级排序，提升销售转化效率。
+    applicable_industries: ["通用", "制造", "零售", "软件", "服务"]
+    challenge_keywords: ["销售线索", "线索", "跟进", "商机", "转化", "获客"]
+    goal_keywords: ["销售转化", "成交", "增长", "获客", "销售效率"]
+    data_keywords: ["CRM", "线索", "商机", "客户", "报价", "拜访"]
+    canvas_keywords: ["客户关系", "渠道", "客户细分"]
+    data_requirements: ["CRM 线索与商机记录", "跟进行为日志", "成交/流失结果标签"]
+
+  - id: sales_win_rate_prediction
+    name: 商机赢单概率预测
+    category: 销售增长
+    summary: 对在途商机进行阶段判断和赢单概率预测，帮助销售团队聚焦高价值机会。
+    applicable_industries: ["通用", "制造", "B2B", "服务"]
+    challenge_keywords: ["商机", "销售预测", "跟进", "转化", "销售不稳定"]
+    goal_keywords: ["提升销售转化", "销售预测", "增长", "商机管理"]
+    data_keywords: ["CRM", "商机", "报价", "合同", "客户"]
+    canvas_keywords: ["客户关系", "收入来源"]
+    data_requirements: ["商机阶段数据", "历史成交结果", "报价和合同节点数据"]
+
+  - id: intelligent_quotation_assistant
+    name: 智能报价助手
+    category: 售前效率
+    summary: 利用历史报价、产品规格和利润边界，为销售或售前提供报价建议与风险提示。
+    applicable_industries: ["制造", "软件", "服务", "工程"]
+    challenge_keywords: ["报价", "售前", "响应慢", "效率低", "方案重复"]
+    goal_keywords: ["提高响应速度", "提升销售转化", "标准化", "售前知识"]
+    data_keywords: ["报价", "产品", "BOM", "成本", "合同", "Excel"]
+    canvas_keywords: ["价值主张", "收入来源"]
+    data_requirements: ["历史报价单", "产品/服务价格规则", "毛利或成本边界"]
+
+  - id: presales_knowledge_assistant
+    name: 方案与标书知识助手
+    category: 知识管理
+    summary: 汇总历史方案、标书、FAQ 和产品资料，帮助售前团队快速检索与复用知识。
+    applicable_industries: ["通用", "制造", "软件", "服务", "工程"]
+    challenge_keywords: ["知识沉淀", "知识分散", "售前", "文档", "重复劳动"]
+    goal_keywords: ["知识沉淀", "提高响应速度", "知识库", "标准化"]
+    data_keywords: ["文档", "知识库", "方案", "标书", "工单", "Excel"]
+    canvas_keywords: ["关键资源", "价值主张"]
+    data_requirements: ["历史方案/标书文档", "产品资料与 FAQ", "知识分类规则"]
+
+  - id: order_delivery_risk_alert
+    name: 订单交付风险预警
+    category: 交付运营
+    summary: 对订单履约过程中的延期、卡点和跨部门协同风险进行预警，降低交付波动。
+    applicable_industries: ["制造", "零售", "工程", "供应链"]
+    challenge_keywords: ["订单", "交付", "协同", "延期", "履约", "排产"]
+    goal_keywords: ["优化交付", "提高协同效率", "降低风险", "运营效率"]
+    data_keywords: ["ERP", "订单", "排产", "采购", "库存", "工单"]
+    canvas_keywords: ["关键活动", "关键合作伙伴", "成本结构"]
+    data_requirements: ["订单与交期数据", "生产/实施计划数据", "异常与延期记录"]
+
+  - id: production_schedule_optimization
+    name: 生产排程优化建议
+    category: 生产运营
+    summary: 结合订单优先级、设备负荷和物料状态，生成更合理的生产排程建议。
+    applicable_industries: ["制造"]
+    challenge_keywords: ["排产", "生产", "交付", "产能", "协同"]
+    goal_keywords: ["优化排产", "提高效率", "降低延期", "产能利用"]
+    data_keywords: ["ERP", "MES", "排产", "工单", "设备", "BOM"]
+    canvas_keywords: ["关键活动", "关键资源", "成本结构"]
+    data_requirements: ["工单与产能数据", "设备负荷数据", "物料与 BOM 数据"]
+
+  - id: predictive_maintenance
+    name: 设备维护预测
+    category: 生产运营
+    summary: 基于设备运行和故障记录，提前识别潜在故障，减少停机损失。
+    applicable_industries: ["制造", "能源", "物流"]
+    challenge_keywords: ["设备", "故障", "停机", "维护", "产线"]
+    goal_keywords: ["降低停机", "提高效率", "稳定交付", "预测"]
+    data_keywords: ["设备", "传感器", "工单", "维修", "报警"]
+    canvas_keywords: ["关键资源", "关键活动", "成本结构"]
+    data_requirements: ["设备运行日志", "故障维修记录", "传感器或报警数据"]
+
+  - id: inventory_replenishment_optimization
+    name: 库存补货优化
+    category: 供应链
+    summary: 综合销量、交期和安全库存规则，生成补货建议，降低缺货与积压。
+    applicable_industries: ["制造", "零售", "消费品", "供应链"]
+    challenge_keywords: ["库存", "补货", "积压", "缺货", "采购"]
+    goal_keywords: ["降低库存", "提高周转", "优化采购", "稳定供应"]
+    data_keywords: ["ERP", "库存", "采购", "销量", "SKU"]
+    canvas_keywords: ["关键资源", "关键合作伙伴", "成本结构"]
+    data_requirements: ["库存台账", "销量/出库数据", "采购交期与安全库存规则"]
+
+  - id: demand_forecasting
+    name: 需求预测
+    category: 供应链
+    summary: 基于历史销量、季节波动和客户订单趋势，预测未来需求变化。
+    applicable_industries: ["制造", "零售", "消费品"]
+    challenge_keywords: ["预测不准", "销量波动", "计划", "采购", "库存"]
+    goal_keywords: ["需求预测", "优化计划", "提高周转", "稳定供应"]
+    data_keywords: ["销量", "订单", "库存", "ERP", "Excel"]
+    canvas_keywords: ["客户细分", "收入来源", "关键活动"]
+    data_requirements: ["历史销量数据", "订单与退货数据", "季节或活动因素数据"]
+
+  - id: customer_service_ticket_assistant
+    name: 客服工单分类与答复建议
+    category: 客户服务
+    summary: 自动识别工单类型、优先级和答复建议，缩短客服响应时长。
+    applicable_industries: ["通用", "制造", "软件", "零售", "服务"]
+    challenge_keywords: ["客服", "响应慢", "工单", "咨询", "重复问题"]
+    goal_keywords: ["减少重复劳动", "提高响应速度", "服务效率", "客户满意度"]
+    data_keywords: ["工单", "客服", "FAQ", "知识库", "聊天记录"]
+    canvas_keywords: ["客户关系", "价值主张"]
+    data_requirements: ["历史工单数据", "常见问题与标准答复", "服务优先级规则"]
+
+  - id: customer_churn_alert
+    name: 客户流失预警
+    category: 客户经营
+    summary: 识别客户活跃度下降、续约风险或投诉上升的迹象，提前触发保留动作。
+    applicable_industries: ["通用", "软件", "服务", "零售"]
+    challenge_keywords: ["流失", "续约", "客户维护", "投诉", "复购"]
+    goal_keywords: ["提升续约", "降低流失", "客户经营", "提高满意度"]
+    data_keywords: ["CRM", "订单", "续约", "工单", "投诉", "回访"]
+    canvas_keywords: ["客户关系", "收入来源", "客户细分"]
+    data_requirements: ["客户活跃与交易记录", "工单/投诉记录", "续约或复购结果数据"]
+
+  - id: voc_insight_analysis
+    name: VOC 与投诉洞察分析
+    category: 客户经营
+    summary: 分析客户反馈、投诉和语音/文本记录，识别共性问题和改进方向。
+    applicable_industries: ["通用", "零售", "制造", "服务"]
+    challenge_keywords: ["投诉", "反馈", "服务质量", "满意度", "问题复发"]
+    goal_keywords: ["提升满意度", "改进服务", "优化产品", "洞察客户需求"]
+    data_keywords: ["投诉", "工单", "回访", "录音", "文本"]
+    canvas_keywords: ["客户关系", "价值主张"]
+    data_requirements: ["客户反馈与投诉文本", "工单闭环结果", "产品/服务问题分类规则"]
+
+  - id: receivable_risk_alert
+    name: 回款风险预警
+    category: 财务经营
+    summary: 对账期异常、逾期概率和重点客户回款风险进行监控与预警。
+    applicable_industries: ["通用", "制造", "工程", "服务"]
+    challenge_keywords: ["回款", "逾期", "账期", "现金流", "风险"]
+    goal_keywords: ["优化回款", "降低风险", "经营稳健", "现金流"]
+    data_keywords: ["财务", "发票", "回款", "ERP", "合同"]
+    canvas_keywords: ["收入来源", "客户关系", "成本结构"]
+    data_requirements: ["应收账款台账", "回款记录", "合同与账期条款"]
+
+  - id: contract_review_assistant
+    name: 合同审阅助手
+    category: 风险控制
+    summary: 对合同条款进行结构化审阅，提示履约、付款和责任边界风险。
+    applicable_industries: ["通用", "制造", "服务", "工程"]
+    challenge_keywords: ["合同", "审阅", "法务", "风险", "条款"]
+    goal_keywords: ["降低风险", "提高效率", "标准化", "合规"]
+    data_keywords: ["合同", "条款", "文档", "法务"]
+    canvas_keywords: ["收入来源", "关键合作伙伴"]
+    data_requirements: ["历史合同文本", "标准合同模板", "审阅规则与风险清单"]
+
+  - id: recruitment_resume_screening
+    name: 招聘简历初筛
+    category: 人力资源
+    summary: 对招聘简历进行岗位匹配与初筛，帮助 HR 更快聚焦高匹配候选人。
+    applicable_industries: ["通用"]
+    challenge_keywords: ["招聘", "简历", "筛选", "人力", "效率低"]
+    goal_keywords: ["提高效率", "标准化", "减少重复劳动"]
+    data_keywords: ["简历", "岗位", "招聘", "Excel"]
+    canvas_keywords: ["关键资源"]
+    data_requirements: ["历史简历与面试结果", "岗位 JD", "招聘评价标准"]
+
+  - id: employee_knowledge_qa
+    name: 员工知识问答助手
+    category: 知识管理
+    summary: 汇总制度、流程和业务文档，为员工提供统一问答入口，减少重复咨询。
+    applicable_industries: ["通用"]
+    challenge_keywords: ["知识分散", "培训", "重复咨询", "文档", "新员工"]
+    goal_keywords: ["知识沉淀", "提高效率", "标准化", "知识库"]
+    data_keywords: ["文档", "知识库", "FAQ", "制度", "流程"]
+    canvas_keywords: ["关键资源", "关键活动"]
+    data_requirements: ["制度流程文档", "FAQ 与培训材料", "知识分类与权限规则"]
+
+  - id: marketing_content_optimization
+    name: 营销内容生成与投放优化
+    category: 市场营销
+    summary: 基于目标客户和产品卖点生成营销内容，并辅助分析投放效果。
+    applicable_industries: ["零售", "消费品", "软件", "服务"]
+    challenge_keywords: ["内容", "投放", "获客", "营销", "线索不足"]
+    goal_keywords: ["获客", "增长", "营销效率", "品牌触达"]
+    data_keywords: ["投放", "线索", "内容", "客户", "CRM"]
+    canvas_keywords: ["渠道", "客户细分", "价值主张"]
+    data_requirements: ["历史投放数据", "客户画像与内容素材", "线索归因结果"]
+
+  - id: store_sales_forecast
+    name: 门店销量预测
+    category: 零售运营
+    summary: 对门店或区域销量进行预测，帮助门店备货、排班和促销决策。
+    applicable_industries: ["零售", "消费品"]
+    challenge_keywords: ["门店", "销量", "预测", "备货", "排班"]
+    goal_keywords: ["提升效率", "优化库存", "销售增长", "预测"]
+    data_keywords: ["POS", "销量", "库存", "门店", "促销"]
+    canvas_keywords: ["渠道", "客户细分", "收入来源"]
+    data_requirements: ["门店销量数据", "库存与促销数据", "节假日/天气等外部因素"]
+
+  - id: procurement_price_analysis
+    name: 采购价格与供应风险分析
+    category: 供应链
+    summary: 分析采购价格波动、供应商稳定性和交期表现，识别采购风险。
+    applicable_industries: ["制造", "零售", "供应链"]
+    challenge_keywords: ["采购", "价格波动", "供应", "交期", "风险"]
+    goal_keywords: ["优化采购", "降低风险", "稳定供应", "降本"]
+    data_keywords: ["采购", "供应商", "ERP", "价格", "交期"]
+    canvas_keywords: ["关键合作伙伴", "成本结构"]
+    data_requirements: ["采购订单与价格历史", "供应商履约记录", "交期与异常数据"]
+
+  - id: operating_dashboard_root_cause
+    name: 经营驾驶舱异常归因
+    category: 管理分析
+    summary: 对销售、交付、库存、回款等经营异常进行归因分析，辅助管理层快速定位问题。
+    applicable_industries: ["通用"]
+    challenge_keywords: ["异常", "经营分析", "管理", "波动", "协同"]
+    goal_keywords: ["管理决策", "提高效率", "异常预警", "经营可视化"]
+    data_keywords: ["ERP", "CRM", "财务", "订单", "库存", "Excel"]
+    canvas_keywords: ["成本结构", "收入来源", "关键活动"]
+    data_requirements: ["核心经营指标数据", "多系统对照口径", "异常标签与归因规则"]
+
+  - id: aftersales_fault_knowledge
+    name: 售后故障知识助手
+    category: 客户服务
+    summary: 结合历史故障、维修经验和产品资料，帮助售后团队快速定位问题与答复客户。
+    applicable_industries: ["制造", "设备", "软件", "服务"]
+    challenge_keywords: ["售后", "故障", "工单", "响应慢", "知识分散"]
+    goal_keywords: ["提高响应速度", "知识沉淀", "减少重复劳动", "服务效率"]
+    data_keywords: ["工单", "维修", "知识库", "FAQ", "设备"]
+    canvas_keywords: ["客户关系", "关键资源", "价值主张"]
+    data_requirements: ["售后工单与故障记录", "维修手册与 FAQ", "问题分类与解决方案"]
+
+  - id: meeting_summary_action_tracking
+    name: 会议纪要与行动项跟踪
+    category: 协同办公
+    summary: 自动生成会议纪要、行动项和责任人跟踪，降低跨部门协同信息丢失。
+    applicable_industries: ["通用"]
+    challenge_keywords: ["协同", "沟通", "跨部门", "跟进", "信息丢失"]
+    goal_keywords: ["提高效率", "标准化", "协同效率", "减少重复劳动"]
+    data_keywords: ["会议纪要", "文档", "IM", "邮件"]
+    canvas_keywords: ["关键活动", "关键资源"]
+    data_requirements: ["会议记录或录音", "任务跟踪规则", "组织结构与责任人信息"]
