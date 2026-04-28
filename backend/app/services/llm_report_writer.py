@@ -122,7 +122,9 @@ class LLMReportWriter:
 
         metadata["generation_mode"] = "template"
         metadata["used_llm"] = False
-        metadata["warnings"].append("LLM report generation unavailable, fallback to template mode.")
+        metadata["warnings"].append(
+            "LLM report generation did not complete successfully; the system fell back to template mode."
+        )
         return self._build_template_report(
             assessment,
             profile,
@@ -166,19 +168,19 @@ class LLMReportWriter:
 
         if not getattr(settings, "llm_report_enabled", False):
             warnings.append(
-                "LLM report generation is disabled by configuration, switched to template mode."
+                "LLM report generation is disabled by configuration; switched to template mode."
             )
             return "template", warnings
 
         if not settings.openai_api_key:
             warnings.append(
-                "OPENAI_API_KEY is missing, switched to template mode."
+                "OPENAI_API_KEY is missing; switched to template mode."
             )
             return "template", warnings
 
         if not settings.openai_model:
             warnings.append(
-                "OPENAI_MODEL is missing, switched to template mode."
+                "OPENAI_MODEL is missing; switched to template mode."
             )
             return "template", warnings
 
@@ -276,7 +278,14 @@ class LLMReportWriter:
             return response.choices[0].message.content or "", None
         except Exception as exc:
             logger.error("OpenAI API call failed: %s", exc)
-            return None, f"LLM API request failed: {exc.__class__.__name__}."
+            timeout = getattr(settings, "llm_report_timeout_seconds", 60)
+            error_name = exc.__class__.__name__
+            if "timeout" in str(exc).lower() or "timeout" in error_name.lower():
+                return (
+                    None,
+                    f"LLM API request timed out after {timeout} seconds; switched to template mode.",
+                )
+            return None, f"LLM API request failed with {error_name}; switched to template mode."
 
     def _parse_llm_response(
         self,

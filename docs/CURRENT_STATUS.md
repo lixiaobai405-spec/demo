@@ -25,13 +25,30 @@
 - [x] Export to Markdown and DOCX
 - [x] Report context aggregation API
 
+## Recently Completed
+
+### Task 5C-1 / A2: LLM Report Verification and Export Acceptance ✅
+- [x] LLM output self-check validation
+- [x] Report metadata display (`used_llm`, `used_rag`, `warnings`)
+- [x] Fallback verification when LLM unavailable / timeout / error
+- [x] Live end-to-end report generation verification
+- [x] Markdown / DOCX / print export verification under real LLM report
+
+### Latest Acceptance Record
+- Real LLM report record verified with `generation_mode=llm` and `used_llm=true`
+- `GET /api/reports/{report_id}/export/markdown` returns `200` and includes metadata header
+- `GET /api/reports/{report_id}/export/docx` returns `200` with downloadable DOCX attachment
+- `GET /api/reports/{report_id}/print` returns `200` and print HTML contains `used_llm=true`
+- Backend health check remains normal during export verification
+
 ## In Progress
 
-### Task 5C-1: LLM Report Verification (NEXT)
-- [ ] LLM output self-check validation
-- [ ] Report metadata display (used_llm, used_rag, warnings)
-- [ ] Fallback verification when LLM unavailable
-- [ ] Live end-to-end testing
+### Task 5C-2 / A3: Main Flow Automated Tests (NEXT)
+- [ ] Add backend integration test scaffold
+- [ ] Cover questionnaire -> profile -> canvas -> scenarios -> cases -> report
+- [ ] Cover template mode and LLM fallback mode
+- [ ] Cover report export endpoints
+- [ ] Cover prerequisite / error-path assertions
 
 ## Not Started
 
@@ -50,9 +67,9 @@
 | Scenario Recommendation | ✅ Done | Rule + LLM |
 | Case Matching | ✅ Done | Similarity-based |
 | Template Report | ✅ Done | Always available |
-| LLM Report | ⚠️ Needs Testing | Fallback required |
+| LLM Report | ✅ Verified | Fallback and metadata verified |
 | RAG Search | ⚠️ Disabled | Optional feature |
-| Export (MD/DOCX) | ✅ Done | Both formats |
+| Export (MD/DOCX) | ✅ Verified | Real LLM report export passed |
 
 ## Database Schema Status
 
@@ -67,10 +84,9 @@ All models auto-created via `create_all()`:
 
 | Env Var | Default | Current Needed |
 |---------|---------|----------------|
-| LLM_MODE | mock | Set to `openai` for real LLM |
+| LLM_MODE | mock | Set to `live` for real profile/canvas generation |
 | OPENAI_API_KEY | empty | Required for LLM mode |
-| LLM_REPORT_ENABLED | false | Set to `true` for LLM reports |
-<<<<<<< HEAD
+| LLM_REPORT_ENABLED | false | Set to `true` for real LLM report writing |
 | FRONTEND_ORIGIN | `http://localhost:3001` | Keep aligned with frontend dev port |
 | RAG_ENABLED | false | Leave disabled |
 
@@ -80,6 +96,4 @@ All models auto-created via `create_all()`:
 - `.env.example` uses `FRONTEND_ORIGIN=http://localhost:3001`
 - RAG routes use `/rag/*`, not `/api/rag/*`
 - DOCX export is implemented; PDF export is not implemented yet
-=======
-| RAG_ENABLED | false | Leave disabled |
->>>>>>> 7c801e5cd2276d02a68da5a7f720b02c018936bd
+- Real profile/canvas LLM uses `LLM_MODE=live`; report LLM additionally requires `LLM_REPORT_ENABLED=true`

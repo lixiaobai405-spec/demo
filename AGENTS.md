@@ -74,11 +74,7 @@ frontend/
 | GET | `/api/reports/{id}` | Get report detail |
 | GET | `/api/reports/{id}/export/markdown` | Export as markdown |
 | GET | `/api/reports/{id}/export/docx` | Export as docx |
-<<<<<<< HEAD
 | POST | `/rag/search` | RAG search (optional) |
-=======
-| POST | `/api/rag/search` | RAG search (optional) |
->>>>>>> 7c801e5cd2276d02a68da5a7f720b02c018936bd
 
 ## Environment Variables
 
@@ -125,8 +121,4 @@ Summarize:
 - features implemented
 - how to run
 - checks performed
-<<<<<<< HEAD
 - known limitations
-=======
-- known limitations
->>>>>>> 7c801e5cd2276d02a68da5a7f720b02c018936bd

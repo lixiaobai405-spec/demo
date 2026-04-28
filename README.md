@@ -7,15 +7,7 @@
 3. 生成商业模式画布 9 格诊断
 4. 生成 Top 3 AI 场景推荐
 5. 匹配匿名行业参考案例
-<<<<<<< HEAD
 6. 生成最终报告预览与导出
-=======
-6. 生成最终报告预览
-
-当前阶段不包含：
-
-- Word / PDF 导出
->>>>>>> 7c801e5cd2276d02a68da5a7f720b02c018936bd
 
 ## 当前能力
 
@@ -27,12 +19,9 @@
 - 基于本地 YAML 的规则评分场景推荐
 - 基于行业、痛点、画布格子和推荐场景的案例匹配
 - 最终报告结构化预览页
-<<<<<<< HEAD
 - Markdown / DOCX / 打印版导出
 - 可选 LLM 报告增强
 - 可选 RAG 检索模块（默认关闭）
-=======
->>>>>>> 7c801e5cd2276d02a68da5a7f720b02c018936bd
 
 ## 目录结构
 
@@ -69,10 +58,6 @@
 先复制模板：
 
 ```powershell
-<<<<<<< HEAD
-=======
-cd E:\company_work\3
->>>>>>> 7c801e5cd2276d02a68da5a7f720b02c018936bd
 Copy-Item .env.example .env
 ```
 
@@ -88,50 +73,32 @@ NEXT_PUBLIC_API_BASE_URL="http://localhost:8000"
 OPENAI_API_KEY=""
 OPENAI_BASE_URL="https://api.openai.com/v1"
 OPENAI_MODEL="your-model-name"
-<<<<<<< HEAD
 LLM_REPORT_ENABLED="false"
 LLM_REPORT_TIMEOUT_SECONDS="60"
 RAG_ENABLED="false"
 CHROMA_PERSIST_DIR="./backend/data/chroma"
 RAG_TOP_K="5"
-=======
->>>>>>> 7c801e5cd2276d02a68da5a7f720b02c018936bd
 ```
 
 如果要接真实模型，把 `.env` 改成：
 
 ```env
-<<<<<<< HEAD
 LLM_MODE="openai"
 OPENAI_API_KEY="你自己的 key"
 OPENAI_BASE_URL="你的 OpenAI 兼容接口地址"
 OPENAI_MODEL="你自己的模型名"
 LLM_REPORT_ENABLED="true"
-=======
-LLM_MODE="live"
-OPENAI_API_KEY="你自己的 key"
-OPENAI_BASE_URL="你的 OpenAI 兼容接口地址"
-OPENAI_MODEL="你自己的模型名"
->>>>>>> 7c801e5cd2276d02a68da5a7f720b02c018936bd
 ```
 
 说明：
 
-<<<<<<< HEAD
 - 企业画像和商业画布支持 `mock / openai`
 - 场景推荐固定走本地规则评分
 - 案例匹配固定走规则评分
 - 报告支持 `template` 和 `llm` 模式，LLM 不可用时会自动回退
 - 当前已支持 Markdown / DOCX / 打印版导出
-- RAG 默认关闭，接口前缀为 `/rag`
+- RAG 默认关闭，接口前缀为 `/api/rag`
 - SQLite 默认文件在 `backend/data/meitai_demo.db`
-=======
-- 企业画像和商业画布支持 `mock / live`
-- 场景推荐固定走本地规则评分
-- 案例匹配固定走规则评分
-- 当前最终报告为模板化结构化报告预览，不做导出
-- SQLite 默认文件在 [backend/data/meitai_demo.db](E:\company_work\3\backend\data\meitai_demo.db)
->>>>>>> 7c801e5cd2276d02a68da5a7f720b02c018936bd
 
 ## 本地启动
 
@@ -140,46 +107,27 @@ OPENAI_MODEL="你自己的模型名"
 后端：
 
 ```powershell
-<<<<<<< HEAD
 cd backend
 pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --port 8000
-=======
-cd E:\company_work\3
-E:\Anaconda3\envs\rag-env\python.exe -m pip install -r backend\requirements.txt
-E:\Anaconda3\envs\rag-env\python.exe -m uvicorn app.main:app --app-dir backend --reload --host 0.0.0.0 --port 8000
->>>>>>> 7c801e5cd2276d02a68da5a7f720b02c018936bd
 ```
 
 前端：
 
 ```powershell
-<<<<<<< HEAD
 cd frontend
-=======
-cd E:\company_work\3\frontend
->>>>>>> 7c801e5cd2276d02a68da5a7f720b02c018936bd
 npm install
 npm run dev
 ```
 
 ### 方式二：bat 启动
 
-<<<<<<< HEAD
 - `scripts/back_start.bat`
 - `scripts/front_start.bat`
 
 说明：
 
 - 后端脚本优先使用当前环境中的 `python`，若不可用则回退到 `py -3`
-=======
-- [scripts/back_start.bat](E:\company_work\3\scripts\back_start.bat)
-- [scripts/front_start.bat](E:\company_work\3\scripts\front_start.bat)
-
-说明：
-
-- 后端脚本固定使用 `E:\Anaconda3\envs\rag-env\python.exe`
->>>>>>> 7c801e5cd2276d02a68da5a7f720b02c018936bd
 - 前端脚本会先检查 `frontend/node_modules`，不存在时自动执行一次 `npm install`
 
 ## 页面地址
@@ -243,6 +191,41 @@ npm run dev
 
 基于画像、画布、场景推荐和案例结果，生成并保存最终报告预览。
 
+- `mode=template`：始终使用模板模式
+- `mode=llm`：优先使用 LLM 增强，失败或超时会自动回退到模板模式
+- 当缺少画像、画布或场景推荐时，接口会明确返回前置步骤缺失提示
+
+示例：
+
+```text
+POST /api/assessments/{assessment_id}/report?mode=llm
+```
+
+成功后可前往报告预览页查看：
+
+- `generation_mode`
+- `used_llm`
+- `used_rag`
+- `warnings`
+
+这些字段用于确认当前报告是否实际使用了 LLM / RAG，以及是否发生了回退或数据质量提醒。
+
+### `GET /api/reports/{report_id}`
+
+获取已保存的报告正文、结构化 JSON、HTML 预览内容和生成元信息。
+
+### `GET /api/reports/{report_id}/export/markdown`
+
+导出 Markdown 版本，适合二次编辑或归档。
+
+### `GET /api/reports/{report_id}/export/docx`
+
+导出 Word 版本，适合汇报、批注与交付。
+
+### `GET /api/reports/{report_id}/print`
+
+打开打印版页面，适合浏览器打印或另存为 PDF。
+
 ### `GET /api/assessments/{assessment_id}/report-context`
 
 只聚合报告生成所需上下文，不生成最终报告。
@@ -251,19 +234,11 @@ npm run dev
 
 场景库：
 
-<<<<<<< HEAD
 - `knowledge/raw/ai_scenarios.yaml`
 
 案例库：
 
 - `knowledge/raw/industry_cases.yaml`
-=======
-- [knowledge/raw/ai_scenarios.yaml](E:\company_work\3\knowledge\raw\ai_scenarios.yaml)
-
-案例库：
-
-- [knowledge/raw/industry_cases.yaml](E:\company_work\3\knowledge\raw\industry_cases.yaml)
->>>>>>> 7c801e5cd2276d02a68da5a7f720b02c018936bd
 
 说明：
 
@@ -275,13 +250,8 @@ npm run dev
 如果前端页面显示"健康检查失败"，按以下步骤排查：
 
 1. **查看前端实际端口**
-<<<<<<< HEAD
    - 前端默认运行在 3001 端口
    - 如果你修改了启动参数，请以终端输出的实际端口为准
-=======
-   - 前端默认运行在 3000 端口
-   - 如果 3000 被占用，Next.js 可能自动切换到 3001
->>>>>>> 7c801e5cd2276d02a68da5a7f720b02c018936bd
    - 检查终端输出的实际端口
 
 2. **确认后端 CORS 配置**
@@ -329,13 +299,8 @@ npm run dev
 
 ## 已完成检查
 
-<<<<<<< HEAD
 - `python -m compileall backend\app`
 - `cd frontend && npm run build`
-=======
-- `E:\Anaconda3\envs\rag-env\python.exe -m compileall backend\app`
-- `cd E:\company_work\3\frontend && npm run build`
->>>>>>> 7c801e5cd2276d02a68da5a7f720b02c018936bd
 - 后端链路验证：
   - 创建 assessment
   - 生成 profile
@@ -368,11 +333,7 @@ RAG（检索增强生成）模块默认关闭。启用需要以下步骤：
 
 3. **验证状态**：
    ```bash
-<<<<<<< HEAD
-   curl http://localhost:8000/rag/status
-=======
    curl http://localhost:8000/api/rag/status
->>>>>>> 7c801e5cd2276d02a68da5a7f720b02c018936bd
    ```
 
 ### Mock Embedding 模式
@@ -387,15 +348,9 @@ RAG（检索增强生成）模块默认关闭。启用需要以下步骤：
 
 | 端点 | 说明 |
 |------|------|
-<<<<<<< HEAD
-| `GET /rag/status` | 获取 RAG 状态（含 mock 标记） |
-| `POST /rag/search` | 搜索知识库 |
-| `POST /rag/ingest` | 注入知识 |
-=======
 | `GET /api/rag/status` | 获取 RAG 状态（含 mock 标记） |
 | `POST /api/rag/search` | 搜索知识库 |
 | `POST /api/rag/ingest` | 注入知识 |
->>>>>>> 7c801e5cd2276d02a68da5a7f720b02c018936bd
 
 ### 分数计算
 
@@ -407,12 +362,7 @@ Hybrid 检索分数归一化：
 
 ## 已知限制
 
-<<<<<<< HEAD
 - PDF 导出尚未实现
-=======
-- Word / PDF 导出尚未实现
-- 最终报告目前为模板化结构，不是富文本排版版式
->>>>>>> 7c801e5cd2276d02a68da5a7f720b02c018936bd
 - 场景推荐与案例匹配都已规则化，但还可以继续细化行业权重
 - 当前没有完整自动化测试框架，只做了关键链路验证
 
@@ -420,13 +370,7 @@ Hybrid 检索分数归一化：
 
 进入下一阶段时，建议按这个顺序推进：
 
-<<<<<<< HEAD
 1. 补齐报告元数据展示、回退提示和主链路自动化测试
 2. 细化 RAG 知识库内容，提升报告论据质量
 3. 在报告稳定后补 PDF 导出
-=======
-1. 在报告结果之上增加 Markdown / HTML 版式输出
-2. 细化 RAG 知识库内容，提升报告论据质量
-3. 在报告稳定后补 Word / PDF 导出
->>>>>>> 7c801e5cd2276d02a68da5a7f720b02c018936bd
 4. 最后再补更细的权限、日志、审计与测试覆盖

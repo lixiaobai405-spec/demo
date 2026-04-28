@@ -105,9 +105,7 @@ def get_report_context(
     db: Session = Depends(get_db),
 ) -> ReportContextResponse:
     assessment = _get_assessment_or_404(db, assessment_id)
-    profile = _require_profile(assessment)
-    canvas = _require_canvas(db, assessment_id)
-    scenarios = _require_scenarios(db, assessment_id)
+    profile, canvas, scenarios = _require_report_prerequisites(db, assessment)
 
     return ReportContextResponse(
         assessment_id=assessment.id,
@@ -241,9 +239,7 @@ def generate_report(
     from app.services.llm_report_writer import LLMReportWriter
 
     assessment = _get_assessment_or_404(db, assessment_id)
-    profile = _require_profile(assessment)
-    canvas = _require_canvas(db, assessment_id)
-    scenarios = _require_scenarios(db, assessment_id)
+    profile, canvas, scenarios = _require_report_prerequisites(db, assessment)
 
     cases = _load_case_recommendation(db, assessment_id)
     if cases is None:
@@ -503,6 +499,39 @@ def _require_scenarios(
             detail="Scenario recommendation has not been generated for this assessment.",
         )
     return scenarios
+
+
+def _require_report_prerequisites(
+    db: Session,
+    assessment: Assessment,
+) -> tuple[
+    CompanyProfileResult,
+    CanvasDiagnosisResult,
+    ScenarioRecommendationResult,
+]:
+    profile = _load_profile_from_assessment(assessment)
+    canvas = _load_canvas_diagnosis(db, assessment.id)
+    scenarios = _load_scenario_recommendation(db, assessment.id)
+
+    missing_steps: list[str] = []
+    if profile is None:
+        missing_steps.append("company profile")
+    if canvas is None:
+        missing_steps.append("canvas diagnosis")
+    if scenarios is None:
+        missing_steps.append("scenario recommendation")
+
+    if missing_steps:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Report generation requires completed steps before continuing: "
+                + ", ".join(missing_steps)
+                + ". Generate them from the assessment workbench first."
+            ),
+        )
+
+    return profile, canvas, scenarios
 
 
 def _ensure_profile(

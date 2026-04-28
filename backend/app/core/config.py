@@ -30,11 +30,7 @@ load_env_file(ENV_FILE)
 class Settings:
     app_name: str = os.getenv("APP_NAME", "Meitai AI Business Innovation Agent API")
     app_env: str = os.getenv("APP_ENV", "development")
-<<<<<<< HEAD
     frontend_origin: str = os.getenv("FRONTEND_ORIGIN", "http://localhost:3001")
-=======
-    frontend_origin: str = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
->>>>>>> 7c801e5cd2276d02a68da5a7f720b02c018936bd
     database_url: str = os.getenv(
         "DATABASE_URL",
         f"sqlite:///{DEFAULT_DATABASE_PATH.as_posix()}",

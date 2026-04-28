@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { generateAssessmentReport, getAssessmentDetail } from "@/lib/api";
+import {
+  ApiError,
+  generateAssessmentReport,
+  getAssessmentDetail,
+} from "@/lib/api";
 import type { AssessmentDetailResponse, ReportDocumentResponse } from "@/lib/types";
 
 export function ReportPreviewViewer({
@@ -59,9 +63,7 @@ export function ReportPreviewViewer({
         await generateAssessmentReport(assessmentId, reportMode);
       router.push(`/reports/${reportResponse.report_id}`);
     } catch (nextError) {
-      setError(
-        nextError instanceof Error ? nextError.message : "报告生成失败。",
-      );
+      setError(formatReportError(nextError, reportMode));
     } finally {
       setIsGenerating(false);
     }
@@ -225,7 +227,7 @@ export function ReportPreviewViewer({
               <p className="mt-2 text-xs text-slate-400">
                 {reportMode === "template"
                   ? "模板模式：使用结构化模板快速生成报告"
-                  : "LLM模式：使用大语言模型生成更智能、更个性化的报告"}
+                  : "LLM 模式：优先使用大语言模型增强表达，失败或超时会自动回退到模板模式"}
               </p>
             </div>
 
@@ -271,7 +273,10 @@ export function ReportPreviewViewer({
               报告生成逻辑当前为模板化生成，不依赖 API Key，也不会自由编造真实公司案例或 ROI 数字。
             </p>
             <p className="mt-3">
-              如果后续接入 RAG 或案例检索增强，仍建议保持当前结构化章节为统一底座。
+              选择 LLM 模式时，页面会在结果页展示是否实际使用了 LLM、是否使用了 RAG，以及所有 warning / 回退提示。
+            </p>
+            <p className="mt-3">
+              生成完成后可在报告预览页下载 Markdown、Word 或打开打印版；如果下载失败，请先确认后端服务仍在运行。
             </p>
           </div>
 
@@ -312,4 +317,34 @@ function StatusRow({
       <p className="mt-3 leading-7 text-slate-300">{text}</p>
     </div>
   );
+}
+
+function formatReportError(
+  error: unknown,
+  reportMode: "template" | "llm",
+): string {
+  if (error instanceof ApiError) {
+    if (error.status === 400) {
+      return "报告前置步骤未完成。请先在 Assessment 工作台依次生成企业画像、商业画布和 AI 场景推荐，再回来生成报告。";
+    }
+    if (error.status >= 500) {
+      return "报告生成时后端发生异常。请稍后重试；如果问题持续存在，请检查后端日志与报告配置。";
+    }
+    return error.message;
+  }
+
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    if (message.includes("timeout")) {
+      return reportMode === "llm"
+        ? "LLM 报告生成超时。系统通常会自动回退到模板模式，请重试并在结果页查看 warning。"
+        : "请求超时，请确认后端服务状态后重试。";
+    }
+    if (message.includes("failed to fetch")) {
+      return "无法连接后端服务。请确认后端已启动，并检查 `NEXT_PUBLIC_API_BASE_URL` 是否正确。";
+    }
+    return error.message;
+  }
+
+  return "报告生成失败。";
 }

@@ -13,6 +13,18 @@ import type {
 export const apiBaseUrl =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
+export class ApiError extends Error {
+  status: number;
+  detail: unknown;
+
+  constructor(message: string, status: number, detail?: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     cache: "no-store",
@@ -25,16 +37,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const text = await response.text();
+    let detail: unknown = text;
     let message = text || `HTTP ${response.status}`;
 
     try {
-      const payload = JSON.parse(text) as { detail?: string };
-      message = payload.detail ?? message;
+      const payload = JSON.parse(text) as { detail?: unknown };
+      detail = payload.detail ?? payload;
+      if (typeof payload.detail === "string" && payload.detail.trim()) {
+        message = payload.detail;
+      }
     } catch {
       // Keep raw text when response is not JSON.
     }
 
-    throw new Error(message);
+    throw new ApiError(message, response.status, detail);
   }
 
   return (await response.json()) as T;
