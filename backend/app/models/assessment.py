@@ -26,6 +26,8 @@ class Assessment(Base):
     ai_goals: Mapped[str] = mapped_column(Text, nullable=False)
     available_data: Mapped[str] = mapped_column(Text, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    class_group: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    instructor_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     profile_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
     profile_generation_mode: Mapped[str | None] = mapped_column(String(20), nullable=True)
     profile_generated_at: Mapped[datetime | None] = mapped_column(

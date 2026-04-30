@@ -30,7 +30,7 @@ load_env_file(ENV_FILE)
 class Settings:
     app_name: str = os.getenv("APP_NAME", "Meitai AI Business Innovation Agent API")
     app_env: str = os.getenv("APP_ENV", "development")
-    frontend_origin: str = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
+    frontend_origin: str = os.getenv("FRONTEND_ORIGIN", "http://localhost:3001")
     database_url: str = os.getenv(
         "DATABASE_URL",
         f"sqlite:///{DEFAULT_DATABASE_PATH.as_posix()}",
@@ -52,6 +52,15 @@ class Settings:
     # LLM Report settings
     llm_report_enabled: bool = os.getenv("LLM_REPORT_ENABLED", "false").strip().lower() == "true"
     llm_report_timeout_seconds: int = int(os.getenv("LLM_REPORT_TIMEOUT_SECONDS", "60"))
+    # Intake import settings
+    intake_max_upload_size_mb: int = int(os.getenv("INTAKE_MAX_UPLOAD_SIZE_MB", "10"))
+    intake_pdf_ocr_enabled: bool = (
+        os.getenv("INTAKE_PDF_OCR_ENABLED", "true").strip().lower() == "true"
+    )
+    intake_pdf_ocr_min_text_chars: int = int(
+        os.getenv("INTAKE_PDF_OCR_MIN_TEXT_CHARS", "20")
+    )
+    intake_pdf_ocr_max_pages: int = int(os.getenv("INTAKE_PDF_OCR_MAX_PAGES", "12"))
 
 
 settings = Settings()

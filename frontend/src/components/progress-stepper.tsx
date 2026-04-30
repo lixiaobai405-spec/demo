@@ -4,6 +4,9 @@ const stepLabels = [
   "企业问卷",
   "企业画像",
   "商业画布",
+  "突破要素",
+  "方向延展",
+  "竞争力",
   "场景推荐",
   "案例匹配",
   "报告预览",
@@ -24,9 +27,24 @@ export function ProgressStepper({
       : progress.has_profile
         ? "current"
         : "pending",
-    progress.has_scenarios
+    progress.has_breakthrough
       ? "done"
       : progress.has_canvas
+        ? "current"
+        : "pending",
+    progress.has_directions
+      ? "done"
+      : progress.has_breakthrough
+        ? "current"
+        : "pending",
+    progress.has_competitiveness
+      ? "done"
+      : progress.has_directions
+        ? "current"
+        : "pending",
+    progress.has_scenarios
+      ? "done"
+      : progress.has_competitiveness
         ? "current"
         : "pending",
     progress.has_cases
@@ -42,7 +60,7 @@ export function ProgressStepper({
   ] as const;
 
   return (
-    <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+    <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-9">
       {stepLabels.map((label, index) => (
         <div
           key={label}

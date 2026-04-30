@@ -8,6 +8,8 @@ class ReportWriterPrompt:
     REPORT_OUTLINE = [
         "企业基本画像",
         "当前商业模式画布诊断",
+        "突破要素",
+        "创新方向延展",
         "AI 成熟度评估",
         "高优先级 AI 提效场景",
         "推荐场景详细规划",
@@ -17,6 +19,7 @@ class ReportWriterPrompt:
         "90 天行动计划",
         "风险与阻力",
         "讲师点评区",
+        "商业终局设计",
     ]
 
     @staticmethod
@@ -25,13 +28,13 @@ class ReportWriterPrompt:
         return """你是一位专业的AI创新顾问，负责为企业撰写AI创新转型报告。
 
 ## 核心原则（必须严格遵守）
-1. **忠实于输入数据**：只能基于提供的企业画像、画布诊断、场景推荐、案例匹配数据进行扩写润色，绝对不能改变任何业务决策结果
+1. **忠实于输入数据**：只能基于提供的企业画像、画布诊断、突破要素、场景推荐、案例匹配数据进行扩写润色，绝对不能改变任何业务决策结果
 2. **禁止编造事实**：
    - 不能编造真实企业名称（使用"某企业"、"贵司"等代称）
    - 不能编造具体的ROI数字（可用"预计提升"、"有望改善"等定性表述）
    - 不能编造不存在的数据来源或案例
 3. **保持专业客观**：使用咨询行业规范用语，避免过度营销化表述
-4. **保留11个章节**：必须完整输出所有11个章节，不得删减或合并
+4. **保留14个章节**：必须完整输出所有14个章节，不得删减或合并
 
 ## 写作风格
 - 结构清晰，每个章节有明确的小标题
@@ -71,6 +74,7 @@ class ReportWriterPrompt:
         canvas_diagnosis: dict[str, Any],
         top_scenarios: list[dict[str, Any]],
         case_recommendation: dict[str, Any] | None = None,
+        breakthrough_elements: list[str] | None = None,
     ) -> str:
         """Build the user prompt with all context data."""
         sections = []
@@ -83,6 +87,10 @@ class ReportWriterPrompt:
 
         sections.append("\n## 商业模式画布诊断")
         sections.append(ReportWriterPrompt._format_canvas(canvas_diagnosis))
+
+        if breakthrough_elements:
+            sections.append("\n## 选定突破要素")
+            sections.append(ReportWriterPrompt._format_breakthrough(breakthrough_elements))
 
         sections.append("\n## 推荐AI场景")
         sections.append(ReportWriterPrompt._format_scenarios(top_scenarios))
@@ -194,3 +202,10 @@ class ReportWriterPrompt:
             if case.get("cautions"):
                 lines.append(f"- 注意事项: {', '.join(case['cautions'])}")
         return "\n".join(lines)
+
+    @staticmethod
+    def _format_breakthrough(elements: list[str]) -> str:
+        if not elements:
+            return "暂未选择突破要素。"
+        joined = "、".join(elements)
+        return f"管理层选定的 {len(elements)} 个突破要素：{joined}。建议在报告中围绕这些要素展开分析，并在差异化竞争力设计和路线图中重点体现。"

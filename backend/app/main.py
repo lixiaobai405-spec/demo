@@ -22,7 +22,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Allow both 3000 and 3001 for development (Next.js may auto-switch ports)
+    # Frontend uses 3001 by default. Keep 3000 in CORS only for local compatibility.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[

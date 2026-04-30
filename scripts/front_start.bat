@@ -2,7 +2,7 @@
 setlocal
 
 cd /d "%~dp0..\frontend"
-echo [Meitai Demo] Starting frontend on http://localhost:3000
+echo [Meitai Demo] Starting frontend on http://localhost:3001
 
 if not exist "node_modules" (
   echo [Meitai Demo] node_modules not found, running npm install first...

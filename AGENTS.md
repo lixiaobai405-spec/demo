@@ -74,7 +74,7 @@ frontend/
 | GET | `/api/reports/{id}` | Get report detail |
 | GET | `/api/reports/{id}/export/markdown` | Export as markdown |
 | GET | `/api/reports/{id}/export/docx` | Export as docx |
-| POST | `/api/rag/search` | RAG search (optional) |
+| POST | `/rag/search` | RAG search (optional) |
 
 ## Environment Variables
 

@@ -16,6 +16,7 @@ class AssessmentCreateRequest(BaseModel):
     ai_goals: str = Field(min_length=1)
     available_data: str = Field(min_length=1)
     notes: str | None = None
+    class_group: str | None = None
 
 
 class AssessmentInputSnapshot(BaseModel):
@@ -47,6 +48,8 @@ class AssessmentResponse(BaseModel):
     ai_goals: str
     available_data: str
     notes: str | None
+    class_group: str | None = None
+    instructor_comment: str | None = None
     has_profile: bool
     profile_generation_mode: str | None
     profile_generated_at: datetime | None
@@ -137,10 +140,12 @@ class CaseMatchItem(BaseModel):
     reference_points: list[str] = Field(default_factory=list)
     data_foundation: list[str] = Field(default_factory=list)
     cautions: list[str] = Field(default_factory=list)
+    retrieval_source: str = "rule_based"
+    source_summary: str = ""
 
 
 class CaseRecommendationResult(BaseModel):
-    scoring_method: Literal["rule_based_case_v1"]
+    scoring_method: Literal["rule_based_case_v1", "layered_v1"]
     evaluated_count: int
     top_cases: list[CaseMatchItem] = Field(default_factory=list)
     created_at: datetime | None = None
@@ -234,6 +239,9 @@ class ReportDocumentResponse(BaseModel):
 class AssessmentProgress(BaseModel):
     has_profile: bool
     has_canvas: bool
+    has_breakthrough: bool
+    has_directions: bool
+    has_competitiveness: bool
     has_scenarios: bool
     has_cases: bool
     has_report: bool
@@ -244,6 +252,7 @@ class AssessmentDetailResponse(BaseModel):
     assessment: AssessmentResponse
     company_profile: CompanyProfileResult | None
     canvas_diagnosis: CanvasDiagnosisResult | None
+    breakthrough_selection: list[str] | None = None
     scenario_recommendation: ScenarioRecommendationResult | None
     case_recommendation: CaseRecommendationResult | None
     generated_report: ReportSummaryResponse | None
@@ -255,5 +264,52 @@ class ReportContextResponse(BaseModel):
     company_input: AssessmentInputSnapshot
     company_profile: CompanyProfileResult
     canvas_diagnosis: CanvasDiagnosisResult
+    selected_breakthrough_elements: list[str] = Field(default_factory=list)
     top_scenarios: list[ScenarioRecommendationItem] = Field(default_factory=list)
     report_outline: list[str] = Field(default_factory=list)
+
+
+class StudentSummary(BaseModel):
+    assessment_id: str
+    company_name: str
+    industry: str
+    company_size: str
+    class_group: str | None = None
+    instructor_comment: str | None = None
+    has_profile: bool = False
+    has_canvas: bool = False
+    has_breakthrough: bool = False
+    has_directions: bool = False
+    has_competitiveness: bool = False
+    has_scenarios: bool = False
+    has_cases: bool = False
+    has_report: bool = False
+    ready_for_report: bool = False
+    canvas_score: int | None = None
+    report_id: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class InstructorDashboardResponse(BaseModel):
+    total_students: int
+    groups: list[str] = Field(default_factory=list)
+    students: list[StudentSummary] = Field(default_factory=list)
+    summary_by_group: dict[str, int] = Field(default_factory=dict)
+    overall_completion_pct: int = 0
+
+
+class BatchCommentRequest(BaseModel):
+    assessment_ids: list[str] = Field(min_length=1, max_length=50)
+    comment: str = Field(min_length=1, max_length=1000)
+
+
+class BatchCommentResponse(BaseModel):
+    updated_count: int
+    comment: str
+
+
+class InstructorExportResponse(BaseModel):
+    export_format: str
+    content: str
+    student_count: int

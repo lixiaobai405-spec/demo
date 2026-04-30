@@ -32,6 +32,9 @@ class GeneratedReport(Base):
     export_markdown_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     export_docx_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     export_pdf_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    share_token: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    enrichment_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    quality_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

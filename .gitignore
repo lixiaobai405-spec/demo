@@ -9,3 +9,5 @@ __pycache__/
 *.pyd
 *.db
 .DS_Store
+backend/exports/
+**/tsconfig.tsbuildinfo

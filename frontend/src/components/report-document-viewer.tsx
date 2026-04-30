@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import {
+  ApiError,
   getReport,
   getReportDocxExportUrl,
   getReportMarkdownExportUrl,
@@ -33,9 +34,7 @@ export function ReportDocumentViewer({
       })
       .catch((nextError) => {
         if (active) {
-          setError(
-            nextError instanceof Error ? nextError.message : "报告加载失败。",
-          );
+          setError(formatReportLoadError(nextError));
         }
       })
       .finally(() => {
@@ -129,6 +128,13 @@ export function ReportDocumentViewer({
             返回 Assessment
           </Link>
         </div>
+
+        <div className="mt-6 rounded-3xl border border-white/8 bg-slate-950/55 p-5 text-sm leading-7 text-slate-300">
+          <p>导出说明：Markdown 适合二次编辑，Word 适合提交或批注，打印版适合浏览器打印与 PDF 另存。</p>
+          <p className="mt-3">
+            如果导出按钮打开后无响应，请先确认后端服务在线，再重新进入当前报告页面触发导出文件生成。
+          </p>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
@@ -143,11 +149,11 @@ export function ReportDocumentViewer({
           <div className="mt-6 flex flex-wrap gap-3">
             <Badge label={`generation_mode: ${report.generation_mode}`} tone="cyan" />
             <Badge
-              label={report.used_llm ? "LLM 增强" : "模板生成"}
+              label={report.used_llm ? "used_llm: true" : "used_llm: false"}
               tone={report.used_llm ? "emerald" : "slate"}
             />
             <Badge
-              label={report.used_rag ? "使用了 RAG" : "未使用 RAG"}
+              label={report.used_rag ? "used_rag: true" : "used_rag: false"}
               tone={report.used_rag ? "violet" : "slate"}
             />
           </div>
@@ -254,4 +260,25 @@ function Badge({
       {label}
     </span>
   );
+}
+
+function formatReportLoadError(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 404) {
+      return "未找到对应报告。请确认报告已生成，或从 Assessment 工作台重新进入。";
+    }
+    if (error.status >= 500) {
+      return "报告内容读取失败，可能是已保存内容损坏或后端暂时异常。请稍后重试。";
+    }
+    return error.message;
+  }
+
+  if (error instanceof Error) {
+    if (error.message.toLowerCase().includes("failed to fetch")) {
+      return "无法连接后端服务，当前无法加载报告。请确认后端已启动。";
+    }
+    return error.message;
+  }
+
+  return "报告加载失败。";
 }
