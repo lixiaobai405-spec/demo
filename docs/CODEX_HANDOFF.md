@@ -2,81 +2,87 @@
 
 ## Project Overview
 
-**Meitai AI Business Innovation Agent** - A demo system helping business executives generate AI innovation plans through guided assessment, canvas diagnosis, scenario recommendations, and report generation.
+**Meitai AI Business Innovation Agent** — 帮助企业高管通过引导式评估、画布诊断、场景推荐和报告生成来制定 AI 创新方案的 Demo 系统。
 
 ## Current State Summary
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Assessment Flow | ✅ Complete | Multi-step questionnaire |
-| Business Canvas | ✅ Complete | Interactive grid editor |
-| Scenario Recommendation | ✅ Complete | Rule-based + LLM enhancement |
-| Case Matching | ✅ Complete | Similarity-based matching |
-| Template Report | ✅ Complete | 11-section structured output |
-| LLM Report | ✅ Implemented | Optional enhancement mode |
-| RAG Integration | ⚠️ Implemented | Disabled by default |
+| Assessment Flow | ✅ Complete | 14-step full-chain |
+| Business Canvas | ✅ Complete | 9-block + problem library |
+| Breakthrough | ✅ Complete | 9-element scoring + selection |
+| Direction Expansion | ✅ Complete | 6 directions per element |
+| Competitiveness | ✅ Complete | VP reconstruction + chain |
+| Endgame Design | ✅ Complete | Private Domain + Ecosystem + OPC |
+| Scenario Recommendation | ✅ Complete | Rule-based + direction-weighted |
+| Case Matching | ✅ Complete | Layered retrieval + source annotation |
+| Template Report | ✅ Complete | 14-section with quality audit |
+| LLM Report | ✅ Implemented | Optional enhancement + fallback |
+| Export | ✅ Complete | MD/DOCX/Print/PDF |
+| Follow-Up | ✅ Complete | 30-day task tracking + push |
+| Instructor Dashboard | ✅ Complete | Batch comment + CSV export |
+| RAG Integration | ⚠️ Disabled | Optional, prefix `/rag` |
 
-## Key Files to Understand
+## Key Files
 
-### Backend Core
-- `backend/app/core/config.py` - All settings and env vars
-- `backend/app/core/llm_client.py` - LLM API client
-- `backend/app/api/routes/assessments.py` - Main API endpoints
-- `backend/app/services/report_service.py` - Report generation logic
-- `backend/app/services/llm_report_writer.py` - LLM-enhanced reports
-- `backend/app/prompts/report_writer_prompt.py` - LLM prompt template
+### Backend
+- `backend/app/core/config.py` — 环境配置
+- `backend/app/api/routes/assessments.py` — 主 API
+- `backend/app/api/router.py` — 路由注册
+- `backend/app/services/llm_client.py` — LLM 客户端
+- `backend/app/services/report_builder.py` — 报告模板构建
+- `backend/app/services/case_matcher.py` + `layered_retriever.py` — 案例匹配
+- `backend/app/services/quality_checker.py` — 质量审计
+- `backend/app/services/follow_up_service.py` + `push_service.py` — 课后跟进
+- `backend/app/services/instructor_service.py` — 讲师工作台
+- `backend/app/schemas/canvas_problems.py` — 九要素问题库
+- `backend/app/prompts/report_writer_prompt.py` — LLM 提示词
 
-### Frontend Core
-- `frontend/src/app/page.tsx` - Home page
-- `frontend/src/app/assessment/[assessmentId]/page.tsx` - Assessment flow
-- `frontend/src/app/report/[assessmentId]/page.tsx` - Report generation
-- `frontend/src/components/report-preview-viewer.tsx` - Report mode selector
-- `frontend/src/lib/api.ts` - API client
+### Frontend
+- `frontend/src/app/page.tsx` — 首页
+- `frontend/src/app/assessment/page.tsx` — 学员/讲师双视角
+- `frontend/src/app/report/[assessmentId]/page.tsx` — 报告预览
+- `frontend/src/app/intake/page.tsx` — 课前导入
+- `frontend/src/components/assessment-workbench.tsx` — 学员工作台
+- `frontend/src/components/instructor-dashboard.tsx` — 讲师仪表盘
+- `frontend/src/components/follow-up-dashboard.tsx` — 跟进面板
+- `frontend/src/components/push-panel.tsx` — 推送面板
+- `frontend/src/lib/api.ts` + `types.ts` — API 客户端 + 类型
 
 ### Database
-- `backend/app/models/` - All SQLAlchemy models
-- `backend/app/db/session.py` - Database initialization
+- `backend/app/models/` — 11 个数据模型
+- `backend/app/db/session.py` — 数据库初始化
 
-## Running the Project
+## Running
 
 ```bash
-# Terminal 1: Backend
-cd E:\company_work\3\backend
+# Backend (port 8000)
+cd backend
+pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --port 8000
 
-# Terminal 2: Frontend
-cd E:\company_work\3\frontend
+# Frontend (port 3001)
+cd frontend
+npm install
 npm run dev
-# Opens at http://localhost:3001
 ```
 
-## Testing Commands
+Or use: `scripts/back_start.bat` + `scripts/front_start.bat`
+
+## Testing
 
 ```bash
-# Backend health check
-curl http://localhost:8000/api/health
+cd backend
+python -m pytest tests/ -v     # 19 passed, 1 skipped
+python -m pytest tests/test_e2e_full_chain.py -v -s  # 26-step E2E
 
-# Test assessment creation
-curl -X POST http://localhost:8000/api/assessments -H "Content-Type: application/json" -d "{\"company_name\": \"Test\", \"industry\": \"Tech\", \"contact\": \"test@test.com\"}"
-
-# Test template report generation
-curl -X POST "http://localhost:8000/api/assessments/{id}/report?mode=template"
-
-# Test LLM report generation (requires OPENAI_API_KEY)
-curl -X POST "http://localhost:8000/api/assessments/{id}/report?mode=llm"
+cd frontend
+npx vitest run                  # 6 passed
 ```
 
-## Important Notes for Codex
+## Ports
 
-1. **Frontend Port**: Always use 3001, never 3000
-2. **Template Report**: Must always work, never break it
-3. **LLM Report**: Optional enhancement, requires fallback
-4. **RAG**: Disabled by default, don't force enable
-5. **Database**: Uses SQLite, auto-creates on first run
-6. **No Refactoring**: Do not change project structure
-
-## Known Issues
-
-- RAG search requires pre-populated ChromaDB
-- LLM report may timeout for large inputs
-- Export functions need valid report ID
+| Service | Port |
+|---------|:---:|
+| Frontend | **3001** |
+| Backend | **8000** |

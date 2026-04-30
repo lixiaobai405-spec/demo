@@ -39,10 +39,11 @@ class ScenarioRecommender:
         self,
         assessment: Assessment,
         profile: CompanyProfileResult | None = None,
+        direction_categories: list[str] | None = None,
     ) -> tuple[list[ScenarioRecommendationItem], int]:
         library = load_scenario_library()
         recommendations = [
-            self._score_scenario(definition, assessment, profile)
+            self._score_scenario(definition, assessment, profile, direction_categories)
             for definition in library.scenarios
         ]
         recommendations.sort(key=lambda item: (-item.score, item.name))
@@ -53,6 +54,7 @@ class ScenarioRecommender:
         definition: ScenarioDefinition,
         assessment: Assessment,
         profile: CompanyProfileResult | None,
+        direction_categories: list[str] | None = None,
     ) -> ScenarioRecommendationItem:
         industry_text = self._normalize_text(assessment.industry)
         challenge_text = self._normalize_text(
@@ -128,6 +130,12 @@ class ScenarioRecommender:
         if not challenge_matches and not goal_matches:
             score -= 6
 
+        if direction_categories:
+            for category in direction_categories:
+                if category in definition.category or definition.category in category:
+                    score += 10
+                    break
+
         final_score = max(0, min(100, score))
 
         reasons = []
@@ -139,6 +147,10 @@ class ScenarioRecommender:
             reasons.append(f"与当前 AI 目标一致：{'、'.join(goal_matches[:3])}")
         if data_matches:
             reasons.append(f"现有数据基础可支持试点：{'、'.join(data_matches[:3])}")
+        if direction_categories:
+            matched_categories = [c for c in direction_categories if c in definition.category or definition.category in c]
+            if matched_categories:
+                reasons.append(f"与选定创新方向高度匹配：{'、'.join(matched_categories[:2])}")
 
         if not reasons:
             reasons.append("该场景具备一定通用价值，但仍需补充更多业务上下文后再优先推进。")

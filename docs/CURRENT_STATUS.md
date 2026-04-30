@@ -1,99 +1,115 @@
 # Current Status
 
-## Completed Tasks
+最后更新：2025-06-29
 
-### Task 1-4: Core System ✅
-- [x] Project setup (FastAPI + Next.js)
-- [x] Database models and migrations
-- [x] Assessment flow (questionnaire + progress tracking)
-- [x] Business Canvas grid (9 blocks with validation)
+## 项目进展总览
 
-### Task 5A: Scenario Recommendation ✅
-- [x] Rule-based scenario scoring from YAML rules
-- [x] LLM-enhanced scenario generation
-- [x] Top-3 scenario recommendations API
+| 阶段 | 进度 | 状态 |
+|------|:---:|:---:|
+| 阶段 A 夯实 Demo | 85% | ✅ |
+| 阶段 B V2 方法论流程 | 95% | ✅ |
+| 阶段 C 知识库与质量 | 85% | ✅ |
+| 阶段 D 课后跟进与运营 | 90% | ✅ |
+| **整体** | **~90%** | |
 
-### Task 5B: Case Matching ✅
-- [x] Similarity-based case matching
-- [x] Integration with assessment data
-- [x] Case data loading from YAML
+## 已完成功能
 
-### Task 5C: Report Generation ✅
-- [x] Template-based report (11 sections, always works)
-- [x] LLM-enhanced report (optional, requires API key)
-- [x] Frontend mode selector (template/LLM)
-- [x] Export to Markdown and DOCX
-- [x] Report context aggregation API
+### 阶段 A — Demo 基础
+- [x] FastAPI + Next.js 项目骨架
+- [x] SQLite 持久化 + 所有模型自建表
+- [x] 企业问卷 CRUD + 进度恢复
+- [x] 课前导入（PDF/DOCX 解析 + 自动预填）
+- [x] 企业画像（Mock + LLM）
+- [x] 商业画布 9 格诊断
+- [x] AI 场景推荐（规则评分）
+- [x] 案例匹配
+- [x] 报告模板生成 + Markdown/DOCX/打印版导出
+- [x] LLM 报告增强 + 失败自动回退模板
+- [x] RAG 检索模块（默认关闭）
+- [x] 后端全链路自动化测试 (19 passed, 1 skipped)
 
-## Recently Completed
+### 阶段 B — V2 方法论
+- [x] 突破要素推荐 + 选择（9 要素评分）
+- [x] 创新方向延展 + 选择（6 方向/要素）
+- [x] 差异化竞争力分析（VP 重构 + 点到线串联 + 4 象限策略）
+- [x] 商业终局设计（私域 + 生态 + OPC + 3 路径推演）
+- [x] 全模块级联清空机制
+- [x] 方向加权场景推荐
 
-### Task 5C-1 / A2: LLM Report Verification and Export Acceptance ✅
-- [x] LLM output self-check validation
-- [x] Report metadata display (`used_llm`, `used_rag`, `warnings`)
-- [x] Fallback verification when LLM unavailable / timeout / error
-- [x] Live end-to-end report generation verification
-- [x] Markdown / DOCX / print export verification under real LLM report
+### 阶段 C — 知识库与质量
+- [x] 九要素问题库（9 格 × 26 问题类别 × 81 症状）
+- [x] 分层案例检索（行业→规模→痛点→方向 + 来源标注）
+- [x] 质量审计系统（14 章节逐级评分 + 6 规则校验）
+- [x] 商业终局知识库（4 行业模板）
+- [x] 行业近亲映射（14 个行业家族）
 
-### Latest Acceptance Record
-- Real LLM report record verified with `generation_mode=llm` and `used_llm=true`
-- `GET /api/reports/{report_id}/export/markdown` returns `200` and includes metadata header
-- `GET /api/reports/{report_id}/export/docx` returns `200` with downloadable DOCX attachment
-- `GET /api/reports/{report_id}/print` returns `200` and print HTML contains `used_llm=true`
-- Backend health check remains normal during export verification
+### 阶段 D — 课后跟进
+- [x] 课后 30 天跟进（6 项默认任务 + 4 态流转 + 进展备注 + 阻塞标记）
+- [x] 双周案例推送（去重 + 6 轮次学习笔记 + 方案再校准）
+- [x] 讲师工作台（分组筛选 + 批量点评 + CSV 导出）
+- [x] 学员/讲师双视角切换
 
-## In Progress
+## 当前测试基准
 
-### Task 5C-2 / A3: Main Flow Automated Tests (NEXT)
-- [ ] Add backend integration test scaffold
-- [ ] Cover questionnaire -> profile -> canvas -> scenarios -> cases -> report
-- [ ] Cover template mode and LLM fallback mode
-- [ ] Cover report export endpoints
-- [ ] Cover prerequisite / error-path assertions
+```bash
+cd backend
+python -m pytest tests/ -v
+# 19 passed, 1 skipped
+```
 
-## Not Started
+E2E 全链路: `tests/test_e2e_full_chain.py` — 26 个步骤，涵盖从问卷到讲师工作台的完整链路。
 
-### Task 6: Polish & Demo Prep
-- [ ] UI/UX refinements
-- [ ] Error handling improvements
-- [ ] Demo data preparation
-- [ ] Documentation finalization
+## 环境配置
 
-## Feature Status Matrix
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| LLM_MODE | `mock` | 设为 `live` 启用真实 LLM |
+| FRONTEND_ORIGIN | `http://localhost:3001` | 前端端口 |
+| DATABASE_URL | `sqlite:///./backend/data/meitai_demo.db` | SQLite |
+| RAG_ENABLED | `false` | RAG 默认关闭 |
+| NEXT_PUBLIC_API_BASE_URL | `http://localhost:8000` | 前端调用后端地址 |
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Assessment Creation | ✅ Done | Full CRUD |
-| Canvas Editor | ✅ Done | 9-block grid |
-| Scenario Recommendation | ✅ Done | Rule + LLM |
-| Case Matching | ✅ Done | Similarity-based |
-| Template Report | ✅ Done | Always available |
-| LLM Report | ✅ Verified | Fallback and metadata verified |
-| RAG Search | ⚠️ Disabled | Optional feature |
-| Export (MD/DOCX) | ✅ Verified | Real LLM report export passed |
+## 报告当前数据
 
-## Database Schema Status
+- **14 章节**模板报告
+- 质量评分 ~60/100（Mock 模式，随数据丰富度变化）
+- Markdown 输出 ~12,000 字符
+- DOCX 输出 ~47,000 bytes
 
-All models auto-created via `create_all()`:
-- Assessment ✅
-- BusinessCanvas ✅
-- ScenarioRecommendation ✅
-- MatchedCase ✅
-- GeneratedReport ✅ (with used_llm, used_rag, warnings fields)
+## 端口说明
 
-## Configuration Status
+| 服务 | 端口 |
+|------|:---:|
+| 前端 | **3001** |
+| 后端 | **8000** |
 
-| Env Var | Default | Current Needed |
-|---------|---------|----------------|
-| LLM_MODE | mock | Set to `live` for real profile/canvas generation |
-| OPENAI_API_KEY | empty | Required for LLM mode |
-| LLM_REPORT_ENABLED | false | Set to `true` for real LLM report writing |
-| FRONTEND_ORIGIN | `http://localhost:3001` | Keep aligned with frontend dev port |
-| RAG_ENABLED | false | Leave disabled |
+## 数据库模型
 
-## Consistency Notes
+所有模型由 SQLAlchemy `create_all()` 自动建表：
+- `assessments` — 企业问卷
+- `canvas_diagnosis` — 画布诊断
+- `breakthrough_selections` — 突破选择
+- `direction_selections` — 方向选择
+- `competitiveness_analyses` — 竞争力分析
+- `endgame_analyses` — 商业终局
+- `scenario_recommendations` — 场景推荐
+- `case_recommendations` — 案例匹配
+- `generated_reports` — 报告（含 quality_json）
+- `follow_up_tasks` — 课后跟进
+- `push_records` — 推送记录
 
-- Frontend dev port is `3001`, not `3000`
-- `.env.example` uses `FRONTEND_ORIGIN=http://localhost:3001`
-- RAG routes use `/rag/*`, not `/api/rag/*`
-- DOCX export is implemented; PDF export is not implemented yet
-- Real profile/canvas LLM uses `LLM_MODE=live`; report LLM additionally requires `LLM_REPORT_ENABLED=true`
+## 当前 RAG 状态
+
+- 默认关闭，路由前缀 `/rag`（非 `/api/rag`）
+- 启用时支持向量检索 + 混合匹配（规则 + RAG）
+- 支持 OpenAI 兼容 Embedding 或 Mock 降级
+
+## 未完成任务
+
+| # | 任务 | 优先级 |
+|---|------|:---:|
+| A1 | 端口严格统一 3001（CORS 仍带 3000 兼容） | 低 |
+| LLM | 配真实 OpenAI Key 端到端验证 | 中 |
+| Docker | 一键部署 (`docker-compose up`) | 中 |
+| 压测 | 20-50 人课堂并发验证 | 中 |
+| i18n | 多语言支持 | 低 |

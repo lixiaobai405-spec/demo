@@ -120,6 +120,29 @@ def test_main_flow_template_report_and_exports(
     assert canvas_body["generation_mode"] == "mock"
     assert len(canvas_body["canvas"]["blocks"]) == 9
 
+    breakthrough_recommend_response = client.post(
+        f"/api/assessments/{assessment_id}/breakthrough/recommend"
+    )
+    assert breakthrough_recommend_response.status_code == 200
+    breakthrough_recommend_body = breakthrough_recommend_response.json()
+    assert breakthrough_recommend_body["assessment_id"] == assessment_id
+    assert breakthrough_recommend_body["breakthrough_recommendation"]["generation_mode"] == "rule_based"
+    assert len(breakthrough_recommend_body["breakthrough_recommendation"]["elements"]) == 9
+    assert len(breakthrough_recommend_body["breakthrough_recommendation"]["recommended_keys"]) == 3
+
+    recommended_keys = breakthrough_recommend_body["breakthrough_recommendation"]["recommended_keys"]
+    breakthrough_select_response = client.post(
+        f"/api/assessments/{assessment_id}/breakthrough/select",
+        json={
+            "selected_keys": recommended_keys[:2],
+            "selection_mode": "system_recommended",
+        },
+    )
+    assert breakthrough_select_response.status_code == 200
+    breakthrough_select_body = breakthrough_select_response.json()
+    assert breakthrough_select_body["selection_mode"] == "system_recommended"
+    assert len(breakthrough_select_body["selected_elements"]) == 2
+
     scenarios_response = client.post(f"/api/assessments/{assessment_id}/scenarios")
     assert scenarios_response.status_code == 200
     scenarios_body = scenarios_response.json()["scenario_recommendation"]
@@ -129,7 +152,7 @@ def test_main_flow_template_report_and_exports(
     cases_response = client.post(f"/api/assessments/{assessment_id}/cases")
     assert cases_response.status_code == 200
     cases_body = cases_response.json()["case_recommendation"]
-    assert cases_body["scoring_method"] == "rule_based_case_v1"
+    assert cases_body["scoring_method"] == "layered_v1"
     assert len(cases_body["top_cases"]) >= 1
 
     context_response = client.get(f"/api/assessments/{assessment_id}/report-context")
@@ -137,7 +160,8 @@ def test_main_flow_template_report_and_exports(
     context_body = context_response.json()
     assert context_body["assessment_id"] == assessment_id
     assert len(context_body["top_scenarios"]) == 3
-    assert len(context_body["report_outline"]) == 11
+    assert len(context_body["report_outline"]) == 14
+    assert len(context_body["selected_breakthrough_elements"]) == 2
 
     report_response = client.post(f"/api/assessments/{assessment_id}/report?mode=template")
     assert report_response.status_code == 200
@@ -146,7 +170,7 @@ def test_main_flow_template_report_and_exports(
     assert report_body["generation_mode"] == "template"
     assert report_body["used_llm"] is False
     assert report_body["content_json"]["generated_with"] == "template"
-    assert len(report_body["sections"]) == 11
+    assert len(report_body["sections"]) == 14
 
     detail_response = client.get(f"/api/assessments/{assessment_id}")
     assert detail_response.status_code == 200
@@ -154,6 +178,9 @@ def test_main_flow_template_report_and_exports(
     assert detail_body["progress"] == {
         "has_profile": True,
         "has_canvas": True,
+        "has_breakthrough": True,
+        "has_directions": False,
+        "has_competitiveness": False,
         "has_scenarios": True,
         "has_cases": True,
         "has_report": True,
@@ -242,7 +269,7 @@ def test_report_generation_auto_matches_cases_when_missing(
     assert detail_after_report.status_code == 200
     detail_body = detail_after_report.json()
     assert detail_body["progress"]["has_cases"] is True
-    assert detail_body["case_recommendation"]["scoring_method"] == "rule_based_case_v1"
+    assert detail_body["case_recommendation"]["scoring_method"] == "layered_v1"
     assert len(detail_body["case_recommendation"]["top_cases"]) >= 1
 
 
@@ -315,4 +342,4 @@ def test_live_llm_report_success_path_is_opt_in(
     assert report_body["generation_mode"] == "llm"
     assert report_body["used_llm"] is True
     assert report_body["content_json"]["generated_with"] == "llm"
-    assert len(report_body["sections"]) == 11
+    assert len(report_body["sections"]) == 14

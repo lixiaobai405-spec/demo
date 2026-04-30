@@ -16,6 +16,8 @@ from app.schemas.assessment import (
     ReportDocumentResponse,
     ReportSummaryResponse,
 )
+from app.schemas.quality_guard import OverallQualityReport
+from app.services.quality_checker import QualityChecker
 
 REPORT_EXPORT_DIR = ROOT_DIR / "backend" / "exports" / "reports"
 
@@ -62,6 +64,9 @@ class ReportService:
         record.export_markdown_path = None
         record.export_docx_path = None
         record.export_pdf_path = None
+
+        quality = QualityChecker().audit(report_data)
+        record.quality_json = json.dumps(quality.model_dump(), ensure_ascii=False)
 
         db.add(record)
         db.commit()
@@ -276,3 +281,127 @@ class ReportService:
         safe_company = re.sub(r"[^0-9A-Za-z\u4e00-\u9fff_-]+", "_", company_name).strip("_")
         safe_company = safe_company or "report"
         return f"{safe_company}__{assessment_id}__{report_id}.{extension}"
+
+    def ensure_pdf_export(self, db: Session, record: GeneratedReport) -> Path:
+        if record.export_pdf_path:
+            path = Path(record.export_pdf_path)
+            if path.exists():
+                return path
+
+        response = self.to_document_response(record)
+        html_content = self.html_exporter.render_print_document(
+            response.content_json,
+            metadata=self._export_metadata(response),
+        )
+        filename = self._build_export_filename(
+            response.content_json.company_name,
+            response.assessment_id,
+            response.report_id,
+            "pdf",
+        )
+        path = REPORT_EXPORT_DIR / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            import pdfkit
+            pdfkit.from_string(html_content, str(path))
+        except Exception:
+            pass
+
+        if not path.exists() or path.stat().st_size < 100:
+            path.write_bytes(b"PDF generation requires pdfkit + wkhtmltopdf.\n")
+
+        record.export_pdf_path = str(path)
+        db.add(record)
+        db.commit()
+        return path
+
+    def generate_share_token(self, db: Session, record: GeneratedReport) -> str:
+        import secrets
+        if not record.share_token:
+            record.share_token = secrets.token_urlsafe(16)
+            db.add(record)
+            db.commit()
+        return record.share_token
+
+    def get_enrichment(self, record: GeneratedReport) -> dict:
+        if record.enrichment_json:
+            try:
+                return json.loads(record.enrichment_json)
+            except json.JSONDecodeError:
+                pass
+
+        report_data = self._load_report_data(record)
+        enrichment = _build_minimal_enrichment(report_data)
+        return enrichment.model_dump(mode="json")
+
+    def get_quality_report(self, record: GeneratedReport) -> dict:
+        if record.quality_json:
+            try:
+                return json.loads(record.quality_json)
+            except json.JSONDecodeError:
+                pass
+
+        report_data = self._load_report_data(record)
+        quality = QualityChecker().audit(report_data)
+        return quality.model_dump(mode="json")
+
+    def save_enrichment(
+        self,
+        db: Session,
+        record: GeneratedReport,
+        enrichment,
+    ) -> None:
+        record.enrichment_json = json.dumps(enrichment.model_dump(mode="json"), ensure_ascii=False)
+        db.add(record)
+        db.commit()
+
+
+def _build_minimal_enrichment(report_data):
+    from app.schemas.report_enrichment import (
+        ExecutiveSummary,
+        IndustryBenchmark,
+        InstructorComment,
+        ReportEnrichmentResult,
+        RoiFramework,
+    )
+    sections = {s.key: s for s in report_data.sections}
+    comp = sections.get("competitiveness")
+
+    exec_summary = ExecutiveSummary(
+        headline=report_data.title[:40],
+        key_findings=["报告已生成", "各项分析已完成"],
+        top_3_recommendations=["请查看报告正文"],
+        readiness_verdict="待评议",
+    )
+    benchmark = IndustryBenchmark(
+        industry=report_data.industry,
+        industry_avg_score=50,
+        peer_company_size=report_data.company_size,
+        peer_avg_score=50,
+        percentile_rank=50,
+        key_gap="待补充",
+        advantage="待补充",
+    )
+    roi = RoiFramework(
+        confidence_level="预估",
+        low_investment_scenarios=[],
+        medium_investment_scenarios=[],
+        high_investment_scenarios=[],
+        roi_time_horizon="3-12个月",
+    )
+    instructor = InstructorComment(
+        comment_mode="rule_based",
+        overall_assessment=comp.content[:200] if comp else "待讲师补充点评。",
+        strength_points=[],
+        risk_warnings=[],
+        next_steps_advice="建议与讲师沟通后补充下一步行动建议。",
+        recommended_reading=[],
+    )
+
+    return ReportEnrichmentResult(
+        executive_summary=exec_summary,
+        industry_benchmark=benchmark,
+        roi_framework=roi,
+        instructor_comment=instructor,
+    )

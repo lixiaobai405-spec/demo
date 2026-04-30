@@ -1,67 +1,224 @@
 # Meitai AI Business Innovation Agent Demo
 
-当前仓库实现的是一个可运行的咨询式 Demo，用结构化流程帮助企业完成：
+当前仓库实现的是一个可运行的咨询式 Demo，用结构化流程帮助企业完成从问卷到课后跟进的完整链路。
 
-1. 创建企业问卷
+## 完整链路
+
+1. 创建企业问卷（支持导入预填）
 2. 生成企业画像
-3. 生成商业模式画布 9 格诊断
-4. 生成 Top 3 AI 场景推荐
-5. 匹配匿名行业参考案例
-6. 生成最终报告预览与导出
+3. 商业模式画布 9 格诊断（九要素问题库增强）
+4. 突破要素推荐与选择
+5. 创新方向延展
+6. 差异化竞争力分析
+7. 商业终局设计（私域 + 生态 + OPC + 多路径）
+8. AI 场景推荐（方向加权）
+9. 分层案例匹配（行业→规模→痛点→方向 + 来源标注）
+10. 最终报告生成（14 章节 + 质量审计）
+11. 报告导出（Markdown / DOCX / 打印版 / PDF）
+12. 课后 30 天跟进任务管理
+13. 双周案例推送（去重 + 方案再校准）
+14. 讲师工作台（分组/批量点评/CSV 导出）
 
-## 当前能力
+## 技术栈
 
-- FastAPI 后端
-- Next.js + TypeScript + Tailwind 前端
-- SQLite 持久化 Assessment、企业画像、商业画布、场景推荐、案例匹配、最终报告
-- 页面刷新后按 `assessment_id` 恢复历史状态
-- 报告上下文聚合接口
-- 基于本地 YAML 的规则评分场景推荐
-- 基于行业、痛点、画布格子和推荐场景的案例匹配
-- 最终报告结构化预览页
-- Markdown / DOCX / 打印版导出
-- 可选 LLM 报告增强
-- 可选 RAG 检索模块（默认关闭）
+- **后端**: FastAPI + SQLAlchemy + SQLite + ChromaDB（可选）
+- **前端**: Next.js 15 + TypeScript + Tailwind CSS
+- **AI**: OpenAI 兼容接口（可选，默认 Mock 模式）
+- **报告导出**: Markdown / HTML / DOCX
 
 ## 目录结构
 
-```text
+```
 .
-├─ backend/
-│  ├─ app/
-│  │  ├─ api/
-│  │  ├─ core/
-│  │  ├─ db/
-│  │  ├─ models/
-│  │  ├─ schemas/
-│  │  └─ services/
-│  ├─ data/
-│  └─ requirements.txt
-├─ frontend/
-│  └─ src/
-│     ├─ app/
-│     ├─ components/
-│     └─ lib/
-├─ knowledge/
-│  └─ raw/
-│     ├─ ai_scenarios.yaml
-│     └─ industry_cases.yaml
-├─ scripts/
-│  ├─ back_start.bat
-│  └─ front_start.bat
-├─ .env.example
-└─ README.md
+├── backend/
+│   ├── app/
+│   │   ├── api/routes/       # 路由层
+│   │   ├── core/             # 配置
+│   │   ├── db/               # 数据库
+│   │   ├── exporters/        # 导出
+│   │   ├── models/           # 数据模型
+│   │   ├── prompts/          # LLM 提示词
+│   │   ├── rag/              # RAG 检索
+│   │   ├── schemas/          # Pydantic Schema
+│   │   └── services/         # 业务服务
+│   ├── data/                 # SQLite / Chroma
+│   ├── tests/                # 测试
+│   └── requirements.txt
+├── frontend/
+│   └── src/
+│       ├── app/              # 页面
+│       ├── components/       # 组件
+│       └── lib/              # API + 类型
+├── knowledge/raw/            # 知识库 YAML
+│   ├── ai_scenarios.yaml
+│   ├── industry_cases.yaml
+│   ├── business_canvas.md
+│   ├── report_templates.md
+│   └── risk_playbook.md
+├── scripts/                  # 启动脚本
+├── docs/                     # 设计文档
+├── .env.example
+└── README.md
 ```
 
-## 环境变量
+## 快速开始
 
-先复制模板：
+### 1. 配置环境
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-默认推荐使用 `mock` 模式：
+默认 Mock 模式即可运行，无需 API Key：
+
+```env
+LLM_MODE="mock"
+```
+
+如需真实 LLM：
+
+```env
+LLM_MODE="live"
+OPENAI_API_KEY="sk-..."
+OPENAI_BASE_URL="https://api.openai.com/v1"
+OPENAI_MODEL="gpt-4o-mini"
+LLM_REPORT_ENABLED="true"
+```
+
+### 2. 安装依赖
+
+后端：
+
+```powershell
+cd backend
+pip install -r requirements.txt
+```
+
+前端：
+
+```powershell
+cd frontend
+npm install
+```
+
+### 3. 启动
+
+后端（端口 8000）：
+
+```powershell
+cd backend
+python -m uvicorn app.main:app --reload --port 8000
+```
+
+前端（端口 3001）：
+
+```powershell
+cd frontend
+npm run dev
+```
+
+或使用启动脚本：
+- `scripts/back_start.bat`
+- `scripts/front_start.bat`
+
+### 4. 访问
+
+| 页面 | 地址 |
+|------|------|
+| 首页 | `http://localhost:3001` |
+| 新建问卷（学员/讲师双视角） | `http://localhost:3001/assessment` |
+| 指定问卷 | `http://localhost:3001/assessment/{assessment_id}` |
+| 报告预览 | `http://localhost:3001/report/{assessment_id}` |
+| 课前导入 | `http://localhost:3001/intake` |
+
+## API 端点总览
+
+### 核心流程
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| `GET` | `/health` | 健康检查 |
+| `POST` | `/api/assessments` | 创建问卷 |
+| `GET` | `/api/assessments/{id}` | 完整聚合状态 |
+| `POST` | `/api/assessments/{id}/profile` | 生成企业画像 |
+| `POST` | `/api/assessments/{id}/canvas` | 画布 9 格诊断 |
+| `POST` | `/api/assessments/{id}/breakthrough/recommend` | 突破要素推荐 |
+| `POST` | `/api/assessments/{id}/breakthrough/select` | 突破要素选择 |
+| `POST` | `/api/assessments/{id}/directions/expand` | 方向延展 |
+| `POST` | `/api/assessments/{id}/directions/select` | 方向选择 |
+| `GET` | `/api/assessments/{id}/directions` | 查看已选方向 |
+| `POST` | `/api/assessments/{id}/competitiveness/generate` | 竞争力分析 |
+| `GET` | `/api/assessments/{id}/competitiveness` | 查看竞争力 |
+| `POST` | `/api/assessments/{id}/endgame/generate` | 商业终局分析 |
+| `GET` | `/api/assessments/{id}/endgame` | 查看商业终局 |
+| `POST` | `/api/assessments/{id}/scenarios` | 场景推荐 |
+| `POST` | `/api/assessments/{id}/cases` | 案例匹配（分层检索） |
+| `POST` | `/api/assessments/{id}/report` | 生成报告（模板/LLM） |
+| `GET` | `/api/assessments/{id}/report-context` | 报告上下文 |
+
+### 报告与导出
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| `GET` | `/api/reports/{report_id}` | 获取报告详情 |
+| `GET` | `/api/reports/{report_id}/export/markdown` | 导出 Markdown |
+| `GET` | `/api/reports/{report_id}/export/docx` | 导出 DOCX |
+| `GET` | `/api/reports/{report_id}/export/pdf` | 导出 PDF |
+| `GET` | `/api/reports/{report_id}/print` | 打印版 HTML |
+| `GET` | `/api/reports/{report_id}/enrich` | 报告增强 |
+| `GET` | `/api/reports/{report_id}/quality` | 质量审计报告 |
+| `POST` | `/api/reports/{report_id}/share` | 生成分享链接 |
+| `GET` | `/api/reports/{report_id}/share/{token}` | 访问分享链接 |
+
+### 课后跟进
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| `GET` | `/api/assessments/{id}/follow-up` | 跟进计划 |
+| `PATCH` | `/api/assessments/{id}/follow-up/tasks/{task_id}` | 更新任务 |
+| `POST` | `/api/assessments/{id}/follow-up/recalibrate` | 复盘修订 |
+| `POST` | `/api/assessments/{id}/push` | 双周案例推送 |
+| `GET` | `/api/assessments/{id}/push/history` | 推送历史 |
+| `POST` | `/api/assessments/{id}/recalibrate` | 再校准方案 |
+
+### 讲师视角
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| `GET` | `/api/instructor/dashboard` | 学员总览 |
+| `POST` | `/api/instructor/batch-comment` | 批量点评 |
+| `GET` | `/api/instructor/export?format=csv` | 导出 CSV |
+
+### RAG 检索
+
+RAG 默认关闭，路由前缀为 `/rag`（非 `/api/rag`）。
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| `GET` | `/rag/status` | RAG 状态 |
+| `POST` | `/rag/search` | 搜索知识库 |
+| `POST` | `/rag/ingest` | 注入知识 |
+
+## 报告结构
+
+模板报告固定 14 章节：
+
+1. 企业基本画像
+2. 当前商业模式画布诊断
+3. 突破要素
+4. 创新方向延展
+5. AI 成熟度评估
+6. 高优先级 AI 提效场景
+7. 推荐场景详细规划
+8. 差异化竞争力设计
+9. 参考案例与启示
+10. 三阶段 AI 创新路线图
+11. 90 天行动计划
+12. 风险与阻力
+13. 讲师点评区
+14. 商业终局设计
+
+## 环境变量参考
 
 ```env
 APP_NAME="Meitai AI Business Innovation Agent API"
@@ -72,305 +229,54 @@ LLM_MODE="mock"
 NEXT_PUBLIC_API_BASE_URL="http://localhost:8000"
 OPENAI_API_KEY=""
 OPENAI_BASE_URL="https://api.openai.com/v1"
-OPENAI_MODEL="your-model-name"
+OPENAI_MODEL=""
 LLM_REPORT_ENABLED="false"
 LLM_REPORT_TIMEOUT_SECONDS="60"
 RAG_ENABLED="false"
 CHROMA_PERSIST_DIR="./backend/data/chroma"
 RAG_TOP_K="5"
+INTAKE_MAX_UPLOAD_SIZE_MB="10"
+INTAKE_PDF_OCR_ENABLED="true"
+INTAKE_PDF_OCR_MIN_TEXT_CHARS="20"
+INTAKE_PDF_OCR_MAX_PAGES="12"
 ```
 
-如果要接真实模型，把 `.env` 改成：
-
-```env
-LLM_MODE="openai"
-OPENAI_API_KEY="你自己的 key"
-OPENAI_BASE_URL="你的 OpenAI 兼容接口地址"
-OPENAI_MODEL="你自己的模型名"
-LLM_REPORT_ENABLED="true"
-```
-
-说明：
-
-- 企业画像和商业画布支持 `mock / openai`
-- 场景推荐固定走本地规则评分
-- 案例匹配固定走规则评分
-- 报告支持 `template` 和 `llm` 模式，LLM 不可用时会自动回退
-- 当前已支持 Markdown / DOCX / 打印版导出
-- RAG 默认关闭，接口前缀为 `/api/rag`
-- SQLite 默认文件在 `backend/data/meitai_demo.db`
-
-## 本地启动
-
-### 方式一：命令行启动
+## 测试
 
 后端：
 
 ```powershell
 cd backend
-pip install -r requirements.txt
-python -m uvicorn app.main:app --reload --port 8000
+python -m pytest tests/ -v
+# 19 passed, 1 skipped
 ```
 
 前端：
 
 ```powershell
 cd frontend
-npm install
-npm run dev
+npx vitest run
+# 6 passed
 ```
 
-### 方式二：bat 启动
+E2E 全链路：
 
-- `scripts/back_start.bat`
-- `scripts/front_start.bat`
-
-说明：
-
-- 后端脚本优先使用当前环境中的 `python`，若不可用则回退到 `py -3`
-- 前端脚本会先检查 `frontend/node_modules`，不存在时自动执行一次 `npm install`
-
-## 页面地址
-
-本项目默认端口：
-- **Frontend**: http://localhost:3001
-- **Backend**: http://localhost:8000
-
-> 注意：3000端口已保留给其他项目，本项目不使用3000作为默认端口。
-
-页面地址：
-- 首页：`http://localhost:3001`
-- 新建问卷：`http://localhost:3001/assessment`
-- 指定问卷回看：`http://localhost:3001/assessment/{assessment_id}`
-- 报告上下文页：`http://localhost:3001/report-context/{assessment_id}`
-- 最终报告预览页：`http://localhost:3001/report/{assessment_id}`
-
-## API
-
-### `GET /health`
-
-健康检查。
-
-### `POST /api/assessments`
-
-创建企业问卷记录。
-
-### `GET /api/assessments/{assessment_id}`
-
-返回一个 Assessment 的完整聚合状态：
-
-- `assessment`
-- `company_profile`
-- `canvas_diagnosis`
-- `scenario_recommendation`
-- `case_recommendation`
-- `generated_report`
-- `progress`
-
-### `POST /api/assessments/{assessment_id}/profile`
-
-生成并保存企业画像。
-
-### `POST /api/assessments/{assessment_id}/canvas`
-
-生成并保存商业模式画布 9 格诊断。
-
-### `POST /api/assessments/{assessment_id}/scenarios`
-
-生成并保存 Top 3 AI 场景推荐。
-
-兼容旧别名：
-
-- `POST /api/assessments/{assessment_id}/scenario-recommendations`
-
-### `POST /api/assessments/{assessment_id}/cases`
-
-根据行业、痛点、商业画布和推荐场景，匹配匿名行业参考案例并保存结果。
-
-### `POST /api/assessments/{assessment_id}/report`
-
-基于画像、画布、场景推荐和案例结果，生成并保存最终报告预览。
-
-- `mode=template`：始终使用模板模式
-- `mode=llm`：优先使用 LLM 增强，失败或超时会自动回退到模板模式
-- 当缺少画像、画布或场景推荐时，接口会明确返回前置步骤缺失提示
-
-示例：
-
-```text
-POST /api/assessments/{assessment_id}/report?mode=llm
+```powershell
+cd backend
+python -m pytest tests/test_e2e_full_chain.py -v -s
+# 26 个步骤验证，涵盖画像→画布→突破→方向→竞争力→商业终局→
+#   场景→案例→报告→导出→分享→跟进→推送→讲师工作台→级联清空
 ```
 
-成功后可前往报告预览页查看：
+## 端口说明
 
-- `generation_mode`
-- `used_llm`
-- `used_rag`
-- `warnings`
+| 服务 | 端口 | 说明 |
+|------|:---:|------|
+| 前端 | **3001** | 默认端口（3000 已保留） |
+| 后端 | **8000** | FastAPI 开发服务器 |
 
-这些字段用于确认当前报告是否实际使用了 LLM / RAG，以及是否发生了回退或数据质量提醒。
+## 运行模式
 
-### `GET /api/reports/{report_id}`
-
-获取已保存的报告正文、结构化 JSON、HTML 预览内容和生成元信息。
-
-### `GET /api/reports/{report_id}/export/markdown`
-
-导出 Markdown 版本，适合二次编辑或归档。
-
-### `GET /api/reports/{report_id}/export/docx`
-
-导出 Word 版本，适合汇报、批注与交付。
-
-### `GET /api/reports/{report_id}/print`
-
-打开打印版页面，适合浏览器打印或另存为 PDF。
-
-### `GET /api/assessments/{assessment_id}/report-context`
-
-只聚合报告生成所需上下文，不生成最终报告。
-
-## 当前知识库
-
-场景库：
-
-- `knowledge/raw/ai_scenarios.yaml`
-
-案例库：
-
-- `knowledge/raw/industry_cases.yaml`
-
-说明：
-
-- `ai_scenarios.yaml` 提供 AI 场景定义和规则评分字段
-- `industry_cases.yaml` 提供匿名行业参考案例和匹配字段
-
-## 前端健康检查失败排查
-
-如果前端页面显示"健康检查失败"，按以下步骤排查：
-
-1. **查看前端实际端口**
-   - 前端默认运行在 3001 端口
-   - 如果你修改了启动参数，请以终端输出的实际端口为准
-   - 检查终端输出的实际端口
-
-2. **确认后端 CORS 配置**
-   - 检查 `backend/app/main.py` 的 `allow_origins` 是否包含前端实际端口
-   - 当前已配置：`localhost:3000`、`localhost:3001`、`127.0.0.1:3000`、`127.0.0.1:3001`
-
-3. **确认环境变量正确**
-   - 检查 `.env.local` 或 `.env` 中的 `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000`
-   - 修改 `.env.local` 后需要重启前端
-
-4. **确认后端运行**
-   - 访问 `http://localhost:8000/health` 应返回 `{"status":"ok",...}`
-   - 如果无响应，检查后端进程是否在运行
-
-5. **手动测试 CORS**
-   ```powershell
-   curl.exe -i -H "Origin: http://localhost:3001" http://localhost:8000/health
-   ```
-   返回头应包含：`access-control-allow-origin: http://localhost:3001`
-
-## 持久化与回看
-
-当前已持久化：
-
-- 企业问卷：`Assessment`
-- 企业画像：存储在 `Assessment.profile_payload`
-- 商业画布：`CanvasDiagnosis`
-- 场景推荐：`ScenarioRecommendation`
-- 案例匹配：`CaseRecommendation`
-- 最终报告：`GeneratedReport`
-
-前端会根据 URL 中的 `assessment_id` 调用：
-
-- `GET /api/assessments/{assessment_id}`
-
-恢复以下内容：
-
-- 企业问卷输入
-- 企业画像结果
-- 商业画布结果
-- Top 3 场景推荐
-- 匿名行业案例匹配结果
-- 最终报告预览
-- 当前流程进度
-
-## 已完成检查
-
-- `python -m compileall backend\app`
-- `cd frontend && npm run build`
-- 后端链路验证：
-  - 创建 assessment
-  - 生成 profile
-  - 生成 canvas
-  - 生成 scenarios
-  - 生成 cases
-  - 生成 report
-  - 获取 assessment 聚合状态
-  - 验证缺少前置结果时 `/cases` 和 `/report` 返回清晰错误
-
-## RAG 知识库检索
-
-### 配置说明
-
-RAG（检索增强生成）模块默认关闭。启用需要以下步骤：
-
-1. **配置环境变量**（在 `.env` 或 `.env.local` 中）：
-   ```bash
-   RAG_ENABLED=true
-   OPENAI_API_KEY=your-api-key  # 可选，无则使用mock
-   CHROMA_PERSIST_DIR=./chroma_db
-   RAG_TOP_K=5
-   ```
-
-2. **注入知识库**：
-   ```bash
-   cd backend
-   python scripts/ingest_knowledge.py
-   ```
-
-3. **验证状态**：
-   ```bash
-   curl http://localhost:8000/api/rag/status
-   ```
-
-### Mock Embedding 模式
-
-当未配置 `OPENAI_API_KEY` 时，系统自动降级为 Mock Embedding：
-
-- 返回随机向量，仅用于 Demo 演示
-- 检索结果不可靠，不应用于生产
-- API 返回 `is_mock_embedding: true` 和 `warning` 字段提示
-
-### API 端点
-
-| 端点 | 说明 |
-|------|------|
-| `GET /api/rag/status` | 获取 RAG 状态（含 mock 标记） |
-| `POST /api/rag/search` | 搜索知识库 |
-| `POST /api/rag/ingest` | 注入知识 |
-
-### 分数计算
-
-Hybrid 检索分数归一化：
-- `rule_score`: 规则匹配分（0-100）
-- `vector_score`: 向量相似度（0-1）
-- `vector_score_normalized`: 归一化向量分（0-100）
-- `final_score = rule_score × 0.70 + vector_score_normalized × 0.30`
-
-## 已知限制
-
-- PDF 导出尚未实现
-- 场景推荐与案例匹配都已规则化，但还可以继续细化行业权重
-- 当前没有完整自动化测试框架，只做了关键链路验证
-
-## 下一步建议
-
-进入下一阶段时，建议按这个顺序推进：
-
-1. 补齐报告元数据展示、回退提示和主链路自动化测试
-2. 细化 RAG 知识库内容，提升报告论据质量
-3. 在报告稳定后补 PDF 导出
-4. 最后再补更细的权限、日志、审计与测试覆盖
+- **Mock 模式**（默认）：`LLM_MODE="mock"`，所有生成走模板 / 规则引擎，无需 API Key
+- **Live 模式**：`LLM_MODE="live"`，画像、画布、报告可走真实 LLM
+- **报告模式**：报告支持 `mode=template`（始终模板）、`mode=llm`（尝试 LLM，失败回退）

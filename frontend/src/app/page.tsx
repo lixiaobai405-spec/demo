@@ -32,14 +32,22 @@ export default function Home() {
             </div>
 
             <div className="flex flex-col gap-3 lg:items-end">
-              <Link
-                href="/assessment"
-                className="inline-flex items-center justify-center rounded-full bg-cyan-300 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200"
-              >
-                开始企业问卷
-              </Link>
+              <div className="flex flex-wrap gap-3 lg:justify-end">
+                <Link
+                  href="/intake"
+                  className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
+                >
+                  导入课前材料
+                </Link>
+                <Link
+                  href="/assessment"
+                  className="inline-flex items-center justify-center rounded-full bg-cyan-300 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200"
+                >
+                  开始企业问卷
+                </Link>
+              </div>
               <p className="text-sm text-slate-400">
-                当前已支持问卷、画像、画布、场景、案例、报告与导出
+                当前已支持快速填写与导入预填两种入口
               </p>
             </div>
           </div>

@@ -12,6 +12,7 @@ from app.schemas.assessment import (
     CompanyProfileResult,
     ScenarioRecommendationResult,
 )
+from app.services.layered_retriever import LayeredRetriever
 
 CASE_LIBRARY_PATH = ROOT_DIR / "knowledge" / "raw" / "industry_cases.yaml"
 
@@ -41,6 +42,8 @@ def load_case_library() -> IndustryCaseLibrary:
 
 
 class CaseMatcher:
+    LAYERED_MODE = True
+
     def match(
         self,
         assessment: Assessment,
@@ -49,6 +52,83 @@ class CaseMatcher:
         scenario_recommendation: ScenarioRecommendationResult,
     ) -> tuple[list[CaseMatchItem], int]:
         library = load_case_library()
+        cases = library.cases
+
+        if self.LAYERED_MODE:
+            return self._match_layered(
+                cases, assessment, canvas_diagnosis, scenario_recommendation
+            )
+
+        return self._match_legacy(
+            cases, assessment, profile, canvas_diagnosis, scenario_recommendation
+        )
+
+    def _match_layered(
+        self,
+        case_definitions: list[IndustryCaseDefinition],
+        assessment: Assessment,
+        canvas_diagnosis: CanvasDiagnosisResult,
+        scenario_recommendation: ScenarioRecommendationResult,
+    ) -> tuple[list[CaseMatchItem], int]:
+        retriever = LayeredRetriever()
+        layered_results = retriever.retrieve(
+            case_definitions,
+            assessment,
+            canvas_diagnosis,
+            scenario_recommendation,
+        )
+
+        items: list[CaseMatchItem] = []
+        for lr in layered_results:
+            pain_matches: list[str] = []
+            canvas_matches: list[str] = []
+            scenario_matches: list[str] = []
+            for layer in lr.layers:
+                if layer.layer_name == "痛点匹配":
+                    pain_matches = [m for m in layer.matched_labels if m not in canvas_matches and m not in scenario_matches]
+                elif layer.layer_name == "方向匹配":
+                    for m in layer.matched_labels:
+                        if m in [
+                            "关键活动", "关键资源", "成本结构", "客户关系",
+                            "收入来源", "客户细分", "渠道通路", "关键合作伙伴", "价值主张",
+                        ]:
+                            canvas_matches.append(m)
+                        else:
+                            scenario_matches.append(m)
+
+            reasons: list[str] = []
+            for layer in lr.layers:
+                if layer.matched_labels:
+                    reasons.append(f"[{layer.layer_name}] {layer.detail}")
+
+            items.append(CaseMatchItem(
+                case_id=lr.case_id,
+                title=lr.title,
+                industry=lr.industry,
+                summary=lr.summary,
+                fit_score=int(lr.final_score),
+                matched_pain_points=pain_matches[:5],
+                matched_canvas_blocks=canvas_matches[:5],
+                matched_scenarios=scenario_matches[:5],
+                match_reasons=reasons if reasons else ["该案例与当前企业存在一定通用参考价值。"],
+                reference_points=lr.reference_points,
+                data_foundation=lr.data_foundation,
+                cautions=lr.cautions,
+                retrieval_source=lr.retrieval_source,
+                source_summary=lr.source_summary,
+            ))
+
+        items.sort(key=lambda x: (-x.fit_score, x.title))
+        return items[:3], len(case_definitions)
+
+    def _match_legacy(
+        self,
+        case_definitions: list[IndustryCaseDefinition],
+        assessment: Assessment,
+        profile: CompanyProfileResult,
+        canvas_diagnosis: CanvasDiagnosisResult,
+        scenario_recommendation: ScenarioRecommendationResult,
+    ) -> tuple[list[CaseMatchItem], int]:
         matches = [
             self._score_case(
                 definition,
@@ -57,10 +137,10 @@ class CaseMatcher:
                 canvas_diagnosis,
                 scenario_recommendation,
             )
-            for definition in library.cases
+            for definition in case_definitions
         ]
         matches.sort(key=lambda item: (-item.fit_score, item.title))
-        return matches[:3], len(matches)
+        return matches[:3], len(case_definitions)
 
     def _score_case(
         self,

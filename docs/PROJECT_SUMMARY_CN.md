@@ -8,11 +8,18 @@
 
 1. 企业问卷录入
 2. 企业画像生成
-3. 商业模式画布诊断
-4. AI 场景推荐
-5. 行业案例匹配
-6. 创新报告生成
-7. Markdown / DOCX / 打印版导出
+3. 商业模式画布诊断（九要素问题库增强）
+4. 突破要素推荐与选择
+5. 创新方向延展
+6. 差异化竞争力分析
+7. 商业终局设计（私域 + 生态 + OPC）
+8. AI 场景推荐（方向加权）
+9. 分层案例匹配（行业→规模→痛点→方向 + 来源标注）
+10. 创新报告生成（14 章节 + 质量审计）
+11. Markdown / DOCX / 打印版 / PDF 导出
+12. 课后 30 天跟进任务管理
+13. 双周案例推送与方案再校准
+14. 讲师工作台（分组/批量点评/CSV 导出）
 
 从当前代码实现来看，这已经不是纯静态原型，而是一个具备前后端联动、数据库持久化、报告导出和可选 LLM/RAG 能力的可运行 Demo。
 
@@ -84,7 +91,22 @@
 - 自动计算整体评分、薄弱模块、建议聚焦点
 - 结果持久化到 `CanvasDiagnosis`
 
-### 3.4 AI 场景推荐
+### 3.4 突破要素与方向延展
+
+- 后端提供 `POST /api/assessments/{id}/breakthrough/recommend` + `/select`
+- 9 要素评分，推荐 2-3 个关键突破方向
+- 后端提供 `POST /api/assessments/{id}/directions/expand` + `/select`
+- 每突破要素生成 3 个创新方向建议（含预期影响、所需数据、关联场景类别）
+- 已选方向可加权到后续场景推荐中
+
+### 3.5 竞争力分析与商业终局
+
+- 后端提供 `POST /api/assessments/{id}/competitiveness/generate`
+- VP 重构 + 点到线竞争力串联 + 4 象限差异化策略
+- 后端提供 `POST /api/assessments/{id}/endgame/generate`
+- 私域目标模型 + 生态定位 + OPC 运营平台 + 3 路径推演（保守/均衡/激进）
+
+### 3.6 AI 场景推荐
 
 - 后端提供 `POST /api/assessments/{assessment_id}/scenarios`
 - 同时兼容旧接口别名 `scenario-recommendations`
@@ -92,13 +114,15 @@
 - 从知识库场景 YAML 中筛选并输出 Top 场景
 - 结果持久化到 `ScenarioRecommendation`
 
-### 3.5 案例匹配
+### 3.7 分层案例匹配
 
 - 后端提供 `POST /api/assessments/{assessment_id}/cases`
-- 基于企业画像、画布诊断、场景推荐进行案例匹配
+- 4 层检索：行业 → 规模 → 痛点 → 方向
+- 每案例输出 `source_summary` 标注匹配来源层级
+- 23 个行业案例库，14 个行业近亲家族
 - 结果持久化到 `CaseRecommendation`
 
-### 3.6 报告生成
+### 3.8 报告生成
 
 - 后端提供 `POST /api/assessments/{assessment_id}/report`
 - 支持 `template`、`llm`、`template_fallback` 三种模式
@@ -140,23 +164,45 @@ RAG 模块代码已经接入，默认关闭。
 - 需要先注入知识库才能得到有效检索结果
 - 未配置真实 embedding 时会进入 mock embedding 模式，仅适合演示
 
+### 3.10 质量审计
+
+- 报告生成时自动执行质量审计
+- 14 章节逐级评分（6 规则校验）
+- 3 级置信度标注（高/中/低）+ 来源归属
+- API: `GET /api/reports/{report_id}/quality`
+
+### 3.11 课后跟进
+
+- 后端提供 `GET/PATCH /api/assessments/{id}/follow-up`
+- 6 项默认 30 天跟进任务（3 个时间窗口）
+- 4 态流转：pending → in_progress → completed / blocked
+- 进展备注 + 阻塞标记
+
+### 3.12 双周案例推送
+
+- 后端提供 `POST /api/assessments/{id}/push`
+- 每轮推送 2 个新案例（去重 + 分层检索）
+- 6 轮次阶段化学习笔记
+- 方案再校准：批量完成任务 + 追加新行动项
+
+### 3.13 讲师工作台
+
+- 后端提供 `GET /api/instructor/dashboard`
+- 全学员推进状态总览（分组筛选 + 完成率统计）
+- 批量点评 + CSV 导出
+- 前端学员/讲师双视角 Tab 切换
+
 ## 4. 核心业务链路
 
-项目当前的推荐使用流程如下：
+当前完整链路：
 
-1. 创建企业问卷
-2. 生成企业画像
-3. 生成商业画布诊断
-4. 生成 AI 场景推荐
-5. 生成案例匹配结果
-6. 生成创新报告
-7. 进入报告详情页查看并导出
+```
+导入 → 画像 → 画布 → 突破 → 方向 → 竞争力 → 
+商业终局 → 场景 → 案例 → 报告(14章) → 导出/分享 → 
+课后跟进(30天) → 双周推送 → 讲师工作台
+```
 
-从接口依赖关系看，后续步骤依赖前置结果：
-
-- 生成画布前需要企业画像
-- 生成案例前需要画像、画布、场景
-- 生成报告前需要画像、画布、场景；若案例未生成，系统会在报告生成前自动补齐案例匹配
+从接口依赖关系看，后续步骤依赖前置结果。级联清空机制保证：重生成上游模块时，下游结果自动失效。
 
 ## 5. 主要接口总览
 
@@ -167,22 +213,48 @@ RAG 模块代码已经接入，默认关闭。
 ### 5.2 Assessment 主流程
 
 - `POST /api/assessments`
-- `GET /api/assessments/{assessment_id}`
-- `GET /api/assessments/{assessment_id}/report-context`
-- `POST /api/assessments/{assessment_id}/profile`
-- `POST /api/assessments/{assessment_id}/canvas`
-- `POST /api/assessments/{assessment_id}/scenarios`
-- `POST /api/assessments/{assessment_id}/cases`
-- `POST /api/assessments/{assessment_id}/report?mode=template|llm|template_fallback`
+- `GET /api/assessments/{id}`
+- `POST /api/assessments/{id}/profile`
+- `POST /api/assessments/{id}/canvas`
+- `POST /api/assessments/{id}/breakthrough/recommend`
+- `POST /api/assessments/{id}/breakthrough/select`
+- `POST /api/assessments/{id}/directions/expand`
+- `POST /api/assessments/{id}/directions/select`
+- `POST /api/assessments/{id}/competitiveness/generate`
+- `POST /api/assessments/{id}/endgame/generate`
+- `POST /api/assessments/{id}/scenarios`
+- `POST /api/assessments/{id}/cases`
+- `POST /api/assessments/{id}/report?mode=template|llm`
+- `GET /api/assessments/{id}/report-context`
 
-### 5.3 报告
+### 5.3 报告与导出
 
 - `GET /api/reports/{report_id}`
 - `GET /api/reports/{report_id}/export/markdown`
 - `GET /api/reports/{report_id}/export/docx`
+- `GET /api/reports/{report_id}/export/pdf`
 - `GET /api/reports/{report_id}/print`
+- `GET /api/reports/{report_id}/enrich`
+- `GET /api/reports/{report_id}/quality`
+- `POST /api/reports/{report_id}/share`
+- `GET /api/reports/{report_id}/share/{token}`
 
-### 5.4 RAG
+### 5.4 课后跟进与推送
+
+- `GET /api/assessments/{id}/follow-up`
+- `PATCH /api/assessments/{id}/follow-up/tasks/{task_id}`
+- `POST /api/assessments/{id}/follow-up/recalibrate`
+- `POST /api/assessments/{id}/push`
+- `GET /api/assessments/{id}/push/history`
+- `POST /api/assessments/{id}/recalibrate`
+
+### 5.5 讲师视角
+
+- `GET /api/instructor/dashboard`
+- `POST /api/instructor/batch-comment`
+- `GET /api/instructor/export?format=csv`
+
+### 5.6 RAG
 
 - `GET /rag/status`
 - `POST /rag/search`
@@ -192,11 +264,17 @@ RAG 模块代码已经接入，默认关闭。
 
 当前系统具备数据库持久化能力，主要实体包括：
 
-- `Assessment`
-- `CanvasDiagnosis`
-- `ScenarioRecommendation`
-- `CaseRecommendation`
-- `GeneratedReport`
+- `Assessment` — 企业问卷（含 class_group, instructor_comment）
+- `CanvasDiagnosis` — 画布诊断
+- `BreakthroughSelection` — 突破要素选择
+- `DirectionSelection` — 方向选择
+- `CompetitivenessAnalysis` — 竞争力分析
+- `EndgameAnalysis` — 商业终局分析
+- `ScenarioRecommendation` — 场景推荐
+- `CaseRecommendation` — 案例匹配
+- `GeneratedReport` — 报告（含 quality_json）
+- `FollowUpTask` — 课后跟进任务
+- `PushRecord` — 案例推送记录
 
 此外，企业画像当前存放在 `Assessment.profile_payload` 字段中。
 
@@ -260,83 +338,43 @@ npm install
 npm run dev
 ```
 
-## 8. 当前项目状态判断
+## 8. 当前项目状态
 
-结合代码与文档，当前项目大致处于：
+当前项目已完成 14 步完整链路，具备：
 
-- 主流程已打通
-- 前后端可协同运行
-- 数据可持久化
-- 报告导出已落地
-- LLM 增强报告已实现，但依赖环境配置与实际 API 可用性
-- RAG 已接入，但默认关闭，且更偏向后续增强能力
+- 主流程全部打通（V2 方法论 4 个新增模块已实现）
+- 前后端协同运行
+- 11 个数据模型的完整持久化
+- 报告 4 种格式导出（MD/DOCX/Print/PDF）
+- LLM 增强报告 + Mock 兜底
+- RAG 已接入，默认关闭
+- 19 backend + 6 frontend + 26 step E2E 测试
 
-因此可以判断：**当前仓库已具备 Demo 演示基础能力，重点不再是“能不能跑通”，而是“输出质量、配置一致性、测试覆盖和文档完善度”。**
+**当前仓库已具备 Demo 演示基础能力，重点从"能跑通"转向"输出质量和配置一致性"。**
 
-## 9. 发现的注意点与已知问题
+## 9. 文档与代码一致性
 
-在查看当前仓库时，发现以下值得注意的地方：
+本文档已与当前代码主分支同步（2025-06-29）。关键统一项：
 
-### 9.1 文档与代码存在部分历史差异
-
-旧文档中有些信息已经过期，例如：
-
-- 有些文档仍写“暂不支持导出”，但当前代码已支持 Markdown / DOCX / 打印版导出
-- 有些文档把 RAG 接口写成 `/api/rag/*`，但当前实际路由是 `/rag/*`
-- 部分旧说明中的技术版本和当前代码不完全一致
-
-因此后续应以当前代码为准，逐步更新旧文档。
-
-### 9.2 端口说明已基本统一
-
-当前项目已统一以前端 `3001` 作为默认开发端口，但仍保留了少量兼容性配置：
-
-- `frontend/package.json` 中开发端口固定为 `3001`
-- `AGENTS.md` 也明确要求使用 `3001`
-- `.env.example` 已统一为 `http://localhost:3001`
-- `scripts/front_start.bat` 已统一提示为 `http://localhost:3001`
-- 后端 CORS 仍保留对 `3000` 的兼容，仅用于本地历史环境
-
-虽然不一定导致程序无法运行，但会增加联调时的理解成本。
-
-### 9.3 启动脚本耦合问题已缓解
-
-此前 `scripts/back_start.bat` 中 Python 路径写死，会导致跨机器复用性较差。当前已调整为：
-
-- 优先使用当前环境中的 `python`
-- 若不可用则回退到 `py -3`
-
-这样可以降低对固定本机环境的依赖；如果本地 Python 命令不可用，仍建议优先使用命令行方式手动启动。
-
-### 9.4 自动化测试仍偏少
-
-当前仓库能看到较多功能实现代码，但自动化测试覆盖相对有限。项目更像“已完成主链路开发的 Demo 工程”，而不是“高测试覆盖的生产项目”。
+- 前端端口统一为 3001
+- RAG 路由为 `/rag`（非 `/api/rag`）
+- 报告 14 章节，非早期版本的 11 或 13 章
+- 后端现存 19 passed / 1 skipped 测试，非早期个位数
 
 ## 10. 后续建议
 
-如果继续推进该项目，建议优先处理以下事项：
-
-1. 补充主链路自动化测试，重点覆盖问卷 -> 画像 -> 画布 -> 场景 -> 案例 -> 报告
-2. 对 LLM 报告增加更明确的状态提示、超时提示和回退可视化
-3. 如果后续要强化知识能力，再继续完善 RAG 数据注入、召回质量和前端展示
-4. 补充 PDF 导出与更细的交付版式能力
-5. 最后再补更细的权限、日志、审计能力
+1. 配真实 OpenAI Key 跑全链路 LLM 模式验证
+2. Docker 一键部署 (`docker-compose up`)
+3. 20-50 人课堂并发验证
+4. i18n 多语言支持
 
 ## 11. 总结
 
-本项目当前已经完成了一个较完整的 AI 商业创新咨询 Demo：
+本项目已完成一个完整的 AI 商业创新咨询 Demo：
 
-- 有清晰的业务主链路
-- 有可运行的前后端
-- 有数据库持久化
-- 有可选 LLM 增强
-- 有报告导出能力
-- 有后续可扩展的 RAG 模块
-
-整体来看，项目已经具备演示和继续迭代的基础，下一阶段的重点更适合放在：
-
-- 配置一致性
-- 文档统一
-- 测试补齐
-- 报告质量优化
-- RAG 增强
+- 14 步全链路（问卷→画像→画布→突破→方向→竞争力→商业终局→场景→案例→报告→导出→跟进→推送→讲师）
+- 前后端协同运行 + 11 模型持久化
+- 4 格式报告导出 + LLM 增强 + 质量审计
+- 课后 30 天跟进 + 双周案例推送 + 讲师工作台
+- 分层案例检索 + 九要素问题库 + 行业近亲映射
+- 26 步 E2E 全链路回归测试

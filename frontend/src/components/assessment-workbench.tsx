@@ -3,25 +3,45 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { BreakthroughSelectionPanel } from "@/components/breakthrough-selection-panel";
 import { BusinessCanvasGrid } from "@/components/business-canvas-grid";
+import { CompetitivenessPanel } from "@/components/competitiveness-panel";
+import { DirectionExpansionPanel } from "@/components/direction-expansion-panel";
+import { EndgamePanel } from "@/components/endgame-panel";
+import { FollowUpDashboard } from "@/components/follow-up-dashboard";
 import { ProgressStepper } from "@/components/progress-stepper";
+import { PushPanel } from "@/components/push-panel";
 import { ScenarioRecommendationsPanel } from "@/components/scenario-recommendations-panel";
 import {
   createAssessment,
+  expandDirections,
   generateAssessmentCanvas,
   generateAssessmentProfile,
+  generateCompetitiveness,
   generateScenarioRecommendations,
+  generateEndgame,
   getAssessmentDetail,
+  getFollowUpPlan,
+  recommendBreakthrough,
+  selectBreakthrough,
+  selectDirections,
 } from "@/lib/api";
 import type {
+  AssessmentBreakthroughResponse,
   AssessmentCanvasResponse,
   AssessmentCreateRequest,
   AssessmentDetailResponse,
+  AssessmentDirectionResponse,
   AssessmentProgress,
   AssessmentResponse,
+  BreakthroughSelectionResponse,
   CanvasDiagnosisResult,
   CompanyProfileResult,
+  CompetitivenessResponse,
+  DirectionSelectionResponse,
+  EndgameResponse,
   ScenarioRecommendationResult,
+  FollowUpPlan,
 } from "@/lib/types";
 
 const companySizeOptions = [
@@ -57,6 +77,9 @@ const initialForm: AssessmentCreateRequest = {
 const initialProgress: AssessmentProgress = {
   has_profile: false,
   has_canvas: false,
+  has_breakthrough: false,
+  has_directions: false,
+  has_competitiveness: false,
   has_scenarios: false,
   has_cases: false,
   has_report: false,
@@ -78,12 +101,26 @@ export function AssessmentWorkbench({
     useState<CanvasDiagnosisResult | null>(null);
   const [scenarioRecommendation, setScenarioRecommendation] =
     useState<ScenarioRecommendationResult | null>(null);
+  const [breakthroughData, setBreakthroughData] =
+    useState<AssessmentBreakthroughResponse | null>(null);
+  const [breakthroughSelection, setBreakthroughSelection] =
+    useState<BreakthroughSelectionResponse | null>(null);
+  const [selectedBreakthroughKeys, setSelectedBreakthroughKeys] = useState<
+    string[]
+  >([]);
+  const [directionData, setDirectionData] =
+    useState<AssessmentDirectionResponse | null>(null);
+  const [directionSelection, setDirectionSelection] =
+    useState<DirectionSelectionResponse | null>(null);
+  const [selectedDirectionIds, setSelectedDirectionIds] = useState<string[]>([]);
   const [progress, setProgress] = useState<AssessmentProgress>(initialProgress);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [canvasError, setCanvasError] = useState<string | null>(null);
   const [scenarioError, setScenarioError] = useState<string | null>(null);
+  const [breakthroughError, setBreakthroughError] = useState<string | null>(null);
+  const [directionError, setDirectionError] = useState<string | null>(null);
   const [isLoadingAssessment, setIsLoadingAssessment] = useState(
     Boolean(assessmentId),
   );
@@ -91,6 +128,20 @@ export function AssessmentWorkbench({
   const [isGeneratingProfile, setIsGeneratingProfile] = useState(false);
   const [isGeneratingCanvas, setIsGeneratingCanvas] = useState(false);
   const [isGeneratingScenarios, setIsGeneratingScenarios] = useState(false);
+  const [isGeneratingBreakthrough, setIsGeneratingBreakthrough] = useState(false);
+  const [isSelectingBreakthrough, setIsSelectingBreakthrough] = useState(false);
+  const [isGeneratingDirections, setIsGeneratingDirections] = useState(false);
+  const [isSelectingDirections, setIsSelectingDirections] = useState(false);
+  const [isGeneratingCompetitiveness, setIsGeneratingCompetitiveness] = useState(false);
+  const [competitivenessData, setCompetitivenessData] =
+    useState<CompetitivenessResponse | null>(null);
+  const [competitivenessError, setCompetitivenessError] = useState<string | null>(null);
+  const [isGeneratingEndgame, setIsGeneratingEndgame] = useState(false);
+  const [endgameData, setEndgameData] = useState<EndgameResponse | null>(null);
+  const [endgameError, setEndgameError] = useState<string | null>(null);
+  const [followUpPlan, setFollowUpPlan] = useState<FollowUpPlan | null>(null);
+  const [isLoadingFollowUp, setIsLoadingFollowUp] = useState(false);
+  const [followUpError, setFollowUpError] = useState<string | null>(null);
 
   const answeredCount = useMemo(() => {
     return Object.values(form).filter((value) => {
@@ -147,6 +198,11 @@ export function AssessmentWorkbench({
         : null,
     );
     setCanvasDiagnosis(detail.canvas_diagnosis);
+    if (detail.breakthrough_selection && detail.breakthrough_selection.length >= 2) {
+      setSelectedBreakthroughKeys(detail.breakthrough_selection);
+    } else {
+      setSelectedBreakthroughKeys([]);
+    }
     setScenarioRecommendation(detail.scenario_recommendation);
     setProgress(detail.progress);
   }
@@ -164,6 +220,11 @@ export function AssessmentWorkbench({
     setProfileError(null);
     setCanvasError(null);
     setScenarioError(null);
+    setBreakthroughError(null);
+    setDirectionError(null);
+    setCompetitivenessError(null);
+    setEndgameError(null);
+    setFollowUpError(null);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -181,6 +242,12 @@ export function AssessmentWorkbench({
       setCompanyProfile(null);
       setProfileMode(null);
       setCanvasDiagnosis(null);
+      setBreakthroughData(null);
+      setBreakthroughSelection(null);
+      setSelectedBreakthroughKeys([]);
+      setDirectionData(null);
+      setDirectionSelection(null);
+      setSelectedDirectionIds([]);
       setScenarioRecommendation(null);
       setProgress(initialProgress);
       router.push(`/assessment/${createdAssessment.id}`);
@@ -201,6 +268,7 @@ export function AssessmentWorkbench({
     setProfileError(null);
     setCanvasError(null);
     setScenarioError(null);
+    setBreakthroughError(null);
     setIsGeneratingProfile(true);
 
     try {
@@ -209,6 +277,12 @@ export function AssessmentWorkbench({
       setCompanyProfile(nextProfile.profile);
       setProfileMode(nextProfile.generation_mode);
       setCanvasDiagnosis(null);
+      setBreakthroughData(null);
+      setBreakthroughSelection(null);
+      setSelectedBreakthroughKeys([]);
+      setDirectionData(null);
+      setDirectionSelection(null);
+      setSelectedDirectionIds([]);
       setScenarioRecommendation(null);
       setProgress(
         computeProgress({
@@ -234,11 +308,18 @@ export function AssessmentWorkbench({
 
     setCanvasError(null);
     setScenarioError(null);
+    setBreakthroughError(null);
     setIsGeneratingCanvas(true);
 
     try {
       const nextCanvas = await generateAssessmentCanvas(assessment.id);
       applyCanvasResponse(nextCanvas);
+      setBreakthroughData(null);
+      setBreakthroughSelection(null);
+      setSelectedBreakthroughKeys([]);
+      setDirectionData(null);
+      setDirectionSelection(null);
+      setSelectedDirectionIds([]);
       setScenarioRecommendation(null);
       setProgress(
         computeProgress({
@@ -288,6 +369,222 @@ export function AssessmentWorkbench({
     }
   }
 
+  async function handleGenerateBreakthrough() {
+    if (!assessment) {
+      return;
+    }
+
+    setBreakthroughError(null);
+    setIsGeneratingBreakthrough(true);
+
+    try {
+      const result = await recommendBreakthrough(assessment.id);
+      setBreakthroughData(result);
+      if (result.breakthrough_selection && result.breakthrough_selection.selected_elements.length >= 2) {
+        setBreakthroughSelection(result.breakthrough_selection);
+        setSelectedBreakthroughKeys(
+          result.breakthrough_selection.selected_elements.map((e) => e.key),
+        );
+      } else {
+        setBreakthroughSelection(null);
+        setSelectedBreakthroughKeys(result.breakthrough_recommendation.recommended_keys);
+      }
+    } catch (error) {
+      setBreakthroughError(
+        error instanceof Error ? error.message : "突破要素推荐失败，请稍后重试。",
+      );
+    } finally {
+      setIsGeneratingBreakthrough(false);
+    }
+  }
+
+  function handleToggleBreakthroughKey(key: string) {
+    setSelectedBreakthroughKeys((current) => {
+      if (current.includes(key)) {
+        return current.filter((k) => k !== key);
+      }
+      if (current.length >= 3) {
+        return current;
+      }
+      return [...current, key];
+    });
+  }
+
+  async function handleSelectBreakthrough() {
+    if (!assessment || selectedBreakthroughKeys.length < 2) {
+      return;
+    }
+
+    setBreakthroughError(null);
+    setIsSelectingBreakthrough(true);
+
+    try {
+      const result = await selectBreakthrough(assessment.id, {
+        selected_keys: selectedBreakthroughKeys,
+        selection_mode: "system_recommended",
+      });
+      setBreakthroughSelection(result);
+      setBreakthroughData((prev) =>
+        prev
+          ? {
+              ...prev,
+              breakthrough_selection: result,
+            }
+          : null,
+      );
+      setProgress(
+        computeProgress({
+          hasAssessment: true,
+          hasProfile: companyProfile !== null,
+          hasCanvas: canvasDiagnosis !== null,
+          hasBreakthrough: true,
+          hasScenarios: scenarioRecommendation !== null,
+        }),
+      );
+    } catch (error) {
+      setBreakthroughError(
+        error instanceof Error ? error.message : "突破要素保存失败，请稍后重试。",
+      );
+    } finally {
+      setIsSelectingBreakthrough(false);
+    }
+  }
+
+  async function handleGenerateDirections() {
+    if (!assessment) {
+      return;
+    }
+
+    setDirectionError(null);
+    setIsGeneratingDirections(true);
+
+    try {
+      const result = await expandDirections(assessment.id);
+      setDirectionData(result);
+      if (result.direction_selection && result.direction_selection.selected_directions.length > 0) {
+        setDirectionSelection(result.direction_selection);
+        setSelectedDirectionIds(
+          result.direction_selection.selected_directions.map((d) => d.direction_id),
+        );
+      } else {
+        setDirectionSelection(null);
+        setSelectedDirectionIds([]);
+      }
+    } catch (error) {
+      setDirectionError(
+        error instanceof Error ? error.message : "方向延展生成失败，请稍后重试。",
+      );
+    } finally {
+      setIsGeneratingDirections(false);
+    }
+  }
+
+  function handleToggleDirectionId(id: string) {
+    setSelectedDirectionIds((current) => {
+      if (current.includes(id)) {
+        return current.filter((d) => d !== id);
+      }
+      if (current.length >= 6) {
+        return current;
+      }
+      return [...current, id];
+    });
+  }
+
+  async function handleSelectDirections() {
+    if (!assessment || selectedDirectionIds.length < 1) {
+      return;
+    }
+
+    setDirectionError(null);
+    setIsSelectingDirections(true);
+
+    try {
+      const result = await selectDirections(assessment.id, {
+        selected_direction_ids: selectedDirectionIds,
+      });
+      setDirectionSelection(result);
+      setDirectionData((prev) =>
+        prev
+          ? {
+              ...prev,
+              direction_selection: result,
+            }
+          : null,
+      );
+    } catch (error) {
+      setDirectionError(
+        error instanceof Error ? error.message : "方向选择保存失败，请稍后重试。",
+      );
+    } finally {
+      setIsSelectingDirections(false);
+    }
+  }
+
+  async function handleGenerateCompetitiveness() {
+    if (!assessment) {
+      return;
+    }
+
+    setCompetitivenessError(null);
+    setIsGeneratingCompetitiveness(true);
+
+    try {
+      const result = await generateCompetitiveness(assessment.id);
+      setCompetitivenessData(result);
+      setScenarioRecommendation(null);
+      setProgress(
+        computeProgress({
+          hasAssessment: true,
+          hasProfile: companyProfile !== null,
+          hasCanvas: canvasDiagnosis !== null,
+          hasBreakthrough: breakthroughSelection !== null && breakthroughSelection.selected_elements.length >= 2,
+          hasScenarios: false,
+        }),
+      );
+    } catch (error) {
+      setCompetitivenessError(
+        error instanceof Error ? error.message : "竞争力分析生成失败，请稍后重试。",
+      );
+    } finally {
+      setIsGeneratingCompetitiveness(false);
+    }
+  }
+
+  async function handleGenerateEndgame() {
+    if (!assessment) {
+      return;
+    }
+
+    setEndgameError(null);
+    setIsGeneratingEndgame(true);
+
+    try {
+      const result = await generateEndgame(assessment.id);
+      setEndgameData(result);
+    } catch (error) {
+      setEndgameError(
+        error instanceof Error ? error.message : "商业终局分析生成失败，请稍后重试。",
+      );
+    } finally {
+      setIsGeneratingEndgame(false);
+    }
+  }
+
+  async function handleLoadFollowUp() {
+    if (!assessment) return;
+    setFollowUpError(null);
+    setIsLoadingFollowUp(true);
+    try {
+      const plan = await getFollowUpPlan(assessment.id);
+      setFollowUpPlan(plan);
+    } catch (error) {
+      setFollowUpError(error instanceof Error ? error.message : "加载跟进计划失败");
+    } finally {
+      setIsLoadingFollowUp(false);
+    }
+  }
+
   function applyCanvasResponse(response: AssessmentCanvasResponse) {
     setAssessment(response.assessment);
     setCanvasDiagnosis(response.canvas_diagnosis);
@@ -304,6 +601,12 @@ export function AssessmentWorkbench({
     setCompanyProfile(null);
     setProfileMode(null);
     setCanvasDiagnosis(null);
+    setBreakthroughData(null);
+    setBreakthroughSelection(null);
+    setSelectedBreakthroughKeys([]);
+    setDirectionData(null);
+    setDirectionSelection(null);
+    setSelectedDirectionIds([]);
     setScenarioRecommendation(null);
     setProgress(initialProgress);
     resetErrors();
@@ -560,11 +863,26 @@ export function AssessmentWorkbench({
                 }
               />
               <StepItem
+                title="突破要素选择"
+                status={
+                  progress.has_breakthrough
+                    ? "done"
+                    : progress.has_canvas
+                      ? "current"
+                      : "pending"
+                }
+                description={
+                  breakthroughSelection
+                    ? `已选择 ${breakthroughSelection.selected_elements.length} 个要素`
+                    : "尚未选择突破要素。"
+                }
+              />
+              <StepItem
                 title="场景推荐"
                 status={
                   progress.has_scenarios
                     ? "done"
-                    : progress.has_canvas
+                    : progress.has_breakthrough
                       ? "current"
                       : "pending"
                 }
@@ -580,7 +898,7 @@ export function AssessmentWorkbench({
                 description={
                   progress.ready_for_report
                     ? "上下文已齐备，可以进入报告草稿页。"
-                    : "需补齐画像、画布和场景推荐后才可进入。"
+                    : "需补齐画像、画布、突破要素和场景推荐后才可进入。"
                 }
               />
             </div>
@@ -623,6 +941,32 @@ export function AssessmentWorkbench({
 
               <button
                 type="button"
+                onClick={handleGenerateBreakthrough}
+                disabled={!assessment || !progress.has_canvas || isGeneratingBreakthrough}
+                className="inline-flex items-center justify-center rounded-full bg-violet-300 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isGeneratingBreakthrough
+                  ? "推荐生成中..."
+                  : breakthroughData
+                    ? "重新生成突破要素推荐"
+                    : "生成突破要素推荐"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleGenerateDirections}
+                disabled={!assessment || !progress.has_canvas || isGeneratingDirections}
+                className="inline-flex items-center justify-center rounded-full bg-sky-300 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-200 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isGeneratingDirections
+                  ? "方向生成中..."
+                  : directionData
+                    ? "重新延展创新方向"
+                    : "生成创新方向延展"}
+              </button>
+
+              <button
+                type="button"
                 onClick={handleGenerateScenarios}
                 disabled={!assessment || !progress.has_canvas || isGeneratingScenarios}
                 className="inline-flex items-center justify-center rounded-full bg-emerald-300 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
@@ -635,6 +979,43 @@ export function AssessmentWorkbench({
               </button>
             </div>
 
+            <div className="mt-4 grid gap-3">
+              <button
+                type="button"
+                onClick={handleGenerateCompetitiveness}
+                disabled={!assessment || !progress.has_canvas || isGeneratingCompetitiveness}
+                className="inline-flex items-center justify-center rounded-full bg-amber-300 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isGeneratingCompetitiveness
+                  ? "分析生成中..."
+                  : competitivenessData
+                    ? "重新生成竞争力分析"
+                    : "生成差异化竞争力分析"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleGenerateEndgame}
+                disabled={!assessment || !progress.has_canvas || isGeneratingEndgame}
+                className="inline-flex items-center justify-center rounded-full bg-violet-300 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isGeneratingEndgame
+                  ? "终局生成中..."
+                  : endgameData
+                    ? "重新生成商业终局"
+                    : "生成商业终局设计"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLoadFollowUp}
+                disabled={!assessment || isLoadingFollowUp}
+                className="inline-flex items-center justify-center rounded-full bg-teal-300 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-teal-200 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isLoadingFollowUp ? "加载中..." : "课后 30 天跟进"}
+              </button>
+            </div>
+
             <p className="mt-4 text-sm leading-7 text-slate-400">
               刷新页面后会自动从后端恢复当前 Assessment 状态。重新生成上游模块时，下游结果会被自动失效并需要重新生成。
             </p>
@@ -642,6 +1023,8 @@ export function AssessmentWorkbench({
             {profileError ? <MessageBox>{profileError}</MessageBox> : null}
             {canvasError ? <MessageBox>{canvasError}</MessageBox> : null}
             {scenarioError ? <MessageBox>{scenarioError}</MessageBox> : null}
+            {breakthroughError ? <MessageBox>{breakthroughError}</MessageBox> : null}
+            {directionError ? <MessageBox>{directionError}</MessageBox> : null}
           </div>
         </div>
       </div>
@@ -701,6 +1084,45 @@ export function AssessmentWorkbench({
         />
       )}
 
+      {breakthroughData ? (
+        <BreakthroughSelectionPanel
+          data={breakthroughData}
+          selectedKeys={selectedBreakthroughKeys}
+          isSelecting={isSelectingBreakthrough}
+          onToggleElement={handleToggleBreakthroughKey}
+          onConfirmSelection={handleSelectBreakthrough}
+        />
+      ) : null}
+
+      {directionData ? (
+        <DirectionExpansionPanel
+          data={directionData}
+          selectedIds={selectedDirectionIds}
+          isSelecting={isSelectingDirections}
+          onToggleDirection={handleToggleDirectionId}
+          onConfirmSelection={handleSelectDirections}
+        />
+      ) : null}
+
+      {competitivenessData ? (
+        <CompetitivenessPanel data={competitivenessData} />
+      ) : null}
+
+      {endgameData ? (
+        <EndgamePanel data={endgameData} />
+      ) : null}
+
+      {followUpPlan && assessment ? (
+        <div className="space-y-4">
+          <FollowUpDashboard
+            plan={followUpPlan}
+            assessmentId={assessment.id}
+            onRefresh={handleLoadFollowUp}
+          />
+          <PushPanel assessmentId={assessment.id} onPlanRefresh={handleLoadFollowUp} />
+        </div>
+      ) : null}
+
       {scenarioRecommendation && assessment ? (
         <ScenarioRecommendationsPanel
           assessmentId={assessment.id}
@@ -739,6 +1161,9 @@ function computeProgress({
   hasAssessment,
   hasProfile,
   hasCanvas,
+  hasBreakthrough = false,
+  hasDirections = false,
+  hasCompetitiveness = false,
   hasScenarios,
   hasCases = false,
   hasReport = false,
@@ -746,6 +1171,9 @@ function computeProgress({
   hasAssessment: boolean;
   hasProfile: boolean;
   hasCanvas: boolean;
+  hasBreakthrough?: boolean;
+  hasDirections?: boolean;
+  hasCompetitiveness?: boolean;
   hasScenarios: boolean;
   hasCases?: boolean;
   hasReport?: boolean;
@@ -753,11 +1181,14 @@ function computeProgress({
   return {
     has_profile: hasAssessment && hasProfile,
     has_canvas: hasAssessment && hasCanvas,
+    has_breakthrough: hasAssessment && hasBreakthrough,
+    has_directions: hasAssessment && hasDirections,
+    has_competitiveness: hasAssessment && hasCompetitiveness,
     has_scenarios: hasAssessment && hasScenarios,
     has_cases: hasAssessment && hasCases,
     has_report: hasAssessment && hasReport,
     ready_for_report:
-      hasAssessment && hasProfile && hasCanvas && hasScenarios,
+      hasAssessment && hasProfile && hasCanvas && hasBreakthrough && hasScenarios,
   };
 }
 

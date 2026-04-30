@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 REQUIRED_SECTIONS: list[tuple[str, str]] = [
     ("company_profile", "企业基本画像"),
     ("canvas_diagnosis", "当前商业模式画布诊断"),
+    ("breakthrough", "突破要素"),
+    ("direction_expansion", "创新方向延展"),
     ("ai_readiness", "AI 成熟度评估"),
     ("priority_scenarios", "高优先级 AI 提效场景"),
     ("scenario_planning", "推荐场景详细规划"),
@@ -33,6 +35,7 @@ REQUIRED_SECTIONS: list[tuple[str, str]] = [
     ("action_plan", "90 天行动计划"),
     ("risks", "风险与阻力"),
     ("instructor_comments", "讲师点评区"),
+    ("endgame", "商业终局设计"),
 ]
 
 PLACEHOLDER_PATTERNS = [
@@ -79,6 +82,11 @@ class LLMReportWriter:
         canvas_diagnosis: CanvasDiagnosisResult,
         scenario_recommendation: ScenarioRecommendationResult,
         case_recommendation: CaseRecommendationResult | None,
+        breakthrough_keys: list[str] | None = None,
+        direction_labels: list[str] | None = None,
+        competitiveness_result = None,
+        enrichment_result = None,
+        endgame_result = None,
         mode: str = "template",
     ) -> tuple[ReportData, dict[str, Any]]:
         metadata: dict[str, Any] = {
@@ -99,6 +107,11 @@ class LLMReportWriter:
                 canvas_diagnosis,
                 scenario_recommendation,
                 case_recommendation,
+                breakthrough_keys,
+                direction_labels,
+                competitiveness_result,
+                enrichment_result,
+                endgame_result,
                 metadata,
             )
 
@@ -108,6 +121,11 @@ class LLMReportWriter:
             canvas_diagnosis=canvas_diagnosis,
             scenario_recommendation=scenario_recommendation,
             case_recommendation=case_recommendation,
+            breakthrough_keys=breakthrough_keys,
+            direction_labels=direction_labels,
+            competitiveness_result=competitiveness_result,
+            enrichment_result=enrichment_result,
+            endgame_result=endgame_result,
         )
 
         metadata["warnings"].extend(llm_metadata.get("warnings", []))
@@ -131,6 +149,11 @@ class LLMReportWriter:
             canvas_diagnosis,
             scenario_recommendation,
             case_recommendation,
+            breakthrough_keys,
+            direction_labels,
+            competitiveness_result,
+            enrichment_result,
+            endgame_result,
             metadata,
         )
 
@@ -141,6 +164,11 @@ class LLMReportWriter:
         canvas_diagnosis: CanvasDiagnosisResult,
         scenario_recommendation: ScenarioRecommendationResult,
         case_recommendation: CaseRecommendationResult | None,
+        breakthrough_keys: list[str] | None,
+        direction_labels: list[str] | None,
+        competitiveness_result,
+        enrichment_result,
+        endgame_result,
         metadata: dict[str, Any],
     ) -> tuple[ReportData, dict[str, Any]]:
         report = self.report_builder.build(
@@ -149,6 +177,11 @@ class LLMReportWriter:
             canvas_diagnosis=canvas_diagnosis,
             scenario_recommendation=scenario_recommendation,
             case_recommendation=case_recommendation,
+            breakthrough_keys=breakthrough_keys,
+            direction_labels=direction_labels,
+            competitiveness_result=competitiveness_result,
+            enrichment_result=enrichment_result,
+            endgame_result=endgame_result,
         )
         report.generated_with = "template"
         metadata["warnings"] = self._deduplicate_warnings(metadata["warnings"])
@@ -193,17 +226,24 @@ class LLMReportWriter:
         canvas_diagnosis: CanvasDiagnosisResult,
         scenario_recommendation: ScenarioRecommendationResult,
         case_recommendation: CaseRecommendationResult | None,
+        breakthrough_keys: list[str] | None = None,
+        direction_labels: list[str] | None = None,
+        competitiveness_result = None,
+        enrichment_result = None,
+        endgame_result = None,
     ) -> tuple[ReportData | None, dict[str, Any]]:
         metadata: dict[str, Any] = {"used_rag": False, "warnings": []}
 
         try:
             system_prompt = self.prompt_builder.build_system_prompt()
+            breakthrough_labels = self._resolve_breakthrough_labels_from_keys(breakthrough_keys or [])
             user_prompt = self.prompt_builder.build_user_prompt(
                 company_input=self._assessment_to_dict(assessment),
                 company_profile=self._profile_to_dict(profile),
                 canvas_diagnosis=self._canvas_to_dict(canvas_diagnosis),
                 top_scenarios=self._scenarios_to_list(scenario_recommendation),
                 case_recommendation=self._cases_to_dict(case_recommendation),
+                breakthrough_elements=breakthrough_labels,
             )
 
             llm_response, llm_warning = self._call_llm(system_prompt, user_prompt)
@@ -582,3 +622,13 @@ class LLMReportWriter:
                 for case in cases.top_cases
             ]
         }
+
+    @staticmethod
+    def _resolve_breakthrough_labels_from_keys(breakthrough_keys: list[str]) -> list[str]:
+        from app.schemas.breakthrough import ELEMENT_KEY_TO_TITLE
+
+        resolved: list[str] = []
+        for key in breakthrough_keys:
+            title = ELEMENT_KEY_TO_TITLE.get(key, key)
+            resolved.append(title)
+        return resolved

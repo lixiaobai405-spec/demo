@@ -11,6 +11,7 @@ from app.schemas.assessment import (
     CanvasBlockResult,
     CompanyProfileResult,
 )
+from app.schemas.canvas_problems import BLOCK_KEY_TO_PROBLEM_PROFILE, BlockProblemProfile
 
 PROFILE_SYSTEM_PROMPT = """
 你是一名企业战略与 AI 转型顾问。
@@ -40,7 +41,7 @@ CANVAS_SYSTEM_PROMPT = """
 严格要求：
 1. 只依据用户提供的信息推断，不要编造 ROI 数字、客户名称、合作伙伴名称。
 2. 输出必须覆盖 9 个标准画布模块。
-3. 缺失信息明确写“待补充”。
+3. 缺失信息明确写"待补充"。
 4. 每个模块都要输出：current_state、diagnosis、ai_opportunity、missing_information。
 5. 输出必须是 JSON，格式如下：
    overall_summary
@@ -65,6 +66,20 @@ channels
 customer_segments
 cost_structure
 revenue_streams
+
+## 诊断参考框架
+在诊断每个模块时，请特别关注以下常见问题模式：
+- key_partnerships: 合作伙伴结构模糊/供应链协同不畅/生态借力意识薄弱
+- key_activities: 核心流程缺SOP/知识沉淀复用不足/跨部门协同效率低
+- key_resources: 数据资产基础薄弱/人才技能缺口/技术基础设施不够
+- value_propositions: 差异化定位不清晰/客户价值传递链路断裂/定价逻辑缺失
+- customer_relationships: 客户关系依赖个人/客户分层运营缺位/售后与CS体系不完善
+- channels: 渠道策略不清晰/渠道效率缺乏度量/渠道伙伴管理松散
+- customer_segments: 客户画像粗粒度/高价值客户识别缺失
+- cost_structure: 成本结构不透明/重复劳动推高人力成本/规模效应未体现
+- revenue_streams: 收入结构单一/定价与价值匹配度低/商机转化效率低
+
+如果用户问卷中已有相关数据，请结合具体信息诊断；数据不足时指出缺失方向。
 """.strip()
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
@@ -435,3 +450,106 @@ class LLMClient:
             return generic_match.group(1)
 
         raise ValueError("LLM response did not contain a valid JSON object.")
+
+
+CANVAS_BLOCK_ORDER = [
+    "key_partnerships", "key_activities", "key_resources",
+    "value_propositions", "customer_relationships", "channels",
+    "customer_segments", "cost_structure", "revenue_streams",
+]
+
+CANVAS_BLOCK_TITLES = {
+    "key_partnerships": "关键合作伙伴",
+    "key_activities": "关键业务活动",
+    "key_resources": "关键资源",
+    "value_propositions": "价值主张",
+    "customer_relationships": "客户关系",
+    "channels": "渠道通路",
+    "customer_segments": "客户细分",
+    "cost_structure": "成本结构",
+    "revenue_streams": "收入来源",
+}
+
+
+def _build_mock_block(
+    *,
+    block_key: str,
+    profile,
+    company_name: str,
+    target_customers: str,
+    core_products: str,
+    current_challenges: str,
+    ai_goals: str,
+    available_data: str,
+    revenue_range: str,
+    notes: str,
+) -> CanvasBlockResult:
+    title = CANVAS_BLOCK_TITLES.get(block_key, block_key)
+
+    if profile is None or not profile.problem_categories:
+        return CanvasBlockResult(
+            key=block_key,
+            title=title,
+            current_state="信息不足，暂无法描述。",
+            diagnosis="缺失关键数据，无法完成诊断。",
+            ai_opportunity="建议先补充基础信息。",
+            missing_information="该模块所有信息待补充。",
+        )
+
+    categories = profile.problem_categories
+    primary_category = categories[0]
+    secondary_category = categories[1] if len(categories) > 1 else categories[0]
+
+    current_state_templates = {
+        "key_partnerships": f"{company_name}的外部协同关系涉及供应商、渠道、实施伙伴等，但当前问卷未明确合作方分级和模式。",
+        "key_activities": f'企业关键业务活动主要围绕{core_products}展开，流程标准化程度需进一步评估。受\u201c{current_challenges}\u201d影响明显。',
+        "key_resources": f"核心资源包括行业经验、产品能力、客户关系及现有系统基础（{available_data}）。",
+        "value_propositions": f"{company_name}面向{target_customers}的核心价值围绕{core_products}，但差异化表达有待深化。",
+        "customer_relationships": f"客户关系管理主要依赖销售/交付团队，客户数据集成度和结构化程度有待确认。",
+        "channels": f"当前获客以直销/渠道/介绍为主，但全渠道策略和效能评估数据尚未完整。",
+        "customer_segments": f"主要客户为{target_customers}，但细分维度（行业/规模/场景/决策链）未展开。",
+        "cost_structure": f"成本主要集中在人力、交付、获客和技术维护环节，但缺少按客户/项目粒度核算。",
+        "revenue_streams": f"收入以{core_products}相关业务为主，年营收{revenue_range}，收入构成比例待细化。",
+    }
+
+    diagnosis_templates = {
+        "key_partnerships": f"【{primary_category.category}】{primary_category.typical_symptoms[0]}。"
+                             f"此外，{secondary_category.category}方面也存在改进空间。",
+        "key_activities": f"【{primary_category.category}】{primary_category.typical_symptoms[0]}。"
+                           f"同时，{secondary_category.category}进一步影响了整体运营效率。",
+        "key_resources": f"【{primary_category.category}】{primary_category.typical_symptoms[0]}。"
+                         f"建议与{secondary_category.category}问题一并列入优化计划。",
+        "value_propositions": f"【{primary_category.category}】{primary_category.typical_symptoms[0]}。"
+                              f"如果{secondary_category.category}未能解决，价值感知差距会进一步扩大。",
+        "customer_relationships": f"【{primary_category.category}】{primary_category.typical_symptoms[0]}。"
+                                  f"配合解决{secondary_category.category}，可形成更完整的客户运营闭环。",
+        "channels": f"【{primary_category.category}】{primary_category.typical_symptoms[0]}。"
+                    f"{secondary_category.category}问题加剧了渠道效能的波动性。",
+        "customer_segments": f"【{primary_category.category}】{primary_category.typical_symptoms[0]}。"
+                             f"这直接限制了{secondary_category.category}策略的推进。",
+        "cost_structure": f"【{primary_category.category}】{primary_category.typical_symptoms[0]}。"
+                          f"若协同不佳，{secondary_category.category}还会推高隐性支出。",
+        "revenue_streams": f"【{primary_category.category}】{primary_category.typical_symptoms[0]}。"
+                           f"同时关注{secondary_category.category}以提升整体收入质量。",
+    }
+
+    missing_info_templates = {
+        "key_partnerships": f"供应商名录、合作模式、渠道伙伴结构、生态借力目标（当前依据：{notes or '待补充'}）",
+        "key_activities": f"标准作业流程文档、流程节点记录、知识管理现状、跨部门协同机制",
+        "key_resources": f"IT系统清单、数据质量评估、团队技能矩阵、技术债务情况",
+        "value_propositions": f"竞品对比、客户选择核心因素、差异化卖点排序、定价策略依据",
+        "customer_relationships": f"客户分层机制、SLA现状、复购/续约数据、客户流失归因",
+        "channels": f"渠道来源占比、获客成本分渠道、渠道转化漏斗、线上渠道布局",
+        "customer_segments": f"客户分层标准、典型画像数据、决策链分析、各细分贡献度",
+        "cost_structure": f"成本构成明细、交付成本口径、人效数据、隐性成本评估",
+        "revenue_streams": f"收入类型拆分、毛利结构、订阅/服务收入占比、客户LTV",
+    }
+
+    return CanvasBlockResult(
+        key=block_key,
+        title=title,
+        current_state=current_state_templates.get(block_key, "信息待补充。"),
+        diagnosis=diagnosis_templates.get(block_key, primary_category.typical_symptoms[0]),
+        ai_opportunity=primary_category.ai_opportunity_template or "建议补充数据后生成 AI 机会方向。",
+        missing_information=missing_info_templates.get(block_key, "待补充。"),
+    )

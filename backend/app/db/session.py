@@ -32,9 +32,16 @@ SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 def init_db() -> None:
     from app.models.assessment import Assessment  # noqa: F401
+    from app.models.breakthrough_selection import BreakthroughSelection  # noqa: F401
     from app.models.case_recommendation import CaseRecommendation  # noqa: F401
     from app.models.canvas_diagnosis import CanvasDiagnosis  # noqa: F401
+    from app.models.competitiveness_analysis import CompetitivenessAnalysis  # noqa: F401
+    from app.models.direction_selection import DirectionSelection  # noqa: F401
+    from app.models.endgame_analysis import EndgameAnalysis  # noqa: F401
+    from app.models.follow_up import FollowUpTask  # noqa: F401
     from app.models.generated_report import GeneratedReport  # noqa: F401
+    from app.models.intake_session import AssessmentIntakeSession  # noqa: F401
+    from app.models.push_record import PushRecord  # noqa: F401
     from app.models.scenario_recommendation import ScenarioRecommendation  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
