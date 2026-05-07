@@ -1,5 +1,6 @@
 .env
 .env.local
+mykey.py
 .next/
 node_modules/
 __pycache__/

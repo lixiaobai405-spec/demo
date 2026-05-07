@@ -310,7 +310,7 @@ def expand_directions(
     if not breakthrough_keys or len(breakthrough_keys) < 2:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Breakthrough elements must be selected before expanding directions.",
+            detail="请先选择突破要素，再展开创新方向。",
         )
 
     canvas = _require_canvas(db, assessment_id)
@@ -350,7 +350,7 @@ def select_directions(
     if not breakthrough_keys or len(breakthrough_keys) < 2:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Breakthrough elements must be selected before selecting directions.",
+            detail="请先选择突破要素，再确认创新方向。",
         )
 
     service = DirectionExpansionService()
@@ -412,7 +412,7 @@ def generate_competitiveness(
     if not breakthrough_keys or len(breakthrough_keys) < 2:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Breakthrough elements must be selected before generating competitiveness analysis.",
+            detail="请先选择突破要素，再生成竞争力分析。",
         )
 
     selected_directions = _load_selected_directions(db, assessment_id)
@@ -642,7 +642,8 @@ def generate_report(
 
     breakthrough_keys = _load_breakthrough_selection_keys(db, assessment_id) or []
     direction_labels = _load_direction_labels(db, assessment_id)
-    competitiveness_result = _build_competitiveness_result_from_record(record) if (record := _load_competitiveness_analysis(db, assessment_id)) else None
+    competitiveness_record = _load_competitiveness_analysis(db, assessment_id)
+    competitiveness_result = _build_competitiveness_result_from_record(competitiveness_record) if competitiveness_record else None
 
     enrichment_service = ReportEnrichmentService()
     enrichment = enrichment_service.enrich(
@@ -655,7 +656,8 @@ def generate_report(
         competitiveness_result=competitiveness_result,
     )
 
-    endgame_result = _build_endgame_result_from_record(record) if (record := _load_endgame_analysis(db, assessment_id)) else None
+    endgame_record = _load_endgame_analysis(db, assessment_id)
+    endgame_result = _build_endgame_result_from_record(endgame_record) if endgame_record else None
 
     # Validate mode
     valid_modes = ("template", "llm", "template_fallback")

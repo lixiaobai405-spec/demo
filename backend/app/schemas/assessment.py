@@ -5,16 +5,16 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class AssessmentCreateRequest(BaseModel):
-    company_name: str = Field(min_length=1, max_length=255)
-    industry: str = Field(min_length=1, max_length=255)
-    company_size: str = Field(min_length=1, max_length=100)
-    region: str = Field(min_length=1, max_length=255)
-    annual_revenue_range: str = Field(min_length=1, max_length=100)
-    core_products: str = Field(min_length=1)
-    target_customers: str = Field(min_length=1)
-    current_challenges: str = Field(min_length=1)
-    ai_goals: str = Field(min_length=1)
-    available_data: str = Field(min_length=1)
+    company_name: str = Field(default="", max_length=255)
+    industry: str = Field(default="", max_length=255)
+    company_size: str = Field(default="", max_length=100)
+    region: str = Field(default="", max_length=255)
+    annual_revenue_range: str = Field(default="", max_length=100)
+    core_products: str = Field(default="")
+    target_customers: str = Field(default="")
+    current_challenges: str = Field(default="")
+    ai_goals: str = Field(default="")
+    available_data: str = Field(default="")
     notes: str | None = None
     class_group: str | None = None
 

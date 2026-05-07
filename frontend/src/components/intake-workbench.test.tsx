@@ -43,6 +43,13 @@ vi.mock("@/lib/api", () => ({
   createAssessmentFromIntake: vi.fn(),
 }));
 
+function hasTextContent(text: string) {
+  return (
+    _content: string,
+    element: Element | null,
+  ) => element?.textContent?.replace(/\s+/g, " ").trim() === text;
+}
+
 function buildSessionDetail(
   overrides: Partial<IntakeSessionDetailResponse> = {},
 ): IntakeSessionDetailResponse {
@@ -143,8 +150,9 @@ describe("IntakeWorkbench", () => {
     await waitFor(() => {
       expect(importAssessmentIntakeFile).toHaveBeenCalledWith(file);
     });
+    await user.click(screen.getByRole("button", { name: /回看导入会话/ }));
     expect(screen.getByText(/源文件：brief\.md/)).toBeInTheDocument();
-    expect(screen.getByText("来源类型：文件上传")).toBeInTheDocument();
+    expect(screen.getAllByText(hasTextContent("来源类型：文件上传")).length).toBeGreaterThan(0);
   });
 
   it("会在前端拦截超大文件并显示明确错误", async () => {
@@ -219,7 +227,7 @@ describe("IntakeWorkbench", () => {
     resolveImport?.({ import_session_id: "session-file-progress" });
 
     await waitFor(() => {
-      expect(screen.getByText("当前状态：解析完成")).toBeInTheDocument();
+      expect(screen.getAllByText(hasTextContent("当前状态：解析完成")).length).toBeGreaterThan(0);
     });
   });
 
@@ -272,11 +280,12 @@ describe("IntakeWorkbench", () => {
     await screen.findByRole("button", { name: "确认并创建问卷" });
     expect(screen.getByText("已修改 0 项")).toBeInTheDocument();
 
-    await user.clear(screen.getByLabelText(/企业名称/));
-    await user.type(screen.getByLabelText(/企业名称/), "手动修正后的企业名称");
+    const companyNameInput = screen.getByDisplayValue("测试零售企业");
+    await user.clear(companyNameInput);
+    await user.type(companyNameInput, "手动修正后的企业名称");
 
     await waitFor(() => {
-      expect(screen.getByText("已修改 1 项")).toBeInTheDocument();
+      expect(screen.getAllByText(hasTextContent("已修改 1 项")).length).toBeGreaterThan(0);
     });
     expect(screen.getAllByText("已修改").length).toBeGreaterThan(0);
   });
@@ -300,19 +309,125 @@ describe("IntakeWorkbench", () => {
 
     await user.click(screen.getByRole("button", { name: "导入并生成预填建议" }));
     await screen.findByRole("button", { name: "确认并创建问卷" });
-
-    await user.clear(screen.getByLabelText(/企业名称/));
-    await user.type(screen.getByLabelText(/企业名称/), "手动修正后的企业名称");
     await user.click(screen.getByRole("button", { name: "确认并创建问卷" }));
 
     await waitFor(() => {
       expect(createAssessmentFromIntake).toHaveBeenCalledWith("session-1", {
         confirmed_assessment_input: expect.objectContaining({
-          company_name: "手动修正后的企业名称",
+          company_name: "测试零售企业",
           notes: null,
         }),
       });
     });
     expect(pushMock).toHaveBeenCalledWith("/assessment/assessment-123");
+  });
+
+  it("allows routing a partial import into the assessment form", async () => {
+    (importAssessmentIntake as Mock).mockResolvedValue({
+      import_session_id: "session-partial",
+    });
+    (getIntakeImportSession as Mock).mockResolvedValue(
+      buildSessionDetail({
+        import_session_id: "session-partial",
+        assessment_prefill: {
+          company_name: "部分导入企业",
+          industry: "零售",
+          company_size: null,
+          region: null,
+          annual_revenue_range: null,
+          core_products: "社区零售门店",
+          target_customers: null,
+          current_challenges: "门店运营效率波动",
+          ai_goals: null,
+          available_data: null,
+          notes: null,
+        },
+        field_meta: {
+          company_name: { source_type: "raw", status: "confirmed" },
+          industry: { source_type: "raw", status: "confirmed" },
+          company_size: { source_type: "missing", status: "needs_user_input" },
+          region: { source_type: "missing", status: "needs_user_input" },
+          annual_revenue_range: { source_type: "missing", status: "needs_user_input" },
+          core_products: { source_type: "raw", status: "confirmed" },
+          target_customers: { source_type: "missing", status: "needs_user_input" },
+          current_challenges: { source_type: "raw", status: "confirmed" },
+          ai_goals: { source_type: "missing", status: "needs_user_input" },
+          available_data: { source_type: "missing", status: "needs_user_input" },
+          notes: { source_type: "missing", status: "needs_user_input" },
+        },
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(<IntakeWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "导入并生成预填建议" }));
+    const continueButtons = await screen.findAllByRole("button", { name: "带入企业问卷继续补充" });
+    await user.click(continueButtons[0]);
+
+    expect(pushMock).toHaveBeenCalledWith("/assessment?import_session_id=session-partial");
+  });
+
+  it("allows creating an assessment from incomplete imported fields", async () => {
+    (importAssessmentIntake as Mock).mockResolvedValue({
+      import_session_id: "session-partial-create",
+    });
+    (getIntakeImportSession as Mock).mockResolvedValue(
+      buildSessionDetail({
+        import_session_id: "session-partial-create",
+        assessment_prefill: {
+          company_name: "部分导入企业",
+          industry: "零售",
+          company_size: null,
+          region: null,
+          annual_revenue_range: null,
+          core_products: null,
+          target_customers: null,
+          current_challenges: "门店运营效率波动",
+          ai_goals: null,
+          available_data: null,
+          notes: null,
+        },
+        field_meta: {
+          company_name: { source_type: "raw", status: "confirmed" },
+          industry: { source_type: "raw", status: "confirmed" },
+          company_size: { source_type: "missing", status: "needs_user_input" },
+          region: { source_type: "missing", status: "needs_user_input" },
+          annual_revenue_range: { source_type: "missing", status: "needs_user_input" },
+          core_products: { source_type: "missing", status: "needs_user_input" },
+          target_customers: { source_type: "missing", status: "needs_user_input" },
+          current_challenges: { source_type: "raw", status: "confirmed" },
+          ai_goals: { source_type: "missing", status: "needs_user_input" },
+          available_data: { source_type: "missing", status: "needs_user_input" },
+          notes: { source_type: "missing", status: "needs_user_input" },
+        },
+      }),
+    );
+    (createAssessmentFromIntake as Mock).mockResolvedValue({
+      import_session_id: "session-partial-create",
+      status: "confirmed",
+      assessment: {
+        id: "assessment-partial",
+        company_name: "部分导入企业",
+      },
+    });
+
+    const user = userEvent.setup();
+    render(<IntakeWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "导入并生成预填建议" }));
+    const confirmButtons = await screen.findAllByRole("button", { name: "确认并创建问卷" });
+    await user.click(confirmButtons[0]);
+
+    await waitFor(() => {
+      expect(createAssessmentFromIntake).toHaveBeenCalledWith("session-partial-create", {
+        confirmed_assessment_input: expect.objectContaining({
+          company_name: "部分导入企业",
+          annual_revenue_range: "",
+          notes: null,
+        }),
+      });
+    });
+    expect(pushMock).toHaveBeenCalledWith("/assessment/assessment-partial");
   });
 });

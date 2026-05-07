@@ -15,17 +15,18 @@ const milestoneItems = [
 export default function Home() {
   return (
     <main className="min-h-screen px-6 py-10">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
-        <section className="rounded-[32px] border border-white/10 bg-white/5 p-8 shadow-2xl shadow-slate-950/30 backdrop-blur">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 stagger">
+        {/* Hero */}
+        <section className="page-header">
           <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl space-y-4">
-              <span className="inline-flex w-fit rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-sm text-cyan-100">
+            <div className="max-w-3xl space-y-5">
+              <span className="badge badge-accent">
                 Stage 4 / Report Layout + Export
               </span>
-              <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+              <h1 className="font-heading text-4xl font-semibold tracking-tight text-warm-text sm:text-5xl">
                 美太 AI 商业创新智能体 Demo
               </h1>
-              <p className="text-base leading-7 text-slate-300 sm:text-lg">
+              <p className="text-base leading-7 text-warm-secondary sm:text-lg">
                 当前 Demo 已打通企业问卷、企业画像、商业画布诊断、AI 场景推荐、案例匹配、报告生成和基础导出链路，
                 可作为后续 RAG 与案例检索增强的稳定底座。
               </p>
@@ -33,43 +34,34 @@ export default function Home() {
 
             <div className="flex flex-col gap-3 lg:items-end">
               <div className="flex flex-wrap gap-3 lg:justify-end">
-                <Link
-                  href="/intake"
-                  className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
-                >
+                <Link href="/intake" className="btn-secondary">
                   导入课前材料
                 </Link>
-                <Link
-                  href="/assessment"
-                  className="inline-flex items-center justify-center rounded-full bg-cyan-300 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200"
-                >
+                <Link href="/assessment" className="btn-primary">
                   开始企业问卷
                 </Link>
               </div>
-              <p className="text-sm text-slate-400">
+              <p className="text-sm text-warm-muted">
                 当前已支持快速填写与导入预填两种入口
               </p>
             </div>
           </div>
         </section>
 
+        {/* Health + Scope */}
         <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
           <HealthStatusCard />
 
-          <div className="rounded-[28px] border border-white/10 bg-slate-900/70 p-6">
-            <p className="text-sm uppercase tracking-[0.22em] text-slate-400">
-              Current Scope
-            </p>
-            <h2 className="mt-3 text-2xl font-semibold text-white">
-              当前 Demo 已打通的链路
-            </h2>
-            <ul className="mt-5 space-y-3 text-sm leading-6 text-slate-300">
+          <div className="card-inset">
+            <p className="section-label">当前范围</p>
+            <h2 className="section-heading">当前 Demo 已打通的链路</h2>
+            <ul className="mt-5 space-y-2.5">
               {milestoneItems.map((item, index) => (
                 <li
                   key={item}
-                  className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/5 px-4 py-3"
+                  className="flex items-center gap-3 rounded-xl border border-warm-border-light bg-warm-surface px-4 py-3 text-sm text-warm-text"
                 >
-                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-300/15 text-xs font-semibold text-emerald-100">
+                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-warm-success/10 text-xs font-semibold text-warm-success">
                     {index + 1}
                   </span>
                   <span>{item}</span>

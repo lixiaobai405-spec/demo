@@ -23,7 +23,61 @@ def load_env_file(env_file: Path) -> None:
         os.environ.setdefault(cleaned_key, cleaned_value)
 
 
+def _load_mykey() -> dict:
+    """Load LLM credentials from <project_root>/mykey.py (optional, .gitignored).
+
+    Falls back gracefully if the file doesn't exist or can't be imported.
+    """
+    import importlib.util
+
+    mykey_path = ROOT_DIR / "mykey.py"
+    if not mykey_path.exists():
+        return {}
+
+    try:
+        spec = importlib.util.spec_from_file_location("mykey", str(mykey_path))
+        if spec is None or spec.loader is None:
+            return {}
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return getattr(mod, "llm_config", {})
+    except Exception:
+        return {}
+
+
 load_env_file(ENV_FILE)
+_mykey = _load_mykey()
+
+
+def _resolve(key: str, env_key: str, default) -> str:
+    """.env takes precedence over mykey.py, mykey.py over default."""
+    env_val = os.getenv(env_key)
+    if env_val is not None and env_val != "":
+        return env_val.strip()
+    val = _mykey.get(key)
+    if val is not None and val != "":
+        return str(val).strip()
+    return default.strip() if isinstance(default, str) else default
+
+
+def _resolve_bool(key: str, env_key: str, default: bool) -> bool:
+    env_val = os.getenv(env_key)
+    if env_val is not None and env_val != "":
+        return env_val.strip().lower() == "true"
+    val = _mykey.get(key)
+    if val is None:
+        return default
+    if isinstance(val, bool):
+        return val
+    return str(val).strip().lower() == "true"
+
+
+def _resolve_int(key: str, env_key: str, default: int) -> int:
+    env_val = os.getenv(env_key)
+    if env_val is not None and env_val != "":
+        return int(env_val)
+    val = _mykey.get(key)
+    return int(val) if val is not None else default
 
 
 @dataclass(frozen=True)
@@ -35,13 +89,11 @@ class Settings:
         "DATABASE_URL",
         f"sqlite:///{DEFAULT_DATABASE_PATH.as_posix()}",
     )
-    llm_mode: str = os.getenv("LLM_MODE", "mock").strip().lower()
-    openai_api_key: str = os.getenv("OPENAI_API_KEY", "").strip()
-    openai_base_url: str = os.getenv(
-        "OPENAI_BASE_URL",
-        "https://api.openai.com/v1",
-    ).strip()
-    openai_model: str = os.getenv("OPENAI_MODEL", "").strip()
+    # .env takes precedence over mykey.py, mykey.py over default
+    llm_mode: str = _resolve("llm_mode", "LLM_MODE", "mock").strip().lower()
+    openai_api_key: str = _resolve("openai_api_key", "OPENAI_API_KEY", "").strip()
+    openai_base_url: str = _resolve("openai_base_url", "OPENAI_BASE_URL", "https://api.openai.com/v1").strip()
+    openai_model: str = _resolve("openai_model", "OPENAI_MODEL", "").strip()
     # RAG settings
     rag_enabled: bool = os.getenv("RAG_ENABLED", "false").strip().lower() == "true"
     chroma_persist_dir: str = os.getenv(
@@ -50,8 +102,8 @@ class Settings:
     )
     rag_top_k: int = int(os.getenv("RAG_TOP_K", "5"))
     # LLM Report settings
-    llm_report_enabled: bool = os.getenv("LLM_REPORT_ENABLED", "false").strip().lower() == "true"
-    llm_report_timeout_seconds: int = int(os.getenv("LLM_REPORT_TIMEOUT_SECONDS", "60"))
+    llm_report_enabled: bool = _resolve_bool("llm_report_enabled", "LLM_REPORT_ENABLED", False)
+    llm_report_timeout_seconds: int = _resolve_int("llm_report_timeout_seconds", "LLM_REPORT_TIMEOUT_SECONDS", 60)
     # Intake import settings
     intake_max_upload_size_mb: int = int(os.getenv("INTAKE_MAX_UPLOAD_SIZE_MB", "10"))
     intake_pdf_ocr_enabled: bool = (

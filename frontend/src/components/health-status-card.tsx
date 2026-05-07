@@ -35,7 +35,8 @@ export function HealthStatusCard() {
 
   async function loadHealth() {
     const requestUrl = `${apiBaseUrl}/health`;
-    const frontendOrigin = typeof window !== "undefined" ? window.location.origin : "N/A";
+    const frontendOrigin =
+      typeof window !== "undefined" ? window.location.origin : "N/A";
 
     setState({
       data: null,
@@ -62,8 +63,10 @@ export function HealthStatusCard() {
         loading: false,
       });
     } catch (error) {
-      const errorName = error instanceof Error ? error.constructor.name : "UnknownError";
-      const errorMessage = error instanceof Error ? error.message : "Unknown request error";
+      const errorName =
+        error instanceof Error ? error.constructor.name : "UnknownError";
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown request error";
 
       setState({
         data: null,
@@ -82,20 +85,24 @@ export function HealthStatusCard() {
 
   async function runDebugTest() {
     setDebugResult("Testing...");
-    
+
     const results: string[] = [];
-    results.push(`Frontend Origin: ${typeof window !== "undefined" ? window.location.origin : "N/A"}`);
+    results.push(
+      `Frontend Origin: ${typeof window !== "undefined" ? window.location.origin : "N/A"}`,
+    );
     results.push(`API Base URL: ${apiBaseUrl}`);
     results.push(`Test URL: ${apiBaseUrl}/health`);
     results.push("");
-    
+
     try {
       results.push("Fetching...");
       const resp = await fetch(`${apiBaseUrl}/health`, { cache: "no-store" });
       results.push(`Response Status: ${resp.status}`);
       results.push(`Response OK: ${resp.ok}`);
-      results.push(`Response Headers: ${JSON.stringify(Object.fromEntries(resp.headers.entries()), null, 2)}`);
-      
+      results.push(
+        `Response Headers: ${JSON.stringify(Object.fromEntries(resp.headers.entries()), null, 2)}`,
+      );
+
       if (resp.ok) {
         const data = await resp.json();
         results.push(`Response Data: ${JSON.stringify(data, null, 2)}`);
@@ -104,13 +111,19 @@ export function HealthStatusCard() {
         results.push(`Response Body: ${text}`);
       }
     } catch (err) {
-      results.push(`Error Name: ${err instanceof Error ? err.constructor.name : typeof err}`);
-      results.push(`Error Message: ${err instanceof Error ? err.message : String(err)}`);
+      results.push(
+        `Error Name: ${err instanceof Error ? err.constructor.name : typeof err}`,
+      );
+      results.push(
+        `Error Message: ${err instanceof Error ? err.message : String(err)}`,
+      );
       if (err instanceof Error && "cause" in err) {
-        results.push(`Error Cause: ${String((err as Error & { cause?: unknown }).cause)}`);
+        results.push(
+          `Error Cause: ${String((err as Error & { cause?: unknown }).cause)}`,
+        );
       }
     }
-    
+
     setDebugResult(results.join("\n"));
   }
 
@@ -119,92 +132,106 @@ export function HealthStatusCard() {
   }, []);
 
   return (
-    <div className="rounded-[28px] border border-white/10 bg-white/6 p-6 backdrop-blur">
+    <div className="card">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm uppercase tracking-[0.22em] text-slate-400">
-            Backend Connectivity
+          <p className="section-label">健康检查</p>
+          <p className="mt-0.5 font-mono text-xs text-warm-muted">
+            API Base: {process.env.NEXT_PUBLIC_API_BASE_URL || "not set"}
           </p>
-          <p className="text-xs text-emerald-300 font-mono mt-1">
-            DEBUG VERSION: health-check-v2
-          </p>
-          <p className="text-xs text-cyan-300 font-mono">
-            API Base URL: {process.env.NEXT_PUBLIC_API_BASE_URL || "not set"}
-          </p>
-          <h2 className="mt-3 text-2xl font-semibold text-white">
-            基础健康检查
-          </h2>
+          <h2 className="section-heading">基础健康检查</h2>
         </div>
 
         <span
-          className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${
+          className={`badge ${
             state.loading
-              ? "bg-slate-200/10 text-slate-200"
+              ? "badge-muted"
               : state.error
-                ? "bg-rose-300/15 text-rose-100"
-                : "bg-emerald-300/15 text-emerald-100"
+                ? "badge-danger"
+                : "badge-success"
           }`}
         >
           {state.loading ? "检查中" : state.error ? "请求失败" : "后端在线"}
         </span>
       </div>
 
-      <div className="mt-6 rounded-3xl border border-white/8 bg-slate-950/55 p-5">
-        <p className="text-sm text-slate-400">请求地址</p>
-        <p className="mt-2 break-all font-mono text-sm text-cyan-100">
+      <div className="mt-5 rounded-xl border border-warm-border-light bg-warm-inset px-4 py-3">
+        <p className="text-xs text-warm-muted">请求地址</p>
+        <p className="mt-1 break-all font-mono text-sm text-warm-accent">
           {apiBaseUrl}/health
         </p>
       </div>
 
-      <div className="mt-5 grid gap-4 sm:grid-cols-3">
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <Metric label="service" value={state.data?.service ?? "--"} />
         <Metric label="status" value={state.data?.status ?? "--"} />
         <Metric label="environment" value={state.data?.environment ?? "--"} />
       </div>
 
       {state.loading ? (
-        <p className="mt-5 text-sm text-slate-300">
-          正在从浏览器请求后端 `/health` 接口。
+        <p className="mt-4 text-sm text-warm-secondary">
+          正在从浏览器请求后端 /health 接口。
         </p>
       ) : null}
 
       {state.error ? (
-        <div className="mt-5 space-y-3">
-          <p className="text-sm text-rose-200">
-            请求失败：{state.error}
-          </p>
+        <div className="mt-4 space-y-3">
+          <p className="text-sm text-warm-danger">请求失败：{state.error}</p>
           {state.errorDetails && (
-            <div className="rounded-3xl border border-rose-500/30 bg-rose-950/20 p-4">
-              <p className="text-xs uppercase tracking-wide text-rose-300 mb-2">Debug Info</p>
-              <div className="space-y-1 font-mono text-xs text-slate-300">
-                <p>Error Type: <span className="text-rose-200">{state.errorDetails.name}</span></p>
-                <p>Message: <span className="text-rose-200">{state.errorDetails.message}</span></p>
-                <p>Request URL: <span className="text-cyan-200">{state.errorDetails.requestUrl}</span></p>
-                <p>Frontend Origin: <span className="text-cyan-200">{state.errorDetails.frontendOrigin}</span></p>
-                <p>API Base URL: <span className="text-cyan-200">{state.errorDetails.apiBaseUrl}</span></p>
+            <div className="rounded-xl border border-red-200 bg-red-50/60 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-warm-danger">
+                Debug Info
+              </p>
+              <div className="mt-2 space-y-1 font-mono text-xs text-warm-secondary">
+                <p>
+                  Error Type:{" "}
+                  <span className="text-warm-danger">
+                    {state.errorDetails.name}
+                  </span>
+                </p>
+                <p>
+                  Message:{" "}
+                  <span className="text-warm-danger">
+                    {state.errorDetails.message}
+                  </span>
+                </p>
+                <p>
+                  Request URL:{" "}
+                  <span className="text-warm-accent">
+                    {state.errorDetails.requestUrl}
+                  </span>
+                </p>
+                <p>
+                  Frontend Origin:{" "}
+                  <span className="text-warm-accent">
+                    {state.errorDetails.frontendOrigin}
+                  </span>
+                </p>
+                <p>
+                  API Base URL:{" "}
+                  <span className="text-warm-accent">
+                    {state.errorDetails.apiBaseUrl}
+                  </span>
+                </p>
               </div>
             </div>
           )}
         </div>
       ) : null}
 
-      {/* Debug Button */}
-      <div className="mt-5">
-        <button
-          onClick={runDebugTest}
-          className="rounded-full border border-white/20 bg-white/5 px-4 py-2 text-sm text-slate-300 hover:bg-white/10 transition"
-        >
+      <div className="mt-4">
+        <button onClick={runDebugTest} className="btn-secondary text-xs">
           Run Debug Test
         </button>
         {debugResult && (
-          <pre className="mt-3 overflow-x-auto rounded-2xl border border-white/10 bg-slate-950/70 p-4 text-xs text-slate-300">
+          <pre className="mt-3 overflow-x-auto rounded-xl border border-warm-border-light bg-warm-inset p-4 font-mono text-xs text-warm-secondary leading-relaxed">
             {debugResult}
           </pre>
         )}
       </div>
 
       {state.data ? (
-        <pre className="mt-5 overflow-x-auto rounded-3xl border border-white/8 bg-slate-950/70 p-5 text-sm text-slate-200">
+        <pre className="mt-4 overflow-x-auto rounded-xl border border-warm-border-light bg-warm-inset p-4 font-mono text-sm text-warm-secondary leading-relaxed">
           {JSON.stringify(state.data, null, 2)}
         </pre>
       ) : null}
@@ -214,11 +241,11 @@ export function HealthStatusCard() {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-3xl border border-white/8 bg-white/5 p-4">
-      <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+    <div className="rounded-xl border border-warm-border-light bg-warm-surface px-4 py-3">
+      <p className="text-xs uppercase tracking-[0.16em] text-warm-muted">
         {label}
       </p>
-      <p className="mt-3 text-lg font-medium text-white">{value}</p>
+      <p className="mt-2 text-lg font-medium text-warm-text">{value}</p>
     </div>
   );
 }

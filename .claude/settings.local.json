@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(npx next *)",
+      "Bash(npx vitest *)",
+      "Bash(curl -s http://localhost:8000/health)",
+      "Bash(python -c \"import uvicorn; print\\('uvicorn available'\\)\")",
+      "Bash(python -c \"import fastapi; print\\('fastapi available'\\)\")",
+      "Bash(python -m uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8000)",
+      "Bash(python *)",
+      "Bash(pip install *)",
+      "Bash(call E:\\\\Anaconda3\\\\Scripts\\\\activate.bat)",
+      "Bash(conda activate *)",
+      "Bash(curl -s -H \"Origin: http://192.168.112.1:3001\" -H \"Access-Control-Request-Method: GET\" -X OPTIONS http://localhost:8000/health -v)",
+      "Bash(curl -s -I -X OPTIONS -H \"Origin: http://192.168.112.1:3001\" -H \"Access-Control-Request-Method: GET\" http://localhost:8000/health)",
+      "Bash(netstat -ano)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\" http://localhost:3001)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\" -H \"Origin: http://192.168.112.1:3001\" http://localhost:8000/health)",
+      "Bash(curl -s http://localhost:3001)",
+      "Bash(curl -s -H \"Origin: http://192.168.112.1:3001\" http://localhost:8000/health)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\" http://localhost:3001/assessment)",
+      "Bash(rtk tsc *)",
+      "Bash(curl -s -H \"Origin: http://localhost:3001\" -H \"Access-Control-Request-Method: GET\" -X OPTIONS http://localhost:8000/health -D -)",
+      "Bash(where ngrok *)",
+      "Bash(winget list *)",
+      "Bash(scoop list *)",
+      "Bash(choco list *)",
+      "Read(//c/Users/Administrator/**)",
+      "Bash(rtk docker *)",
+      "Bash(mkdir -p /c/Users/Administrator/ngrok)",
+      "Bash(curl -L -o /c/Users/Administrator/ngrok/ngrok.zip \"https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip\")",
+      "Bash(unzip -o /c/Users/Administrator/ngrok/ngrok.zip -d /c/Users/Administrator/ngrok/)",
+      "Bash(/c/Users/Administrator/ngrok/ngrok http *)",
+      "Bash(curl -s http://127.0.0.1:4040/api/tunnels)",
+      "Bash(curl *)",
+      "Bash(taskkill /PID 29168 /F)",
+      "Bash(cmd.exe /c \"taskkill /PID 29168 /F\")",
+      "Bash(/c/Windows/System32/taskkill.exe *)",
+      "Bash(node *)"
+    ]
+  }
+}

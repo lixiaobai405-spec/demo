@@ -2,17 +2,22 @@
 setlocal
 
 cd /d "%~dp0.."
-echo [Meitai Demo] Starting backend on http://localhost:8000
+echo [Meitai Demo] Starting backend...
 
-set "PYTHON_CMD=python"
-where %PYTHON_CMD% >nul 2>nul
+:: Initialize conda for batch script
+call E:\Anaconda3\Scripts\activate.bat
+call conda activate rag-env
 if errorlevel 1 (
-  set "PYTHON_CMD=py -3"
+  echo [Meitai Demo] ERROR: Failed to activate rag-env. Please check conda installation.
+  pause
+  exit /b 1
 )
 
-echo [Meitai Demo] Using Python command: %PYTHON_CMD%
+echo [Meitai Demo] Using conda environment: rag-env
+echo [Meitai Demo] Python version:
+python --version
 
-call %PYTHON_CMD% -m uvicorn app.main:app --app-dir backend --reload --host 0.0.0.0 --port 8000
+call python backend\run.py 8000
 
 if errorlevel 1 pause
 endlocal

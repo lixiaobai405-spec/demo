@@ -24,21 +24,35 @@ from app.schemas.intake import (
     IntakeSessionDetailResponse,
 )
 
-FIELD_LABELS = {
-    "company_name": ["企业名称", "公司名称", "company_name"],
+FIELD_LABELS: dict[str, list[str]] = {
+    "company_name": ["企业名称", "公司名称", "企业名", "company_name"],
     "industry": ["所属行业", "行业", "industry"],
-    "company_size": ["企业规模", "公司规模", "company_size"],
-    "region": ["所在区域", "区域", "region"],
-    "annual_revenue_range": ["年营收范围", "营收范围", "annual_revenue_range"],
-    "core_products": ["核心产品/服务", "核心产品", "产品服务", "core_products"],
-    "target_customers": ["目标客户", "客户群体", "target_customers"],
-    "current_challenges": ["当前经营/管理挑战", "当前挑战", "经营挑战", "current_challenges"],
-    "ai_goals": ["希望通过 AI 达成的目标", "AI 目标", "目标", "ai_goals"],
+    "company_size": ["企业规模", "公司规模", "员工人数", "company_size"],
+    "region": ["所在区域", "所在地区", "区域", "region"],
+    "annual_revenue_range": ["年营收范围", "营收范围", "年度营收", "annual_revenue_range"],
+    "core_products": ["核心产品/服务", "核心产品", "产品服务", "主营业务", "core_products"],
+    "target_customers": ["目标客户", "客户群体", "目标用户", "target_customers"],
+    "current_challenges": ["当前经营/管理挑战", "当前挑战", "经营挑战", "管理挑战", "current_challenges"],
+    "ai_goals": ["希望通过 AI 达成的目标", "AI 目标", "智能化目标", "ai_goals"],
     "available_data": ["当前可用数据/系统基础", "可用数据", "系统基础", "available_data"],
     "notes": ["其他补充说明", "补充说明", "备注", "notes"],
 }
 
-FIELD_DISPLAY_NAMES = {
+FIELD_KEYWORDS: dict[str, list[str]] = {
+    "company_name": ["名称", "公司", "企业名", "单位"],
+    "industry": ["行业", "领域", "产业"],
+    "company_size": ["规模", "人数", "大小", "员工"],
+    "region": ["区域", "地区", "城市", "省份", "省", "市", "地址"],
+    "annual_revenue_range": ["营收", "收入", "年收", "营业额", "产值"],
+    "core_products": ["产品", "服务", "业务"],
+    "target_customers": ["客户", "用户", "消费者", "客群"],
+    "current_challenges": ["挑战", "问题", "痛点", "困难", "瓶颈", "不足", "障碍"],
+    "ai_goals": ["AI", "目标", "希望", "期望", "愿景", "想要", "打算", "降本", "增效", "提效", "自动化"],
+    "available_data": ["数据", "系统", "ERP", "CRM", "POS", "台账", "平台", "信息化", "数字化"],
+    "notes": ["备注", "补充", "其他", "说明", "附注", "额外"],
+}
+
+FIELD_DISPLAY_NAMES: dict[str, str] = {
     "company_name": "企业名称",
     "industry": "所属行业",
     "company_size": "企业规模",
@@ -52,10 +66,10 @@ FIELD_DISPLAY_NAMES = {
     "notes": "其他补充说明",
 }
 
-INFERENCE_RULES = {
-    "current_challenges": ["挑战", "瓶颈", "问题", "痛点", "困难"],
-    "ai_goals": ["ai", "目标", "希望", "提升", "降本", "增效", "复购", "增长"],
-    "available_data": ["数据", "系统", "pos", "erp", "crm", "会员", "订单"],
+INFERENCE_RULES: dict[str, list[str]] = {
+    "current_challenges": ["挑战", "瓶颈", "问题", "痛点", "困难", "不足", "障碍", "低效", "太慢", "滞后"],
+    "ai_goals": ["ai", "目标", "希望", "提升", "降本", "增效", "复购", "增长", "自动化", "智能"],
+    "available_data": ["数据", "系统", "pos", "erp", "crm", "会员", "订单", "台账", "excel"],
 }
 
 SUPPORTED_UPLOAD_EXTENSIONS = {
@@ -347,23 +361,49 @@ class IntakeService:
         return warnings
 
     def _extract_direct_field_value(self, raw_content: str, field_name: str) -> str | None:
+        """Match inline labels and markdown-style heading blocks."""
         if not raw_content.strip():
             return None
 
-        for label in FIELD_LABELS[field_name]:
-            pattern = rf"(?:^|\n|\r|[-*]\s*){re.escape(label)}\s*[：:]\s*(.+)"
-            match = re.search(pattern, raw_content, re.IGNORECASE)
-            if match:
-                value = match.group(1).strip()
-                if value:
-                    return value
-        return None
+        labels = FIELD_LABELS.get(field_name, [])
+        if not labels:
+            return None
+
+        lines = [self._normalize_intake_line(line) for line in raw_content.splitlines()]
+        scored: list[tuple[int, int, str]] = []  # (score, value_length, value)
+
+        for index, cleaned in enumerate(lines):
+            if not cleaned:
+                continue
+            lowered = cleaned.lower()
+            hits = sum(1 for label in labels if label.lower() in lowered)
+            if hits == 0:
+                continue
+
+            inline_value = self._extract_inline_field_value(cleaned, labels)
+            if inline_value:
+                scored.append((hits + 3, len(inline_value), inline_value))
+                continue
+
+            if self._looks_like_field_header(cleaned, labels):
+                block_value = self._collect_following_block_value(lines, index)
+                if block_value:
+                    scored.append((hits + 2, len(block_value), block_value))
+                continue
+
+            scored.append((hits, len(cleaned), cleaned))
+
+        if not scored:
+            return None
+
+        scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
+        return scored[0][2]
 
     def _infer_from_raw_content(self, raw_content: str, field_name: str) -> str | None:
         if not raw_content.strip():
             return None
 
-        lines = [line.strip("-* \t") for line in raw_content.splitlines()]
+        lines = [self._normalize_intake_line(line) for line in raw_content.splitlines()]
         keywords = INFERENCE_RULES[field_name]
         for line in lines:
             normalized_line = line.strip()
@@ -382,24 +422,79 @@ class IntakeService:
         if not raw_content.strip():
             return []
 
-        used_evidence = {candidate.evidence for candidate in field_candidates.values()}
+        used_evidence: set[str] = set()
+        for candidate in field_candidates.values():
+            for line in candidate.evidence.splitlines():
+                normalized_line = self._normalize_intake_line(line)
+                if normalized_line:
+                    used_evidence.add(normalized_line)
         unmapped_notes: list[str] = []
         for line in raw_content.splitlines():
-            normalized_line = line.strip("-* \t")
+            normalized_line = self._normalize_intake_line(line)
             if not normalized_line:
                 continue
             if normalized_line in used_evidence:
                 continue
-            if any(
-                normalized_line.startswith(f"{label}：")
-                or normalized_line.startswith(f"{label}:")
-                for labels in FIELD_LABELS.values()
-                for label in labels
-            ):
+            if self._looks_like_any_field_header(normalized_line):
                 continue
             unmapped_notes.append(normalized_line)
 
         return unmapped_notes[:10]
+
+    def _normalize_intake_line(self, line: str) -> str:
+        return re.sub(r"^\s*(?:[-*+•]\s+|\d+[.)]\s+|#{1,6}\s+|>\s*)", "", line).strip()
+
+    def _extract_inline_field_value(self, line: str, labels: list[str]) -> str | None:
+        parts = re.split(r"[：:＝=]", line, maxsplit=1)
+        if len(parts) != 2:
+            return None
+
+        prefix, suffix = parts
+        normalized_prefix = prefix.strip().lower()
+        if not any(label.lower() in normalized_prefix for label in labels):
+            return None
+
+        value = suffix.strip()
+        return value or None
+
+    def _looks_like_field_header(self, line: str, labels: list[str]) -> bool:
+        normalized_line = re.sub(r"[：:＝=]\s*$", "", line).strip()
+        if not normalized_line:
+            return False
+
+        lowered = normalized_line.lower()
+        if not any(label.lower() in lowered for label in labels):
+            return False
+
+        if re.search(r"[，。；;,.!?？]", normalized_line):
+            return False
+
+        return len(normalized_line) <= 24
+
+    def _looks_like_any_field_header(self, line: str) -> bool:
+        for labels in FIELD_LABELS.values():
+            if self._extract_inline_field_value(line, labels):
+                return True
+            if self._looks_like_field_header(line, labels):
+                return True
+        return False
+
+    def _collect_following_block_value(self, lines: list[str], start_index: int) -> str | None:
+        collected: list[str] = []
+
+        for line in lines[start_index + 1:]:
+            if not line:
+                if collected:
+                    break
+                continue
+
+            if self._looks_like_any_field_header(line):
+                break
+
+            collected.append(line)
+
+        value = "\n".join(collected).strip()
+        return value or None
 
     def _detect_upload_file_kind(self, file_name: str) -> str:
         normalized_name = file_name.lower()

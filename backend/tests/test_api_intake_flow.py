@@ -106,6 +106,39 @@ def test_intake_import_returns_prefill_and_field_meta(client: TestClient) -> Non
     assert any("年营收范围未识别" in warning for warning in body["warnings"])
 
 
+def test_intake_import_maps_markdown_heading_blocks_to_partial_prefill(client: TestClient) -> None:
+    response = client.post(
+        "/api/intake/import",
+        json={
+            "source_type": "markdown",
+            "raw_content": """
+## 企业名称
+测试工业软件企业
+
+## 所属行业
+工业软件
+
+## 核心产品/服务
+设备数据采集平台
+智能报表系统
+
+## 当前经营/管理挑战
+项目交付依赖人工经验，需求响应速度不稳定。
+            """,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["assessment_prefill"]["company_name"] == "测试工业软件企业"
+    assert body["assessment_prefill"]["industry"] == "工业软件"
+    assert body["assessment_prefill"]["core_products"] == "设备数据采集平台\n智能报表系统"
+    assert body["assessment_prefill"]["current_challenges"] == "项目交付依赖人工经验，需求响应速度不稳定。"
+    assert body["assessment_prefill"]["target_customers"] is None
+    assert any("目标客户未识别" in warning for warning in body["warnings"])
+
+
 def test_intake_import_can_create_assessment_after_confirmation(
     client: TestClient,
     confirmed_assessment_input: dict[str, str],

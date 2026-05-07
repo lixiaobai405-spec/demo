@@ -1,11 +1,16 @@
 """D3: Instructor Service — 讲师仪表盘 / 批量点评 / 成果导出"""
-import json
 from collections import defaultdict
 
 from sqlalchemy.orm import Session
 
 from app.models.assessment import Assessment
+from app.models.breakthrough_selection import BreakthroughSelection
+from app.models.canvas_diagnosis import CanvasDiagnosis
+from app.models.case_recommendation import CaseRecommendation
+from app.models.competitiveness_analysis import CompetitivenessAnalysis
+from app.models.direction_selection import DirectionSelection
 from app.models.generated_report import GeneratedReport
+from app.models.scenario_recommendation import ScenarioRecommendation
 from app.schemas.assessment import (
     BatchCommentRequest,
     BatchCommentResponse,
@@ -18,11 +23,28 @@ from app.schemas.assessment import (
 class InstructorService:
     def get_dashboard(self, db: Session) -> InstructorDashboardResponse:
         assessments = db.query(Assessment).order_by(Assessment.created_at.desc()).all()
+
+        # Batch-load all module records to avoid N+1 queries
+        a_ids = [a.id for a in assessments]
+        canvas_map = _one_per_assessment(db, CanvasDiagnosis, a_ids)
+        breakthrough_map = _one_per_assessment(db, BreakthroughSelection, a_ids)
+        direction_map = _one_per_assessment(db, DirectionSelection, a_ids)
+        competitiveness_map = _one_per_assessment(db, CompetitivenessAnalysis, a_ids)
+        scenario_map = _one_per_assessment(db, ScenarioRecommendation, a_ids)
+        case_map = _one_per_assessment(db, CaseRecommendation, a_ids)
+        report_map = _latest_report_per_assessment(db, a_ids)
+
         students: list[StudentSummary] = []
         group_counts: dict[str, int] = defaultdict(int)
 
         for a in assessments:
-            report = self._get_latest_report(db, a.id)
+            report = report_map.get(a.id)
+            canvas = canvas_map.get(a.id)
+            has_profile = bool(a.profile_payload)
+            has_canvas = canvas is not None
+            has_breakthrough = breakthrough_map.get(a.id) is not None
+            has_scenarios = scenario_map.get(a.id) is not None
+
             student = StudentSummary(
                 assessment_id=a.id,
                 company_name=a.company_name,
@@ -30,16 +52,18 @@ class InstructorService:
                 company_size=a.company_size,
                 class_group=a.class_group,
                 instructor_comment=a.instructor_comment,
-                has_profile=bool(a.profile_payload),
-                has_canvas=bool(a.profile_payload),
-                has_breakthrough=False,
-                has_directions=False,
-                has_competitiveness=False,
-                has_scenarios=False,
-                has_cases=False,
+                has_profile=has_profile,
+                has_canvas=has_canvas,
+                has_breakthrough=has_breakthrough,
+                has_directions=direction_map.get(a.id) is not None,
+                has_competitiveness=competitiveness_map.get(a.id) is not None,
+                has_scenarios=has_scenarios,
+                has_cases=case_map.get(a.id) is not None,
                 has_report=report is not None,
-                ready_for_report=report is not None,
-                canvas_score=None,
+                ready_for_report=(
+                    has_profile and has_canvas and has_breakthrough and has_scenarios
+                ),
+                canvas_score=canvas.overall_score if canvas else None,
                 report_id=report.id if report else None,
                 created_at=a.created_at.isoformat() if a.created_at else None,
                 updated_at=a.updated_at.isoformat() if a.updated_at else None,
@@ -83,19 +107,25 @@ class InstructorService:
 
     def export_csv(self, db: Session) -> InstructorExportResponse:
         assessments = db.query(Assessment).order_by(Assessment.created_at.desc()).all()
+        a_ids = [a.id for a in assessments]
+        canvas_map = _one_per_assessment(db, CanvasDiagnosis, a_ids)
+        report_map = _latest_report_per_assessment(db, a_ids)
 
         rows = [
             ["assessment_id", "company_name", "industry", "company_size",
-             "class_group", "instructor_comment", "has_profile", "has_report",
-             "created_at"]
+             "class_group", "instructor_comment", "has_profile", "has_canvas",
+             "has_report", "canvas_score", "created_at"]
         ]
         for a in assessments:
-            report = self._get_latest_report(db, a.id)
+            canvas = canvas_map.get(a.id)
+            report = report_map.get(a.id)
             rows.append([
                 a.id, a.company_name, a.industry, a.company_size,
                 a.class_group or "", a.instructor_comment or "",
                 "是" if a.profile_payload else "否",
+                "是" if canvas else "否",
                 "是" if report else "否",
+                str(canvas.overall_score) if canvas else "",
                 a.created_at.isoformat() if a.created_at else "",
             ])
 
@@ -106,11 +136,34 @@ class InstructorService:
             student_count=len(assessments),
         )
 
-    @staticmethod
-    def _get_latest_report(db: Session, assessment_id: str) -> GeneratedReport | None:
-        return (
-            db.query(GeneratedReport)
-            .filter(GeneratedReport.assessment_id == assessment_id)
-            .order_by(GeneratedReport.created_at.desc())
-            .first()
-        )
+
+# ── Batch-load helpers (avoid N+1 queries) ──────────────────────────
+
+def _one_per_assessment(db: Session, model, a_ids: list[str]) -> dict:
+    """Return {assessment_id: record} for the first record per assessment."""
+    if not a_ids:
+        return {}
+    rows = (
+        db.query(model)
+        .filter(model.assessment_id.in_(a_ids))
+        .all()
+    )
+    return {r.assessment_id: r for r in rows}
+
+
+def _latest_report_per_assessment(db: Session, a_ids: list[str]) -> dict:
+    """Return {assessment_id: latest GeneratedReport} per assessment."""
+    if not a_ids:
+        return {}
+    rows = (
+        db.query(GeneratedReport)
+        .filter(GeneratedReport.assessment_id.in_(a_ids))
+        .order_by(GeneratedReport.assessment_id, GeneratedReport.created_at.desc())
+        .all()
+    )
+    # Keep first per assessment_id (already sorted desc)
+    result: dict = {}
+    for r in rows:
+        if r.assessment_id not in result:
+            result[r.assessment_id] = r
+    return result
