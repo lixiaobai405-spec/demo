@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { IntakeWorkbench } from "@/components/intake-workbench";
+import { IntakeWorkspace } from "@/components/intake-workspace";
 
 export default function IntakePage() {
   return (
@@ -32,7 +32,7 @@ export default function IntakePage() {
           </div>
         </section>
 
-        <IntakeWorkbench />
+        <IntakeWorkspace />
       </div>
     </main>
   );

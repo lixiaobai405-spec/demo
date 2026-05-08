@@ -48,6 +48,7 @@ export function HealthStatusCard() {
     try {
       const response = await fetch(requestUrl, {
         cache: "no-store",
+        headers: { "ngrok-skip-browser-warning": "true" },
       });
 
       if (!response.ok) {
@@ -96,7 +97,10 @@ export function HealthStatusCard() {
 
     try {
       results.push("Fetching...");
-      const resp = await fetch(`${apiBaseUrl}/health`, { cache: "no-store" });
+      const resp = await fetch(`${apiBaseUrl}/health`, {
+        cache: "no-store",
+        headers: { "ngrok-skip-browser-warning": "true" },
+      });
       results.push(`Response Status: ${resp.status}`);
       results.push(`Response OK: ${resp.ok}`);
       results.push(

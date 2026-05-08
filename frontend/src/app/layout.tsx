@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 
+import { QueryProvider } from "@/providers/query-provider";
+import { Toaster } from "@/components/ui/toaster";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -26,7 +29,12 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <QueryProvider>
+          {children}
+          <Toaster />
+        </QueryProvider>
+      </body>
     </html>
   );
 }

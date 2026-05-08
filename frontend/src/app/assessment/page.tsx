@@ -4,7 +4,7 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-import { AssessmentWorkbench } from "@/components/assessment-workbench";
+import { AssessmentWorkspace } from "@/components/assessment-workspace";
 import { InstructorDashboard } from "@/components/instructor-dashboard";
 
 function AssessmentPageContent() {
@@ -74,7 +74,7 @@ function AssessmentPageContent() {
         </section>
 
         {tab === "student" ? (
-          <AssessmentWorkbench prefillSessionId={prefillSessionId} />
+          <AssessmentWorkspace prefillSessionId={prefillSessionId} />
         ) : (
           <InstructorDashboard />
         )}
