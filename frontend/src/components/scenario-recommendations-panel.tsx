@@ -21,7 +21,7 @@ export function ScenarioRecommendationsPanel({
       </p>
 
       {readyForReport ? (
-        <div className="mt-5 flex flex-wrap gap-3">
+        <div className="mt-6 flex flex-wrap gap-3">
           <Link href={`/report-context/${assessmentId}`} className="btn-secondary">查看报告上下文</Link>
           <Link href={`/report/${assessmentId}`} className="btn-primary">进入报告生成</Link>
         </div>
@@ -29,14 +29,14 @@ export function ScenarioRecommendationsPanel({
 
       <div className="mt-6 grid gap-4 xl:grid-cols-3">
         {scenarioRecommendation.top_scenarios.map((item, index) => (
-          <div key={item.scenario_id} className="rounded-xl border border-warm-border-light bg-warm-surface p-5">
+          <div key={item.scenario_id} className="rounded-xl border border-warm-border-light bg-warm-surface p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">Rank {index + 1}</p>
-                <h3 className="mt-2 font-heading text-xl font-semibold text-warm-text">{item.name}</h3>
+                <h3 className="mt-2 font-heading text-xl font-bold text-warm-text">{item.name}</h3>
                 <p className="mt-2 text-sm text-warm-accent">{item.category}</p>
               </div>
-              <div className="rounded-lg bg-warm-success/10 px-4 py-2 text-center">
+              <div className="rounded-xl bg-warm-success/10 px-4 py-2 text-center">
                 <p className="text-xs uppercase tracking-[0.14em] text-warm-success">Score</p>
                 <p className="mt-1 text-2xl font-semibold text-warm-text">{item.score}</p>
               </div>
@@ -53,11 +53,11 @@ export function ScenarioRecommendationsPanel({
 
 function Section({ title, items }: { title: string; items: string[] }) {
   return (
-    <div className="mt-5">
+    <div className="mt-6">
       <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">{title}</p>
       <ul className="mt-3 space-y-2">
         {items.map((item, i) => (
-          <li key={`${title}-${i}`} className="rounded-lg bg-warm-inset px-4 py-3 text-sm text-warm-secondary">{item}</li>
+          <li key={`${title}-${i}`} className="rounded-xl bg-warm-inset px-4 py-3 text-sm text-warm-secondary">{item}</li>
         ))}
       </ul>
     </div>

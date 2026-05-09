@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { HealthStatusCard } from "@/components/health-status-card";
+import { LLMConfigCard } from "@/components/llm-config-card";
 
 const milestoneItems = [
   "创建企业问卷",
@@ -19,11 +20,11 @@ export default function Home() {
         {/* Hero */}
         <section className="page-header">
           <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl space-y-5">
+            <div className="max-w-3xl space-y-6">
               <span className="badge badge-accent">
                 Stage 4 / Report Layout + Export
               </span>
-              <h1 className="font-heading text-4xl font-semibold tracking-tight text-warm-text sm:text-5xl">
+              <h1 className="font-heading text-4xl font-bold tracking-tight text-warm-text sm:text-5xl">
                 美太 AI 商业创新智能体 Demo
               </h1>
               <p className="text-base leading-7 text-warm-secondary sm:text-lg">
@@ -55,7 +56,7 @@ export default function Home() {
           <div className="card-inset">
             <p className="section-label">当前范围</p>
             <h2 className="section-heading">当前 Demo 已打通的链路</h2>
-            <ul className="mt-5 space-y-2.5">
+            <ul className="mt-6 space-y-2.5">
               {milestoneItems.map((item, index) => (
                 <li
                   key={item}
@@ -69,6 +70,11 @@ export default function Home() {
               ))}
             </ul>
           </div>
+        </section>
+
+        {/* LLM Config */}
+        <section>
+          <LLMConfigCard />
         </section>
       </div>
     </main>

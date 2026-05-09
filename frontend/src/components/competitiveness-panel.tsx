@@ -22,23 +22,23 @@ export function CompetitivenessPanel({ data }: { data: CompetitivenessResponse }
         <span className="badge badge-warning">规则分析</span>
       </div>
 
-      <div className="mt-6 rounded-xl border border-warm-warning/15 bg-warm-warning/5 p-5">
+      <div className="mt-6 rounded-xl border border-warm-warning/15 bg-warm-warning/5 p-6">
         <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">总体判断</p>
         <p className="mt-3 text-sm leading-7 text-warm-text">{overall_narrative}</p>
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-warm-border-light bg-warm-inset p-5">
+        <div className="rounded-xl border border-warm-border-light bg-warm-inset p-6">
           <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">当前价值主张</p>
           <p className="mt-3 text-sm leading-7 text-warm-secondary">{vp_reconstruction.current_vp}</p>
         </div>
-        <div className="rounded-xl border border-warm-warning/15 bg-warm-warning/5 p-5">
+        <div className="rounded-xl border border-warm-warning/15 bg-warm-warning/5 p-6">
           <p className="text-xs uppercase tracking-[0.14em] text-warm-warning">增强型价值主张</p>
           <p className="mt-3 text-sm leading-7 text-warm-text">{vp_reconstruction.enhanced_vp}</p>
         </div>
       </div>
 
-      <div className="mt-4 rounded-xl border border-warm-border-light bg-warm-inset p-5">
+      <div className="mt-4 rounded-xl border border-warm-border-light bg-warm-inset p-6">
         <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">客户价值转移路径</p>
         <p className="mt-3 text-sm leading-7 text-warm-text">{vp_reconstruction.customer_value_shift}</p>
         {vp_reconstruction.differentiation_points.length > 0 && (
@@ -55,7 +55,7 @@ export function CompetitivenessPanel({ data }: { data: CompetitivenessResponse }
         <p className="mt-2 text-sm leading-7 text-warm-secondary">以下展示如何将选定的创新方向（点）串联为系统性竞争力线路：</p>
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           {connections.map((conn) => (
-            <div key={conn.line_name} className="rounded-xl border border-warm-border-light bg-warm-inset p-5">
+            <div key={conn.line_name} className="rounded-xl border border-warm-border-light bg-warm-inset p-6">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-warm-text">{conn.line_name}</span>
                 <span className="badge badge-muted text-xs">{conn.point_titles.length} 个方向</span>
@@ -84,7 +84,7 @@ export function CompetitivenessPanel({ data }: { data: CompetitivenessResponse }
         <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">核心优势</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {advantages.map((adv) => (
-            <div key={adv.advantage_name} className="rounded-xl border border-warm-border-light bg-warm-inset p-5">
+            <div key={adv.advantage_name} className="rounded-xl border border-warm-border-light bg-warm-inset p-6">
               <div className="flex items-start justify-between gap-2">
                 <p className="text-sm font-semibold text-warm-text">{adv.advantage_name}</p>
                 <span className={barrierColor(adv.barrier_level)}>壁垒{adv.barrier_level}</span>
@@ -100,7 +100,7 @@ export function CompetitivenessPanel({ data }: { data: CompetitivenessResponse }
         </div>
       </div>
 
-      <div className="mt-6 rounded-xl border border-warm-border-light bg-warm-inset p-5">
+      <div className="mt-6 rounded-xl border border-warm-border-light bg-warm-inset p-6">
         <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">三阶段推进策略</p>
         <div className="mt-4 grid gap-4 lg:grid-cols-3">
           <PhaseCard title="Phase 1 — 快速验证" content={delivery_strategy.phase_1_quick_win} />
@@ -126,7 +126,7 @@ export function CompetitivenessPanel({ data }: { data: CompetitivenessResponse }
 
 function PhaseCard({ title, content }: { title: string; content: string }) {
   return (
-    <div className="rounded-lg border border-warm-border-light bg-warm-surface p-4">
+    <div className="rounded-xl border border-warm-border-light bg-warm-surface p-4">
       <p className="text-xs font-semibold text-warm-accent">{title}</p>
       <p className="mt-2 text-xs leading-5 text-warm-muted">{content}</p>
     </div>

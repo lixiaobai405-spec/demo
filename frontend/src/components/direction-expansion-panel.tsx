@@ -36,7 +36,7 @@ export function DirectionExpansionPanel({
         </div>
       ) : (
         <>
-          <div className="mt-6 rounded-xl border border-warm-accent/15 bg-warm-accent/5 p-5">
+          <div className="mt-6 rounded-xl border border-warm-accent/15 bg-warm-accent/5 p-6">
             <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">延展说明</p>
             <p className="mt-3 text-sm leading-7 text-warm-secondary">
               基于您选定的突破要素，系统为每个要素生成了 {direction_expansion.total_suggestions} 个具体创新方向。请勾选 1-6 个最符合企业当前实际情况的方向。
@@ -79,7 +79,7 @@ function DirectionCard({ direction, isSelected, showToggle, onToggle }: {
 }) {
   return (
     <button type="button" onClick={onToggle} disabled={!showToggle}
-      className={`rounded-xl border bg-warm-inset p-5 text-left transition ${
+      className={`rounded-xl border bg-warm-inset p-6 text-left transition ${
         isSelected ? "border-warm-accent/40 bg-warm-accent/5 ring-1 ring-warm-accent/15" : "border-warm-border-light hover:border-warm-border hover:shadow-card"
       }`}
     >

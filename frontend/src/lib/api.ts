@@ -59,6 +59,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
         ...init,
         headers: {
           ...(isFormData ? {} : { "Content-Type": "application/json" }),
+          "ngrok-skip-browser-warning": "true",
           ...(init?.headers ?? {}),
         },
       });

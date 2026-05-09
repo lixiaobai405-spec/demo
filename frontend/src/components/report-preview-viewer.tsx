@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 
 import { ApiError, generateAssessmentReport, getAssessmentDetail } from "@/lib/api";
 import type { AssessmentDetailResponse, ReportDocumentResponse } from "@/lib/types";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 
 export function ReportPreviewViewer({ assessmentId }: { assessmentId: string }) {
   const router = useRouter();
@@ -34,12 +36,25 @@ export function ReportPreviewViewer({ assessmentId }: { assessmentId: string }) 
     finally { setIsGenerating(false); }
   }
 
-  if (isLoading) return <div className="card text-sm text-warm-secondary">正在加载报告状态...</div>;
+  if (isLoading) return (
+    <div className="card space-y-4">
+      <div className="space-y-2"><Skeleton className="h-6 w-36 rounded-xl" /><Skeleton className="h-8 w-64 rounded-xl" /></div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Skeleton className="h-64 rounded-xl" /><Skeleton className="h-64 rounded-xl" />
+      </div>
+    </div>
+  );
 
   if (error) return (
-    <div className="rounded-xl msg-error p-6 text-sm">
-      <p>{error}</p>
-      <Link href={`/assessment/${assessmentId}`} className="mt-4 inline-flex btn-secondary text-xs">返回 Assessment 工作台</Link>
+    <div className="rounded-xl msg-error p-6 text-sm space-y-4">
+      <div>
+        <p className="font-medium">报告状态加载失败</p>
+        <p className="mt-2 opacity-90">{error}</p>
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <Button variant="outline" size="sm" onClick={() => { setError(null); setIsLoading(true); }}>重试加载</Button>
+        <Link href={`/assessment/${assessmentId}`} className="btn-secondary text-xs">返回 Assessment 工作台</Link>
+      </div>
     </div>
   );
 
@@ -64,7 +79,7 @@ export function ReportPreviewViewer({ assessmentId }: { assessmentId: string }) 
               当前页面会基于已完成的企业画像、商业画布和 AI 场景推荐生成统一的结构化报告。
             </p>
           </div>
-          <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-5 py-4 text-sm text-amber-800">
+          <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-6 py-4 text-sm text-amber-800">
             <p className="font-medium">Assessment ID</p>
             <p className="mt-2 break-all font-mono text-amber-700/90">{assessment.id}</p>
           </div>
@@ -83,7 +98,7 @@ export function ReportPreviewViewer({ assessmentId }: { assessmentId: string }) 
             <StatusRow label="已有报告" ready={detail.progress.has_report} text={existingReport ? `已存在报告：${existingReport.title}` : "尚未生成报告。"} />
           </div>
           {!detail.progress.ready_for_report ? (
-            <div className="mt-6 rounded-xl msg-warning p-5 text-sm leading-7">还不能生成报告。请先完成企业画像、商业画布和 AI 场景推荐。</div>
+            <div className="mt-6 rounded-xl msg-warning p-6 text-sm leading-7">还不能生成报告。请先完成企业画像、商业画布和 AI 场景推荐。</div>
           ) : null}
         </div>
 
@@ -121,13 +136,13 @@ export function ReportPreviewViewer({ assessmentId }: { assessmentId: string }) 
             <Link href={`/assessment/${assessmentId}`} className="btn-secondary">返回 Assessment 工作台</Link>
           </div>
 
-          <div className="mt-6 rounded-xl border border-warm-border-light bg-warm-inset p-5 text-sm leading-7 text-warm-secondary">
+          <div className="mt-6 rounded-xl border border-warm-border-light bg-warm-inset p-6 text-sm leading-7 text-warm-secondary">
             <p>报告生成逻辑当前为模板化生成，不依赖 API Key，也不会自由编造真实公司案例或 ROI 数字。</p>
             <p className="mt-3">选择 LLM 模式时，页面会在结果页展示是否实际使用了 LLM、是否使用了 RAG，以及所有 warning / 回退提示。</p>
             <p className="mt-3">生成完成后可在报告预览页下载 Markdown、Word 或打开打印版；如果下载失败，请先确认后端服务仍在运行。</p>
           </div>
 
-          {error ? <div className="mt-5 rounded-xl msg-error p-4 text-sm">{error}</div> : null}
+          {error ? <div className="mt-6 rounded-xl msg-error p-4 text-sm">{error}</div> : null}
         </div>
       </div>
     </div>

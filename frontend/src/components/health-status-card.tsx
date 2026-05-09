@@ -48,6 +48,7 @@ export function HealthStatusCard() {
     try {
       const response = await fetch(requestUrl, {
         cache: "no-store",
+        headers: { "ngrok-skip-browser-warning": "true" },
       });
 
       if (!response.ok) {
@@ -96,7 +97,10 @@ export function HealthStatusCard() {
 
     try {
       results.push("Fetching...");
-      const resp = await fetch(`${apiBaseUrl}/health`, { cache: "no-store" });
+      const resp = await fetch(`${apiBaseUrl}/health`, {
+        cache: "no-store",
+        headers: { "ngrok-skip-browser-warning": "true" },
+      });
       results.push(`Response Status: ${resp.status}`);
       results.push(`Response OK: ${resp.ok}`);
       results.push(
@@ -155,7 +159,7 @@ export function HealthStatusCard() {
         </span>
       </div>
 
-      <div className="mt-5 rounded-xl border border-warm-border-light bg-warm-inset px-4 py-3">
+      <div className="mt-6 rounded-xl border border-warm-border-light bg-warm-inset px-4 py-3">
         <p className="text-xs text-warm-muted">请求地址</p>
         <p className="mt-1 break-all font-mono text-sm text-warm-accent">
           {apiBaseUrl}/health

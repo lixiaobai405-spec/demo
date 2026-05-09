@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.models.assessment import Assessment
 from app.models.intake_session import AssessmentIntakeSession
+from app.services.intake_llm_extractor import IntakeLLMExtractor
 from app.schemas.assessment import AssessmentResponse
 from app.schemas.intake import (
     ASSESSMENT_FIELD_NAMES,
@@ -83,6 +84,13 @@ SUPPORTED_UPLOAD_EXTENSIONS = {
 
 class IntakeService:
     _rapidocr_engine = None
+    _llm_extractor: IntakeLLMExtractor | None = None
+
+    @property
+    def llm_extractor(self) -> IntakeLLMExtractor:
+        if self._llm_extractor is None:
+            self._llm_extractor = IntakeLLMExtractor()
+        return self._llm_extractor
 
     def get_session_detail(
         self,
@@ -237,7 +245,7 @@ class IntakeService:
                 ),
             )
 
-        return self.import_content(
+        import_result = self.import_content(
             db,
             IntakeImportRequest(source_type="file", raw_content=raw_content),
             source_file=IntakeSourceFile(
@@ -247,6 +255,32 @@ class IntakeService:
             ),
             extra_warnings=extraction_warnings,
         )
+
+        # Async: ingest to knowledge base (non-blocking)
+        self._ingest_to_knowledge_base(raw_content, file_name)
+
+        return import_result
+
+    def _auto_create_assessment(
+        self,
+        db: Session,
+        import_result: IntakeImportResponse,
+    ) -> IntakeImportResponse:
+        """Auto-create assessment from import prefill, set created_assessment_id on result."""
+        try:
+            created = self.create_assessment_from_session(
+                db,
+                import_result.import_session_id,
+                IntakeCreateAssessmentRequest(
+                    confirmed_assessment_input=import_result.assessment_prefill,
+                ),
+            )
+            import_result.created_assessment_id = created.assessment.id
+            import_result.status = "confirmed"
+        except HTTPException:
+            # If creation fails (e.g., already created), just return result as-is
+            pass
+        return import_result
 
     def create_assessment_from_session(
         self,
@@ -289,8 +323,12 @@ class IntakeService:
         candidates: dict[str, IntakeFieldCandidate] = {}
         raw_content = payload.raw_content or ""
 
+        # Step 0: LLM extraction (covers all 11 fields at once)
+        llm_extracted = self._try_llm_extraction(raw_content)
+
+        # Step 1: Structured fields from form input (always trusted)
         for field_name, value in payload.structured_fields.items():
-            if field_name in ASSESSMENT_FIELD_NAMES:
+            if field_name in ASSESSMENT_FIELD_NAMES and value:
                 candidates[field_name] = IntakeFieldCandidate(
                     value=value,
                     source="原文",
@@ -298,6 +336,20 @@ class IntakeService:
                     evidence=f"结构化输入：{value}",
                 )
 
+        # Step 2: Fill gaps from LLM extraction
+        for field_name in ASSESSMENT_FIELD_NAMES:
+            if field_name in candidates:
+                continue
+            llm_value = llm_extracted.get(field_name, "")
+            if llm_value:
+                candidates[field_name] = IntakeFieldCandidate(
+                    value=llm_value,
+                    source="LLM 提取",
+                    confidence="high",
+                    evidence=llm_value,
+                )
+
+        # Step 3: Regex-based direct extraction for remaining gaps
         for field_name in ASSESSMENT_FIELD_NAMES:
             if field_name in candidates:
                 continue
@@ -310,6 +362,7 @@ class IntakeService:
                     evidence=direct_match,
                 )
 
+        # Step 4: Keyword inference for special fields
         for field_name in ("current_challenges", "ai_goals", "available_data"):
             if field_name in candidates:
                 continue
@@ -323,6 +376,47 @@ class IntakeService:
                 )
 
         return candidates
+
+    def _try_llm_extraction(self, raw_text: str) -> dict[str, str]:
+        """Try LLM extraction; return empty dict on failure."""
+        if not raw_text or not raw_text.strip():
+            return {}
+        try:
+            return self.llm_extractor.extract(raw_text)
+        except Exception:
+            return {}
+
+    @staticmethod
+    def _ingest_to_knowledge_base(raw_text: str, file_name: str) -> None:
+        """Ingest uploaded document into RAG knowledge base (fire-and-forget)."""
+        if not settings.rag_enabled:
+            return
+        try:
+            from app.rag.embeddings import EmbeddingManager
+            from app.rag.vector_store import VectorStore
+            from app.rag.chunker import DocumentChunker
+            from app.rag.retriever import RAGRetriever
+
+            retriever = RAGRetriever(rag_enabled=True)
+            result = retriever.ingest_document(
+                text=raw_text,
+                source_file=file_name,
+                metadata={
+                    "source_type": "user_upload",
+                    "file_name": file_name,
+                },
+            )
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(
+                "Knowledge base ingestion: %s — chunks=%s",
+                result.get("status"),
+                result.get("chunks_added", 0),
+            )
+        except Exception as exc:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning("Knowledge base ingestion failed: %s", exc)
 
     def _build_field_meta(
         self,

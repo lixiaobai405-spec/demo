@@ -6,6 +6,7 @@ import re
 from typing import Any
 
 from app.core.config import settings
+
 from app.models.assessment import Assessment
 from app.prompts.report_writer_prompt import ReportWriterPrompt
 from app.schemas.assessment import (

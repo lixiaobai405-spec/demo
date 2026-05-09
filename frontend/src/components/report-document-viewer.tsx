@@ -1,17 +1,39 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
 import { ApiError, getReport, getReportDocxExportUrl, getReportMarkdownExportUrl, getReportPrintUrl } from "@/lib/api";
 import type { ReportDocumentResponse } from "@/lib/types";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+
+function ReportSkeleton() {
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="card space-y-4">
+        <Skeleton className="h-7 w-32 rounded-xl" />
+        <Skeleton className="h-8 w-64 rounded-xl" />
+        <div className="flex flex-wrap gap-3">
+          <Skeleton className="h-12 w-36 rounded-full" />
+          <Skeleton className="h-12 w-32 rounded-full" />
+        </div>
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Skeleton className="h-80 rounded-xl" />
+        <Skeleton className="h-80 rounded-xl" />
+      </div>
+      <Skeleton className="h-96 rounded-xl" />
+    </div>
+  );
+}
 
 export function ReportDocumentViewer({ reportId }: { reportId: string }) {
   const [report, setReport] = useState<ReportDocumentResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
+  const loadReport = useCallback(() => {
     let active = true;
     setIsLoading(true); setError(null);
     getReport(reportId)
@@ -21,8 +43,26 @@ export function ReportDocumentViewer({ reportId }: { reportId: string }) {
     return () => { active = false; };
   }, [reportId]);
 
-  if (isLoading) return <div className="card text-sm text-warm-secondary">正在加载报告内容...</div>;
-  if (error) return <div className="rounded-xl msg-error p-6 text-sm"><p>{error}</p></div>;
+  useEffect(() => {
+    const cleanup = loadReport();
+    return () => { cleanup(); };
+  }, [loadReport]);
+
+  if (isLoading) return <ReportSkeleton />;
+
+  if (error) return (
+    <div className="rounded-xl msg-error p-6 text-sm space-y-4">
+      <div>
+        <p className="font-medium">报告加载失败</p>
+        <p className="mt-2 opacity-90">{error}</p>
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <Button variant="outline" size="sm" onClick={loadReport}>重试加载</Button>
+        <Link href="/assessment" className="btn-secondary text-xs">返回工作台</Link>
+      </div>
+    </div>
+  );
+
   if (!report) return null;
 
   const markdownUrl = getReportMarkdownExportUrl(report.report_id);
@@ -38,7 +78,7 @@ export function ReportDocumentViewer({ reportId }: { reportId: string }) {
             <h2 className="section-heading">{report.title}</h2>
             <p className="mt-2 text-sm leading-7 text-warm-secondary">该页面展示后端渲染后的 HTML 富文本版本，并保留 Markdown、Word 和打印版导出能力。</p>
           </div>
-          <div className="rounded-xl border border-green-200 bg-green-50/50 px-5 py-4 text-sm text-green-800">
+          <div className="rounded-xl border border-green-200 bg-green-50/50 px-6 py-4 text-sm text-green-800">
             <p className="font-medium">Report ID</p>
             <p className="mt-2 break-all font-mono text-green-700/90">{report.report_id}</p>
           </div>
@@ -52,10 +92,46 @@ export function ReportDocumentViewer({ reportId }: { reportId: string }) {
           <Link href={`/assessment/${report.assessment_id}`} className="btn-secondary">返回 Assessment</Link>
         </div>
 
-        <div className="mt-6 rounded-xl border border-warm-border-light bg-warm-inset p-5 text-sm leading-7 text-warm-secondary">
+        <div className="mt-6 rounded-xl border border-warm-border-light bg-warm-inset p-6 text-sm leading-7 text-warm-secondary">
           <p>导出说明：Markdown 适合二次编辑，Word 适合提交或批注，打印版适合浏览器打印与 PDF 另存。</p>
           <p className="mt-3">如果导出按钮打开后无响应，请先确认后端服务在线，再重新进入当前报告页面触发导出文件生成。</p>
         </div>
+      </div>
+
+      {/* Executive summary card — progressive disclosure: conclusion first */}
+      <div className="card shadow-card-hover">
+        <p className="section-label">执行摘要</p>
+        <h2 className="section-heading">报告结论</h2>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <SummaryBadge label="企业" value={report.content_json.company_name} />
+          <SummaryBadge label="行业" value={report.content_json.industry} />
+          <SummaryBadge label="AI 就绪度" value={`${report.content_json.ai_readiness_score} 分`} />
+          <SummaryBadge label="报告模式" value={report.generation_mode === "llm" ? "LLM 增强" : "模板生成"} />
+        </div>
+        <details className="mt-6 group">
+          <summary className="cursor-pointer text-sm font-medium text-primary hover:text-primary/80 transition-colors select-none">
+            ▸ 查看报告章节结构（{report.sections.length} 章）
+          </summary>
+          <ul className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+            {report.sections.map((section, index) => (
+              <li key={section.key} className="rounded-xl border border-border bg-secondary px-3 py-2">
+                {index + 1}. {section.title}
+              </li>
+            ))}
+          </ul>
+        </details>
+        {report.warnings.length > 0 && (
+          <details className="mt-3 group">
+            <summary className="cursor-pointer text-sm font-medium text-destructive hover:text-destructive/80 transition-colors select-none">
+              ▸ 查看 {report.warnings.length} 条告警信息
+            </summary>
+            <ul className="mt-3 space-y-2">
+              {report.warnings.map((item, index) => (
+                <li key={index} className="rounded-xl msg-warning p-3 text-sm">{item}</li>
+              ))}
+            </ul>
+          </details>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
@@ -86,19 +162,19 @@ export function ReportDocumentViewer({ reportId }: { reportId: string }) {
         <div className="card">
           <p className="section-label">Warnings & Sections</p>
           <h2 className="section-heading">自检结果与章节结构</h2>
-          <div className="mt-6 rounded-xl border border-warm-border-light bg-warm-inset p-5">
+          <div className="mt-6 rounded-xl border border-warm-border-light bg-warm-inset p-6">
             <p className="text-sm font-medium text-warm-text">warnings</p>
             {report.warnings.length > 0 ? (
               <ul className="mt-4 space-y-2 text-sm leading-7">
                 {report.warnings.map((item, index) => (
-                  <li key={`${item}-${index}`} className="rounded-lg msg-warning p-4 text-sm">{item}</li>
+                  <li key={`${item}-${index}`} className="rounded-xl msg-warning p-4 text-sm">{item}</li>
                 ))}
               </ul>
             ) : <p className="mt-4 text-sm leading-7 text-warm-muted">当前无告警。</p>}
           </div>
           <ul className="mt-6 grid gap-3 text-sm leading-7">
             {report.sections.map((section, index) => (
-              <li key={section.key} className="rounded-lg border border-warm-border-light bg-warm-inset px-4 py-3 text-warm-text">
+              <li key={section.key} className="rounded-xl border border-warm-border-light bg-warm-inset px-4 py-3 text-warm-text">
                 {index + 1}. {section.title}
               </li>
             ))}
@@ -116,9 +192,18 @@ export function ReportDocumentViewer({ reportId }: { reportId: string }) {
   );
 }
 
+function SummaryBadge({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-border bg-secondary p-4">
+      <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+      <p className="mt-2 text-base font-semibold text-foreground">{value}</p>
+    </div>
+  );
+}
+
 function MetaItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-warm-border-light bg-warm-surface px-4 py-4">
+    <div className="rounded-xl border border-warm-border-light bg-warm-surface px-4 py-4">
       <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">{label}</p>
       <p className="mt-3 break-words text-base text-warm-text">{value}</p>
     </div>

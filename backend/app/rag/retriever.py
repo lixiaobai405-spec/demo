@@ -89,6 +89,34 @@ class RAGRetriever:
             "provider": self.embedding_manager.provider_name,
         }
 
+    def ingest_document(
+        self,
+        text: str,
+        source_file: str,
+        metadata: dict | None = None,
+    ) -> dict:
+        """Ingest a single document (e.g. user-uploaded file) into the vector store."""
+        if not self.rag_enabled:
+            return {"status": "disabled", "message": "RAG is not enabled"}
+
+        chunks = self.chunker.chunk_user_document(
+            content=text,
+            source_file=source_file,
+            metadata=metadata,
+        )
+        if not chunks:
+            return {"status": "skipped", "message": "No chunks generated"}
+
+        texts = [c.content for c in chunks]
+        embeddings = self.embedding_manager.embed(texts)
+        added = self.vector_store.add_chunks(chunks, embeddings)
+
+        return {
+            "status": "success",
+            "chunks_added": added,
+            "embedding_model": self.embedding_manager.model_name,
+        }
+
     def search(
         self,
         query: str,

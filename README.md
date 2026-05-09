@@ -33,7 +33,7 @@
 ├── backend/
 │   ├── app/
 │   │   ├── api/routes/       # 路由层
-│   │   ├── core/             # 配置
+│   │   ├── core/             # 配置（含 mykey.py 密钥加载）
 │   │   ├── db/               # 数据库
 │   │   ├── exporters/        # 导出
 │   │   ├── models/           # 数据模型
@@ -43,11 +43,12 @@
 │   │   └── services/         # 业务服务
 │   ├── data/                 # SQLite / Chroma
 │   ├── tests/                # 测试
+│   ├── run.py                # 入口（端口自动回退）
 │   └── requirements.txt
 ├── frontend/
 │   └── src/
 │       ├── app/              # 页面
-│       ├── components/       # 组件
+│       ├── components/       # 组件（含单元测试）
 │       └── lib/              # API + 类型
 ├── knowledge/raw/            # 知识库 YAML
 │   ├── ai_scenarios.yaml
@@ -55,9 +56,16 @@
 │   ├── business_canvas.md
 │   ├── report_templates.md
 │   └── risk_playbook.md
-├── scripts/                  # 启动脚本
+├── scripts/                  # 启动 / 工具脚本
+│   ├── back_start.bat
+│   ├── front_start.bat
+│   ├── find_port.js          # 端口自动发现
+│   └── ngrok_url.js          # ngrok 公网 URL 获取
 ├── docs/                     # 设计文档
+├── start.bat                 # 一键启动（后端 + ngrok + 前端）
+├── mykey.py.example          # 密钥配置模板
 ├── .env.example
+├── 使用方法.md                # 详细中文使用指南
 └── README.md
 ```
 
@@ -103,6 +111,32 @@ npm install
 
 ### 3. 启动
 
+**方式一：一键启动（推荐）**
+
+```powershell
+.\start.bat
+```
+
+自动依次启动后端 → ngrok 隧道 → 前端，并自动获取公网 URL。
+
+**方式二：分别启动**
+
+后端（端口自动回退）：
+
+```powershell
+cd backend
+python run.py
+```
+
+前端（端口自动回退）：
+
+```powershell
+cd frontend
+node ../scripts/find_port.js 3001 | xargs npx next dev -p
+```
+
+**方式三：手动指定端口**
+
 后端（端口 8000）：
 
 ```powershell
@@ -117,7 +151,7 @@ cd frontend
 npm run dev
 ```
 
-或使用启动脚本：
+**方式四：使用启动脚本**
 - `scripts/back_start.bat`
 - `scripts/front_start.bat`
 
@@ -218,28 +252,58 @@ RAG 默认关闭，路由前缀为 `/rag`（非 `/api/rag`）。
 13. 讲师点评区
 14. 商业终局设计
 
+## 密钥配置（mykey.py）
+
+除了 `.env` 环境变量，项目还支持通过 `mykey.py` 文件配置 LLM 凭证，优先级为：
+
+```
+.env 环境变量  >  mykey.py  >  config.py 默认值
+   (最高)          (中间)        (最低)
+```
+
+复制模板并填入真实凭证：
+
+```powershell
+Copy-Item mykey.py.example backend/app/core/mykey.py
+```
+
+编辑 `backend/app/core/mykey.py`：
+
+```python
+llm_config = {
+    "llm_mode": "live",
+    "openai_api_key": "sk-你的真实key",
+    "openai_base_url": "https://api.openai.com/v1",
+    "openai_model": "gpt-4o-mini",
+    "llm_report_enabled": True,
+    "llm_report_timeout_seconds": 60,
+}
+```
+
+- `mykey.py` 已在 `.gitignore` 中，不会被提交
+- `mykey.py.example` 为模板文件，可安全提交
+- 非 OpenAI 兼容接口（DeepSeek / 千问 / 智谱等）：只需改 `openai_base_url` 和 `openai_model`
+
 ## 环境变量参考
 
-```env
-APP_NAME="Meitai AI Business Innovation Agent API"
-APP_ENV="development"
-FRONTEND_ORIGIN="http://localhost:3001"
-DATABASE_URL="sqlite:///./backend/data/meitai_demo.db"
-LLM_MODE="mock"
-NEXT_PUBLIC_API_BASE_URL="http://localhost:8000"
-OPENAI_API_KEY=""
-OPENAI_BASE_URL="https://api.openai.com/v1"
-OPENAI_MODEL=""
-LLM_REPORT_ENABLED="false"
-LLM_REPORT_TIMEOUT_SECONDS="60"
-RAG_ENABLED="false"
-CHROMA_PERSIST_DIR="./backend/data/chroma"
-RAG_TOP_K="5"
-INTAKE_MAX_UPLOAD_SIZE_MB="10"
-INTAKE_PDF_OCR_ENABLED="true"
-INTAKE_PDF_OCR_MIN_TEXT_CHARS="20"
-INTAKE_PDF_OCR_MAX_PAGES="12"
-```
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `APP_NAME` | `Meitai AI Business Innovation Agent API` | 应用名称 |
+| `APP_ENV` | `development` | 运行环境 |
+| `FRONTEND_ORIGIN` | `http://localhost:3001` | CORS 允许的前端地址 |
+| `DATABASE_URL` | `sqlite:///./backend/data/meitai_demo.db` | SQLite 路径 |
+| `LLM_MODE` | `mock` | `mock` / `live` |
+| `OPENAI_API_KEY` | *(空)* | OpenAI API 密钥 |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | API 地址 |
+| `OPENAI_MODEL` | *(空)* | 模型名（如 `gpt-4o-mini`） |
+| `LLM_REPORT_ENABLED` | `false` | LLM 增强报告 |
+| `LLM_REPORT_TIMEOUT_SECONDS` | `60` | LLM 报告超时 |
+| `RAG_ENABLED` | `false` | ChromaDB 向量检索 |
+| `CHROMA_PERSIST_DIR` | `./backend/data/chroma` | ChromaDB 目录 |
+| `RAG_TOP_K` | `5` | RAG 检索条数 |
+| `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:8000` | 前端调用后端地址 |
+| `INTAKE_MAX_UPLOAD_SIZE_MB` | `10` | 导入文件大小上限 |
+| `INTAKE_PDF_OCR_ENABLED` | `true` | PDF OCR 开关 |
 
 ## 测试
 
@@ -248,7 +312,7 @@ INTAKE_PDF_OCR_MAX_PAGES="12"
 ```powershell
 cd backend
 python -m pytest tests/ -v
-# 19 passed, 1 skipped
+# 20 passed, 1 skipped
 ```
 
 前端：
@@ -256,7 +320,7 @@ python -m pytest tests/ -v
 ```powershell
 cd frontend
 npx vitest run
-# 6 passed
+# 7 passed
 ```
 
 E2E 全链路：
@@ -267,6 +331,13 @@ python -m pytest tests/test_e2e_full_chain.py -v -s
 # 26 个步骤验证，涵盖画像→画布→突破→方向→竞争力→商业终局→
 #   场景→案例→报告→导出→分享→跟进→推送→讲师工作台→级联清空
 ```
+
+## 更多文档
+
+- **[使用方法.md](./使用方法.md)** — 详细中文使用指南（环境要求、快速启动、API 快速参考、级联清空机制）
+- **[docs/CURRENT_STATUS.md](./docs/CURRENT_STATUS.md)** — 项目进展总览、已完成功能、待完成功能
+- **[docs/PROJECT_OVERVIEW.md](./docs/PROJECT_OVERVIEW.md)** — 项目架构概览
+- **[docs/B1_PRE_INPUT_IMPORT_DESIGN.md](./docs/B1_PRE_INPUT_IMPORT_DESIGN.md)** — 课前导入功能设计
 
 ## 端口说明
 

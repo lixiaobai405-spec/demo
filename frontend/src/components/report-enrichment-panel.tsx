@@ -23,7 +23,7 @@ export function ReportEnrichmentPanel({
       </div>
 
       {/* Executive Summary */}
-      <div className="mt-6 rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-5">
+      <div className="mt-6 rounded-3xl border border-cyan-300/20 bg-cyan-300/5 p-6">
         <p className="text-xs uppercase tracking-[0.18em] text-cyan-100">
           执行摘要
         </p>
@@ -55,7 +55,7 @@ export function ReportEnrichmentPanel({
 
       {/* Industry Benchmark */}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-3xl border border-white/8 bg-slate-950/55 p-5">
+        <div className="rounded-3xl border border-white/8 bg-slate-950/55 p-6">
           <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
             行业对标
           </p>
@@ -78,7 +78,7 @@ export function ReportEnrichmentPanel({
             />
           </div>
         </div>
-        <div className="rounded-3xl border border-white/8 bg-slate-950/55 p-5">
+        <div className="rounded-3xl border border-white/8 bg-slate-950/55 p-6">
           <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
             对标分析
           </p>
@@ -100,7 +100,7 @@ export function ReportEnrichmentPanel({
       </div>
 
       {/* ROI Framework */}
-      <div className="mt-4 rounded-3xl border border-white/8 bg-slate-950/55 p-5">
+      <div className="mt-4 rounded-3xl border border-white/8 bg-slate-950/55 p-6">
         <p className="text-xs uppercase tracking-[0.18em] text-emerald-100">
           ROI 框架
         </p>
@@ -127,7 +127,7 @@ export function ReportEnrichmentPanel({
       </div>
 
       {/* Instructor Comment */}
-      <div className="mt-4 rounded-3xl border border-violet-300/20 bg-violet-300/5 p-5">
+      <div className="mt-4 rounded-3xl border border-violet-300/20 bg-violet-300/5 p-6">
         <p className="text-xs uppercase tracking-[0.18em] text-violet-100">
           讲师点评 ({instructor_comment.comment_mode})
         </p>

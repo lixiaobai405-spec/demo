@@ -5,6 +5,8 @@ import Link from "next/link";
 
 import { getReportContext } from "@/lib/api";
 import type { ReportContextResponse } from "@/lib/types";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 
 export function ReportContextViewer({ assessmentId }: { assessmentId: string }) {
   const [context, setContext] = useState<ReportContextResponse | null>(null);
@@ -21,12 +23,29 @@ export function ReportContextViewer({ assessmentId }: { assessmentId: string }) 
     return () => { active = false; };
   }, [assessmentId]);
 
-  if (isLoading) return <div className="card text-sm text-warm-secondary">正在加载报告上下文...</div>;
+  if (isLoading) return (
+    <div className="flex flex-col gap-6">
+      <div className="card space-y-3">
+        <Skeleton className="h-6 w-32 rounded-xl" />
+        <Skeleton className="h-8 w-48 rounded-xl" />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Skeleton className="h-40 rounded-xl" />
+          <Skeleton className="h-40 rounded-xl" />
+        </div>
+      </div>
+    </div>
+  );
 
   if (error) return (
-    <div className="rounded-xl msg-error p-6 text-sm">
-      <p>{error}</p>
-      <Link href={`/assessment/${assessmentId}`} className="mt-4 inline-flex btn-secondary text-xs">返回 Assessment 工作台</Link>
+    <div className="rounded-xl msg-error p-6 text-sm space-y-4">
+      <div>
+        <p className="font-medium">报告上下文加载失败</p>
+        <p className="mt-2 opacity-90">{error}</p>
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <Button variant="outline" size="sm" onClick={() => { setError(null); setIsLoading(true); }}>重试加载</Button>
+        <Link href={`/assessment/${assessmentId}`} className="btn-secondary text-xs">返回 Assessment 工作台</Link>
+      </div>
     </div>
   );
 
@@ -57,9 +76,9 @@ export function ReportContextViewer({ assessmentId }: { assessmentId: string }) 
       <div className="card-inset">
         <p className="section-label">报告大纲</p>
         <h2 className="section-heading">下一步报告章节</h2>
-        <ul className="mt-5 grid gap-3 text-sm leading-7 text-warm-text md:grid-cols-2">
+        <ul className="mt-6 grid gap-3 text-sm leading-7 text-warm-text md:grid-cols-2">
           {context.report_outline.map((item, index) => (
-            <li key={item} className="rounded-lg border border-warm-border-light bg-warm-surface px-4 py-3">
+            <li key={item} className="rounded-xl border border-warm-border-light bg-warm-surface px-4 py-3">
               {index + 1}. {item}
             </li>
           ))}
@@ -71,11 +90,15 @@ export function ReportContextViewer({ assessmentId }: { assessmentId: string }) 
 
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-warm-border-light bg-warm-inset p-5">
-      <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">{title}</p>
+    <details className="rounded-xl border border-warm-border-light bg-warm-inset p-6 group" open={false}>
+      <summary className="cursor-pointer select-none">
+        <p className="inline text-xs uppercase tracking-[0.14em] text-warm-muted group-open:text-primary transition-colors">
+          ▸ {title}
+        </p>
+      </summary>
       <div className="mt-3">{children}</div>
-    </div>
+    </details>
   );
 }
 
-const preClassName = "overflow-x-auto rounded-lg bg-warm-surface p-4 text-xs leading-6 text-warm-secondary font-mono";
+const preClassName = "overflow-x-auto rounded-xl bg-warm-surface p-4 text-xs leading-6 text-warm-secondary font-mono";

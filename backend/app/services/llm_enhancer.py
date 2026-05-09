@@ -10,6 +10,7 @@ import re
 from typing import Any
 
 from app.core.config import settings
+
 from app.schemas.assessment import CanvasDiagnosisResult
 from app.schemas.breakthrough import (
     BreakthroughElement,

@@ -28,7 +28,7 @@ export function EndgamePanel({ data }: { data: EndgameResponse }) {
         <span className="badge badge-accent">私域 + 生态 + OPC</span>
       </div>
 
-      <div className="mt-5 rounded-xl border border-warm-accent/15 bg-warm-accent/5 p-5">
+      <div className="mt-6 rounded-xl border border-warm-accent/15 bg-warm-accent/5 p-6">
         <p className="text-xs tracking-[0.14em] text-warm-muted">总体判断</p>
         <div className="mt-3 space-y-2">
           {overall_narrative.split("\n").filter(Boolean).map((line, i) => (
@@ -37,9 +37,9 @@ export function EndgamePanel({ data }: { data: EndgameResponse }) {
         </div>
       </div>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-3">
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
         {/* Private Domain */}
-        <div className="rounded-xl border border-warm-accent/15 bg-warm-accent/5 p-5">
+        <div className="rounded-xl border border-warm-accent/15 bg-warm-accent/5 p-6">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-warm-accent">私域</p>
           <p className="mt-3 text-xs font-medium text-warm-text">{private_domain.target_model}</p>
           <div className="mt-3 space-y-1.5">
@@ -50,11 +50,11 @@ export function EndgamePanel({ data }: { data: EndgameResponse }) {
               </div>
             ))}
           </div>
-          <div className="mt-4 rounded-lg border border-warm-border-light bg-warm-surface p-3">
+          <div className="mt-4 rounded-xl border border-warm-border-light bg-warm-surface p-3">
             <p className="text-[10px] uppercase text-warm-muted">留存飞轮</p>
             <p className="mt-1 text-[11px] leading-4 text-warm-secondary">{private_domain.customer_retention_loop}</p>
           </div>
-          <div className="mt-3 rounded-lg border border-green-200 bg-green-50/40 p-3">
+          <div className="mt-3 rounded-xl border border-green-200 bg-green-50/40 p-3">
             <p className="text-[10px] uppercase text-warm-success">收入影响</p>
             <p className="mt-1 text-[11px] leading-4 text-warm-secondary">{private_domain.revenue_impact}</p>
           </div>
@@ -63,7 +63,7 @@ export function EndgamePanel({ data }: { data: EndgameResponse }) {
         </div>
 
         {/* Ecosystem */}
-        <div className="rounded-xl border border-warm-warning/15 bg-warm-warning/5 p-5">
+        <div className="rounded-xl border border-warm-warning/15 bg-warm-warning/5 p-6">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-warm-warning">生态</p>
           <p className="mt-3 text-xs font-medium text-warm-text">{ecosystem.ecosystem_positioning}</p>
           <div className="mt-3">
@@ -74,18 +74,18 @@ export function EndgamePanel({ data }: { data: EndgameResponse }) {
               ))}
             </div>
           </div>
-          <div className="mt-4 rounded-lg border border-warm-border-light bg-warm-surface p-3">
+          <div className="mt-4 rounded-xl border border-warm-border-light bg-warm-surface p-3">
             <p className="text-[10px] uppercase text-warm-muted">协作策略</p>
             <p className="mt-1 text-[11px] leading-4 text-warm-secondary">{ecosystem.orchestration_strategy}</p>
           </div>
-          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/40 p-3">
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/40 p-3">
             <p className="text-[10px] uppercase text-warm-warning">平台效应</p>
             <p className="mt-1 text-[11px] leading-4 text-warm-secondary">{ecosystem.platform_effect}</p>
           </div>
         </div>
 
         {/* OPC */}
-        <div className="rounded-xl border border-green-200 bg-green-50/30 p-5">
+        <div className="rounded-xl border border-green-200 bg-green-50/30 p-6">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-warm-success">OPC</p>
           <div className="mt-3 space-y-3">
             <div>
@@ -101,14 +101,14 @@ export function EndgamePanel({ data }: { data: EndgameResponse }) {
               <p className="mt-1 text-[11px] leading-4 text-warm-secondary">{opc.content_and_community}</p>
             </div>
           </div>
-          <div className="mt-4 rounded-lg border border-warm-accent/15 bg-warm-accent/5 p-3">
+          <div className="mt-4 rounded-xl border border-warm-accent/15 bg-warm-accent/5 p-3">
             <p className="text-[10px] uppercase text-warm-accent">数据飞轮</p>
             <p className="mt-1 text-[11px] leading-4 text-warm-secondary">{opc.data_flywheel_effect}</p>
           </div>
         </div>
       </div>
 
-      <div className="mt-5">
+      <div className="mt-6">
         <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">多路径推演（{strategic_paths.length} 种策略）</p>
         <div className="mt-4 grid gap-4 lg:grid-cols-3">
           {strategic_paths.map((path, i) => <StrategicPathCard key={i} path={path} />)}
@@ -120,7 +120,7 @@ export function EndgamePanel({ data }: { data: EndgameResponse }) {
 
 function StrategicPathCard({ path }: { path: StrategicPath }) {
   return (
-    <div className={`rounded-xl border p-5 ${pathTypeColor(path.path_type)}`}>
+    <div className={`rounded-xl border p-6 ${pathTypeColor(path.path_type)}`}>
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-sm font-semibold text-warm-text">{path.path_name}</p>

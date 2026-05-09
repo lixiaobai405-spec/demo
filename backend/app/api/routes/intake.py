@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -21,9 +21,14 @@ router = APIRouter(prefix="/api/intake", tags=["intake"])
 )
 def import_intake_content(
     payload: IntakeImportRequest,
+    auto_create: bool = Query(False),
     db: Session = Depends(get_db),
 ) -> IntakeImportResponse:
-    return IntakeService().import_content(db, payload)
+    service = IntakeService()
+    result = service.import_content(db, payload)
+    if auto_create:
+        result = service._auto_create_assessment(db, result)
+    return result
 
 
 @router.post(
@@ -33,9 +38,14 @@ def import_intake_content(
 )
 async def import_intake_file(
     file: UploadFile = File(...),
+    auto_create: bool = Query(False),
     db: Session = Depends(get_db),
 ) -> IntakeImportResponse:
-    return await IntakeService().import_file(db, file)
+    service = IntakeService()
+    result = await service.import_file(db, file)
+    if auto_create:
+        result = service._auto_create_assessment(db, result)
+    return result
 
 
 @router.get(

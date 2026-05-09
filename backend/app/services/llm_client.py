@@ -5,6 +5,7 @@ from typing import Any, TypeVar
 from pydantic import BaseModel
 
 from app.core.config import settings
+
 from app.models.assessment import Assessment
 from app.schemas.assessment import (
     BusinessModelCanvasResult,
@@ -116,10 +117,7 @@ class LLMClient:
         return canvas, "live"
 
     def _use_mock_mode(self) -> bool:
-        if settings.llm_mode != "live":
-            return True
-
-        return not settings.openai_api_key or not settings.openai_model
+        return settings.llm_mode != "live" or not settings.openai_api_key or not settings.openai_model
 
     def _call_live_json_generation(
         self,
