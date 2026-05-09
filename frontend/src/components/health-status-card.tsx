@@ -159,7 +159,7 @@ export function HealthStatusCard() {
         </span>
       </div>
 
-      <div className="mt-5 rounded-xl border border-warm-border-light bg-warm-inset px-4 py-3">
+      <div className="mt-6 rounded-xl border border-warm-border-light bg-warm-inset px-4 py-3">
         <p className="text-xs text-warm-muted">请求地址</p>
         <p className="mt-1 break-all font-mono text-sm text-warm-accent">
           {apiBaseUrl}/health

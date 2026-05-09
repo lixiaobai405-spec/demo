@@ -24,7 +24,7 @@ function AssessmentPageContent() {
               <span className="badge badge-accent">
                 企业问卷 / 企业画像 / 商业画布 / AI 场景 / 案例 / 报告
               </span>
-              <h1 className="font-heading text-4xl font-semibold tracking-tight text-warm-text">
+              <h1 className="font-heading text-4xl font-bold tracking-tight text-warm-text">
                 {tab === "student" ? "企业问卷工作台" : "讲师工作台"}
               </h1>
               <p className="text-base leading-7 text-warm-secondary sm:text-lg">
@@ -50,7 +50,7 @@ function AssessmentPageContent() {
               <button
                 type="button"
                 onClick={() => setTab("student")}
-                className={`rounded-full px-5 py-2 text-sm font-medium transition ${
+                className={`rounded-full px-6 py-2 text-sm font-medium transition ${
                   tab === "student"
                     ? "bg-warm-accent text-white shadow-sm"
                     : "text-warm-muted hover:text-warm-text"
@@ -61,7 +61,7 @@ function AssessmentPageContent() {
               <button
                 type="button"
                 onClick={() => setTab("instructor")}
-                className={`rounded-full px-5 py-2 text-sm font-medium transition ${
+                className={`rounded-full px-6 py-2 text-sm font-medium transition ${
                   tab === "instructor"
                     ? "bg-warm-accent text-white shadow-sm"
                     : "text-warm-muted hover:text-warm-text"
@@ -95,7 +95,7 @@ function AssessmentPageFallback() {
             <span className="badge badge-accent">
               企业问卷 / 企业画像 / 商业画布 / AI 场景 / 案例 / 报告
             </span>
-            <h1 className="font-heading text-4xl font-semibold tracking-tight text-warm-text">
+            <h1 className="font-heading text-4xl font-bold tracking-tight text-warm-text">
               企业问卷工作台
             </h1>
             <p className="text-base leading-7 text-warm-secondary sm:text-lg">

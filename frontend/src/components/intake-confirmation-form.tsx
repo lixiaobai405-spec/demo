@@ -118,8 +118,8 @@ export function IntakeConfirmationForm() {
           ))}
         </div>
       ) : sessionDetail ? (
-        <form onSubmit={handleCreateAssessment} className="mt-6 space-y-5">
-          <div className="grid gap-5 md:grid-cols-2">
+        <form onSubmit={handleCreateAssessment} className="mt-6 space-y-6">
+          <div className="grid gap-6 md:grid-cols-2">
             {intakeFieldDefinitions.map(({ key, label, inputType, required }) => {
               const value = (confirmedForm[key] ?? "") as string;
               const meta = sessionDetail.field_meta[key];
@@ -133,7 +133,7 @@ export function IntakeConfirmationForm() {
                     : "已从原文识别";
 
               return (
-                <label key={key} className="flex flex-col gap-2 text-sm">
+                <label key={key} className="flex flex-col gap-3 text-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium">
@@ -208,7 +208,7 @@ export function IntakeConfirmationForm() {
           </div>
         </form>
       ) : (
-        <p className="mt-5 text-sm leading-6 text-muted-foreground">
+        <p className="mt-6 text-sm leading-6 text-muted-foreground">
           请先完成导入或加载一个已有会话，系统会把预填结果带入这里供你修改确认。
         </p>
       )}

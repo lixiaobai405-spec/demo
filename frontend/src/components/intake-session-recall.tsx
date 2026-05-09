@@ -72,7 +72,7 @@ export function IntakeSessionRecall() {
           ) : null}
 
           {sessionQuery.data ? (
-            <div className="mt-5 space-y-2 text-sm text-muted-foreground">
+            <div className="mt-6 space-y-2 text-sm text-muted-foreground">
               <p>会话 ID：{sessionQuery.data.import_session_id}</p>
               <p>状态：{sessionQuery.data.status}</p>
               <p>来源类型：{sourceTypeLabels[sessionQuery.data.source_type]}</p>

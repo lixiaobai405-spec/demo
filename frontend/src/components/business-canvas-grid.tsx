@@ -14,11 +14,11 @@ export function BusinessCanvasGrid({ canvasDiagnosis }: { canvasDiagnosis: Canva
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-xl border border-warm-border-light bg-warm-inset p-5">
+        <div className="rounded-xl border border-warm-border-light bg-warm-inset p-6">
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-warm-muted">Overall Summary</p>
           <p className="mt-3 text-sm leading-7 text-warm-text">{canvasDiagnosis.canvas.overall_summary}</p>
         </div>
-        <div className="rounded-xl border border-warm-border-light bg-warm-inset p-5">
+        <div className="rounded-xl border border-warm-border-light bg-warm-inset p-6">
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-warm-muted">Diagnosis Meta</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <Metric label="Overall Score" value={`${canvasDiagnosis.overall_score}`} />
@@ -32,7 +32,7 @@ export function BusinessCanvasGrid({ canvasDiagnosis }: { canvasDiagnosis: Canva
 
       <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {canvasDiagnosis.canvas.blocks.map((block) => (
-          <div key={block.key} className="rounded-xl border border-warm-border-light bg-warm-inset p-5">
+          <div key={block.key} className="rounded-xl border border-warm-border-light bg-warm-inset p-6">
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-warm-accent">{block.title}</p>
             <div className="mt-4 space-y-4 text-sm leading-7 text-warm-text">
               <CanvasDetail label="当前状态" content={block.current_state} />
@@ -58,7 +58,7 @@ function CanvasDetail({ label, content }: { label: string; content: string }) {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-warm-surface px-4 py-3">
+    <div className="rounded-xl bg-warm-surface px-4 py-3">
       <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">{label}</p>
       <p className="mt-2 text-xl font-semibold text-warm-text">{value}</p>
     </div>
@@ -71,7 +71,7 @@ function ListSection({ title, items, className }: { title: string; items: string
       <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">{title}</p>
       <ul className="mt-3 space-y-2">
         {items.map((item, i) => (
-          <li key={`${title}-${i}`} className="rounded-lg bg-warm-surface px-4 py-3 text-sm text-warm-text">{item}</li>
+          <li key={`${title}-${i}`} className="rounded-xl bg-warm-surface px-4 py-3 text-sm text-warm-text">{item}</li>
         ))}
       </ul>
     </div>

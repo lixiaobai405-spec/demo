@@ -31,15 +31,15 @@ export function IntakeFieldCard({
   candidate?: IntakeFieldCandidate | null;
 }) {
   return (
-    <div className="rounded-xl border bg-card p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-foreground">{label}</p>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+    <div className="rounded-xl border bg-card p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold text-foreground">{label}</p>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
             {value?.trim() ? value : "尚未识别，需用户补充"}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2 text-xs">
+        <div className="flex flex-wrap gap-2 text-xs shrink-0">
           <Badge variant="accent">
             来源：{meta ? metaSourceLabels[meta.source_type] ?? "未知" : "未知"}
           </Badge>
@@ -49,7 +49,7 @@ export function IntakeFieldCard({
         </div>
       </div>
       {candidate ? (
-        <p className="mt-3 text-xs leading-5 text-muted-foreground">
+        <p className="mt-4 text-xs leading-5 text-muted-foreground border-t border-border pt-4">
           证据：{candidate.evidence}
         </p>
       ) : null}

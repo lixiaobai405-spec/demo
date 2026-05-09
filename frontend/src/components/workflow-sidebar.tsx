@@ -62,7 +62,7 @@ export function WorkflowSidebar({
       <div className="card-inset">
         <p className="section-label">工作流</p>
         <h2 className="section-heading">当前状态</h2>
-        <div className="mt-5 space-y-3">
+        <div className="mt-6 space-y-3">
           <StepItem
             title="企业问卷"
             status={assessment ? "done" : "current"}
@@ -100,7 +100,7 @@ export function WorkflowSidebar({
       <div className="card">
         <p className="section-label">操作</p>
         <h2 className="section-heading">生成与回看</h2>
-        <div className="mt-5 grid gap-3">
+        <div className="mt-6 grid gap-3">
           <ActionBtn
             onClick={onGenerateProfile}
             disabled={!assessment || isPendingProfile}

@@ -35,7 +35,7 @@ export default async function AssessmentDetailPage({
                 <span className="badge badge-accent">
                   Assessment 回看 / 状态恢复
                 </span>
-                <h1 className="font-heading text-4xl font-semibold tracking-tight text-warm-text">
+                <h1 className="font-heading text-4xl font-bold tracking-tight text-warm-text">
                   企业问卷工作台
                 </h1>
                 <p className="text-base leading-7 text-warm-secondary sm:text-lg">
@@ -44,7 +44,7 @@ export default async function AssessmentDetailPage({
                 </p>
               </div>
 
-              <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-5 py-4 text-sm text-amber-800">
+              <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-6 py-4 text-sm text-amber-800">
                 <p className="font-medium">当前 Assessment</p>
                 <p className="mt-2 break-all font-mono text-amber-700/90">{assessmentId}</p>
               </div>

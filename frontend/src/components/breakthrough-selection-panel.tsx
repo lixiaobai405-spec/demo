@@ -62,7 +62,7 @@ export function BreakthroughSelectionPanel({
       ) : (
         <>
           <div className="mt-6 flex flex-col gap-4 lg:flex-row lg:items-start">
-            <div className="flex-1 rounded-xl border border-warm-accent/15 bg-warm-accent/5 p-5">
+            <div className="flex-1 rounded-xl border border-warm-accent/15 bg-warm-accent/5 p-6">
               <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">系统建议</p>
               <p className="mt-3 text-sm leading-7 text-warm-secondary">{overall_suggestion}</p>
               {recommended_keys.length > 0 && (
@@ -74,7 +74,7 @@ export function BreakthroughSelectionPanel({
                 </div>
               )}
             </div>
-            <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-5 py-4 text-sm text-amber-800 lg:max-w-[220px]">
+            <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-6 py-4 text-sm text-amber-800 lg:max-w-[220px]">
               <p className="font-medium">选择规则</p>
               <ul className="mt-2 list-inside list-disc space-y-1">
                 <li>必须选择 2-3 个要素</li>
@@ -109,7 +109,7 @@ function ElementCard({ element, isRecommended, isSelected, showToggle, onToggle 
 }) {
   return (
     <button type="button" onClick={onToggle}
-      className={`rounded-xl border bg-warm-inset p-5 text-left transition ${
+      className={`rounded-xl border bg-warm-inset p-6 text-left transition ${
         isSelected ? "border-warm-accent/40 bg-warm-accent/5 ring-1 ring-warm-accent/15" : "border-warm-border-light hover:border-warm-border hover:shadow-card"
       }`}
     >

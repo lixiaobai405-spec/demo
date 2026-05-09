@@ -47,7 +47,7 @@ export function PushPanel({ assessmentId, onPlanRefresh }: { assessmentId: strin
       {pushError && <div className="mt-3 text-sm text-warm-danger">{pushError}</div>}
 
       {pushResult && (
-        <div className="mt-5 rounded-xl border border-warm-accent/15 bg-warm-accent/5 p-5">
+        <div className="mt-6 rounded-xl border border-warm-accent/15 bg-warm-accent/5 p-6">
           <div className="flex items-center gap-3">
             <span className="badge badge-accent">第 {pushResult.cycle} 轮 · 双周推送</span>
             <span className="text-xs text-warm-muted">库中共 {pushResult.total_available} 个案例，已推送 {pushResult.previous_case_ids.length} 个</span>
@@ -84,7 +84,7 @@ export function PushPanel({ assessmentId, onPlanRefresh }: { assessmentId: strin
         </div>
       )}
 
-      <div className="mt-6 rounded-xl border border-warm-border-light bg-warm-inset p-5">
+      <div className="mt-6 rounded-xl border border-warm-border-light bg-warm-inset p-6">
         <p className="text-xs font-semibold text-warm-text">方案再校准</p>
         <p className="mt-1 text-xs leading-5 text-warm-muted">根据新的案例学习调整跟进计划：选择已完成的任务、记录复盘心得。</p>
         <textarea className="input-field mt-3" rows={3} placeholder="输入本次复盘心得（如：从XX案例中发现，我们的试点范围应该扩大...）" value={recalNote} onChange={(e) => setRecalNote(e.target.value)} />

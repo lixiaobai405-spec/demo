@@ -77,22 +77,27 @@ export function IntakeImportSection() {
 
       store.setIsImporting(true);
       try {
-        let sessionId: string;
+        let result: { import_session_id: string; created_assessment_id?: string | null };
         if (store.sourceType === "file" && store.selectedUploadFile) {
           store.setUploadStage("uploading");
-          const result = await importFileMutation.mutateAsync(store.selectedUploadFile);
-          sessionId = result.import_session_id;
+          result = await importFileMutation.mutateAsync(store.selectedUploadFile);
           store.setUploadStage("parsing");
         } else {
-          const result = await importMutation.mutateAsync({
+          result = await importMutation.mutateAsync({
             sourceType: store.sourceType,
             rawContent: store.sourceType === "form" ? null : store.rawContent,
             structuredFields: store.sourceType === "form" ? buildStructuredFieldPayload(store.structuredFields ?? emptyConfirmedForm) : undefined,
           });
-          sessionId = result.import_session_id;
         }
-        store.setImportSessionId(sessionId);
+        store.setImportSessionId(result.import_session_id);
         store.setUploadStage("completed");
+
+        // Auto-redirect if assessment was auto-created
+        if (result.created_assessment_id) {
+          toast({ title: "导入完成", description: "正在跳转到企业问卷工作台...", variant: "success" });
+          router.push(`/assessment/${result.created_assessment_id}`);
+          return;
+        }
       } catch (error) {
         store.setUploadStage("idle");
         toast({ title: "导入失败", description: formatImportError(error), variant: "destructive" });
@@ -121,8 +126,8 @@ export function IntakeImportSection() {
         </Button>
       </div>
 
-      <form onSubmit={handleImport} className="mt-6 space-y-5">
-        <label className="flex flex-col gap-2 text-sm">
+      <form onSubmit={handleImport} className="mt-6 space-y-6">
+        <label className="flex flex-col gap-3 text-sm">
           <span className="font-medium">输入类型</span>
           <select
             value={store.sourceType}
@@ -137,12 +142,12 @@ export function IntakeImportSection() {
 
         {store.sourceType === "form" ? (
           <div className="space-y-4">
-            <div className="rounded-xl border border-border bg-secondary p-4 text-sm text-muted-foreground">
+            <div className="rounded-xl border border-border bg-secondary p-6 text-sm leading-relaxed text-muted-foreground">
               结构化表单模式适合销售或顾问在沟通时直接录入已知信息。可先填写已有字段，未填项会在下一步继续补充确认。
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               {intakeFieldDefinitions.map(({ key, label, inputType }) => (
-                <label key={key} className="flex flex-col gap-2 text-sm">
+                <label key={key} className="flex flex-col gap-3 text-sm">
                   <span className="font-medium">{label}</span>
                   {inputType === "textarea" ? (
                     <Textarea
@@ -162,9 +167,9 @@ export function IntakeImportSection() {
             </div>
           </div>
         ) : store.sourceType === "file" ? (
-          <label className="flex flex-col gap-2 text-sm">
+          <label className="flex flex-col gap-3 text-sm">
             <span className="font-medium">上传文件</span>
-            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-border bg-secondary px-4 py-4">
+            <div className="flex flex-wrap items-center gap-4 rounded-xl border border-dashed border-border bg-secondary px-6 py-6">
               <label className="cursor-pointer text-xs">
                 <span className="btn-secondary text-xs">
                   选择 txt / md / pdf / docx 文件
@@ -180,7 +185,7 @@ export function IntakeImportSection() {
                 {store.selectedFileName ? `待上传文件：${store.selectedFileName}` : "服务端会提取文件文本后生成预填建议"}
               </span>
             </div>
-            <div className="rounded-xl border border-border bg-secondary p-4 text-sm text-muted-foreground">
+            <div className="rounded-xl border border-border bg-secondary p-6 text-sm leading-relaxed text-muted-foreground">
               <p>上传限制：支持 {allowedUploadExtensions.join(" / ")}，单文件最大 {formatFileSize(maxUploadSizeBytes)}。</p>
               <p className="mt-2">
                 当前状态：{getUploadStageLabel(store.uploadStage)}
@@ -192,7 +197,7 @@ export function IntakeImportSection() {
             </div>
           </label>
         ) : (
-          <label className="flex flex-col gap-2 text-sm">
+          <label className="flex flex-col gap-3 text-sm">
             <span className="font-medium">原始材料</span>
             <Textarea
               value={store.rawContent}

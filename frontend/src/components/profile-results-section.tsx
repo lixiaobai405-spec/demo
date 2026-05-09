@@ -40,7 +40,7 @@ export function ProfileResultsSection({
 
 function ProfileBlock({ title, content }: { title: string; content: string }) {
   return (
-    <div className="rounded-xl border border-border bg-secondary p-5">
+    <div className="rounded-xl border border-border bg-secondary p-6">
       <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
         {title}
       </p>
@@ -51,7 +51,7 @@ function ProfileBlock({ title, content }: { title: string; content: string }) {
 
 function ListBlock({ title, items }: { title: string; items: string[] }) {
   return (
-    <div className="rounded-xl border border-border bg-secondary p-5">
+    <div className="rounded-xl border border-border bg-secondary p-6">
       <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
         {title}
       </p>
@@ -59,7 +59,7 @@ function ListBlock({ title, items }: { title: string; items: string[] }) {
         {items.map((item, i) => (
           <li
             key={`${title}-${i}`}
-            className="rounded-lg bg-card px-4 py-3 text-sm"
+            className="rounded-xl bg-card px-4 py-3 text-sm"
           >
             {item}
           </li>

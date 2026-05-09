@@ -170,8 +170,38 @@ export function AssessmentWorkspace({
         hasScenarios: store.scenarioRecommendation !== null,
       }));
       toast({ title: "突破要素已保存" });
+
+      // Fire directions + scenarios in parallel (both only depend on canvas + breakthrough)
+      Promise.allSettled([
+        (async () => {
+          try {
+            const dResult = await expandDirections.mutateAsync(store.assessment!.id);
+            store.setDirectionData(dResult);
+            if (dResult.direction_selection && dResult.direction_selection.selected_directions.length > 0) {
+              store.setDirectionSelection(dResult.direction_selection);
+              store.setSelectedDirectionIds(dResult.direction_selection.selected_directions.map((d) => d.direction_id));
+            }
+            toast({ title: "创新方向延展已生成" });
+          } catch (_e) { }
+        })(),
+        (async () => {
+          try {
+            const sResult = await generateScenarios.mutateAsync(store.assessment!.id);
+            store.setAssessment(sResult.assessment);
+            store.setScenarioRecommendation(sResult.scenario_recommendation);
+            setProgress((prev) => computeProgress({
+              hasAssessment: true,
+              hasProfile: store.companyProfile !== null,
+              hasCanvas: store.canvasDiagnosis !== null,
+              hasBreakthrough: true,
+              hasScenarios: true,
+            }));
+            toast({ title: "场景推荐已生成" });
+          } catch (_e) { }
+        })(),
+      ]);
     } catch (_e) { }
-  }, [store, selectBreakthrough]);
+  }, [store, selectBreakthrough, expandDirections, generateScenarios]);
 
   const handleGenerateDirections = useCallback(async () => {
     if (!store.assessment) return;
@@ -236,12 +266,25 @@ export function AssessmentWorkspace({
     } catch (_e) { }
   }, [store.assessment, generateEndgame, store]);
 
+  // --- Which step is currently generating? (for stepper pulse) ---
+  const activeGenStep: number | null =
+    generateProfile.isPending ? 2 :
+    generateCanvas.isPending ? 3 :
+    recommendBreakthrough.isPending || selectBreakthrough.isPending ? 4 :
+    expandDirections.isPending || selectDirections.isPending ? 5 :
+    generateCompetitiveness.isPending ? 6 :
+    generateScenarios.isPending ? 7 :
+    null;
+
   // --- Loading / Error states ---
   if (detailQuery.isLoading) return <AssessmentSkeleton />;
   if (detailQuery.isError) {
     return (
-      <div className="rounded-xl msg-error p-6 text-sm">
-        {detailQuery.error instanceof Error ? detailQuery.error.message : "Assessment 加载失败。"}
+      <div className="rounded-xl msg-error p-6 text-sm space-y-4">
+        <p>{detailQuery.error instanceof Error ? detailQuery.error.message : "Assessment 加载失败。"}</p>
+        <button type="button" onClick={() => detailQuery.refetch()} className="btn-secondary text-xs">
+          重试加载
+        </button>
       </div>
     );
   }
@@ -254,9 +297,9 @@ export function AssessmentWorkspace({
 
   return (
     <section className="flex flex-col gap-6">
-      <ProgressStepper hasAssessment={currentAssessment !== null} progress={progress} />
+      <ProgressStepper hasAssessment={currentAssessment !== null} progress={progress} activeStep={activeGenStep} />
 
-      <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+      <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]" id="section-assessment-form">
         <AssessmentFormSection
           assessmentId={assessmentId}
           prefillSummary={prefillSummary}
@@ -297,16 +340,20 @@ export function AssessmentWorkspace({
       </div>
 
       {/* Results panels */}
-      {store.companyProfile && (
+      <section id="section-profile-results">
+        {store.companyProfile && (
         <ProfileResultsSection
           companyProfile={store.companyProfile}
           profileMode={store.profileMode}
         />
       )}
+      </section>
 
-      {store.canvasDiagnosis && (
+      <section id="section-canvas-grid">
+        {store.canvasDiagnosis && (
         <BusinessCanvasGrid canvasDiagnosis={store.canvasDiagnosis} />
       )}
+      </section>
 
       {!store.canvasDiagnosis && (
         <div className="card-inset">
@@ -317,7 +364,8 @@ export function AssessmentWorkspace({
         </div>
       )}
 
-      {store.breakthroughData && (
+      <section id="section-breakthrough">
+        {store.breakthroughData && (
         <BreakthroughSelectionPanel
           data={store.breakthroughData}
           selectedKeys={store.selectedBreakthroughKeys}
@@ -326,6 +374,7 @@ export function AssessmentWorkspace({
           onConfirmSelection={handleSelectBreakthrough}
         />
       )}
+      </section>
 
       {store.directionData && store.directionSelection && store.directionSelection.selected_directions.length > 0 && (
         <DirectionExpansionPanel

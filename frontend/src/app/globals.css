@@ -305,7 +305,8 @@ textarea.input-field {
   margin-top: 0.5rem;
   font-family: var(--font-heading);
   font-size: 1.5rem;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: hsl(var(--foreground));
 }
 
@@ -401,6 +402,119 @@ textarea.input-field {
   font-size: 0.875rem;
   line-height: 1.75;
   color: hsl(var(--muted-foreground));
+}
+
+/* ── MD3 Stepper ── */
+
+/* Step dot (circle) */
+.stepper-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  z-index: 1;
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stepper-dot-done {
+  color: #FFFDF9;
+}
+
+.stepper-dot-active {
+  animation: stepperPulse 1.5s ease-in-out infinite;
+}
+
+.stepper-dot-pending {
+  background: rgba(107, 95, 80, 0.08);
+  color: hsl(var(--muted-foreground));
+  border: 2px solid hsl(var(--border));
+}
+
+/* Pulse animation for the active step */
+@keyframes stepperPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212, 168, 83, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(212, 168, 83, 0); }
+}
+
+/* Horizontal connecting line */
+.stepper-dot-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.stepper-connector-wrapper {
+  flex: 0 0 24px;
+  display: flex;
+  align-items: center;
+  padding-top: 14px;
+  margin: 0 -2px;
+}
+
+.stepper-connector {
+  height: 2px;
+  flex: 1;
+  background: hsl(var(--border));
+  border-radius: 1px;
+  transition: background 0.4s ease;
+}
+
+.stepper-connector-done {
+  background: hsl(var(--primary));
+}
+
+/* Vertical stepper (small screens) */
+.stepper-vertical-row {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  border: none;
+  background: none;
+  text-align: left;
+  width: 100%;
+  padding: 0;
+}
+
+.stepper-vertical-track {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 28px;
+  flex-shrink: 0;
+}
+
+.stepper-vertical-line {
+  width: 2px;
+  flex: 1;
+  min-height: 24px;
+  background: hsl(var(--border));
+  border-radius: 1px;
+  margin: 4px 0;
+  transition: background 0.4s ease;
+}
+
+/* Hover scale on clickable dots */
+button:not([disabled]) .stepper-dot:hover {
+  transform: scale(1.15);
+}
+
+.stepper-step {
+  border: none;
+  background: none;
+  text-align: center;
+  padding: 0;
+  outline: none;
+}
+
+.stepper-step:focus-visible .stepper-dot {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
 }
 
 /* ── Utility animations ── */

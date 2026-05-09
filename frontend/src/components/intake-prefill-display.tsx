@@ -56,13 +56,13 @@ export function IntakePrefillDisplay() {
       </div>
 
       {sessionQuery.isLoading ? (
-        <div className="mt-5 space-y-4">
+        <div className="mt-6 space-y-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-24 rounded-xl" />
           ))}
         </div>
       ) : sessionDetail ? (
-        <div className="mt-5 space-y-6">
+        <div className="mt-6 space-y-6">
           {sessionDetail.warnings.length > 0 ? (
             <div className="rounded-xl msg-warning p-4 text-sm">
               <p className="font-medium">提示信息</p>
@@ -103,11 +103,11 @@ export function IntakePrefillDisplay() {
           ) : null}
         </div>
       ) : sessionQuery.isError ? (
-        <div className="mt-5 rounded-xl msg-error p-4 text-sm">
+        <div className="mt-6 rounded-xl msg-error p-4 text-sm">
           {sessionQuery.error instanceof Error ? sessionQuery.error.message : "加载失败"}
         </div>
       ) : (
-        <p className="mt-5 text-sm leading-6 text-muted-foreground">
+        <p className="mt-6 text-sm leading-6 text-muted-foreground">
           导入成功后，这里会展示每个问卷字段的预填值、来源标签、确认状态和证据。
         </p>
       )}

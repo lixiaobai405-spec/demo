@@ -79,7 +79,7 @@ export function AssessmentFormSection({
         <div className="mt-4 rounded-xl msg-error p-4 text-sm">{prefillError}</div>
       ) : null}
 
-      <div className="mt-6 grid gap-5 md:grid-cols-2">
+      <div className="mt-6 grid gap-6 md:grid-cols-2">
         <Field label="企业名称" required>
           <input
             value={externalForm.company_name}
@@ -138,7 +138,7 @@ export function AssessmentFormSection({
         </Field>
       </div>
 
-      <div className="mt-5 grid gap-5">
+      <div className="mt-6 grid gap-6">
         <Field label="核心产品/服务" required>
           <textarea
             value={externalForm.core_products}
@@ -182,7 +182,7 @@ export function AssessmentFormSection({
       </div>
 
       {submitError ? (
-        <div className="mt-5 rounded-xl msg-error p-4 text-sm">{submitError}</div>
+        <div className="mt-6 rounded-xl msg-error p-4 text-sm">{submitError}</div>
       ) : null}
 
       <div className="mt-6 flex flex-wrap gap-3">

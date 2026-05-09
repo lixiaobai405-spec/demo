@@ -121,6 +121,53 @@ class DocumentChunker:
 
         return chunks
 
+    def chunk_user_document(
+        self,
+        content: str,
+        source_file: str,
+        metadata: dict | None = None,
+        max_chunk_size: int = 1000,
+    ) -> list[RAGChunk]:
+        """Chunk a user-uploaded document for RAG ingestion."""
+        chunks = []
+        # Split by double newlines, then by size
+        paragraphs = content.split("\n\n")
+        current_chunk = ""
+        current_title = metadata.get("title", source_file) if metadata else source_file
+
+        for para in paragraphs:
+            para = para.strip()
+            if not para:
+                continue
+            if len(current_chunk) + len(para) > max_chunk_size and current_chunk:
+                chunk_id = hashlib.md5(current_chunk.encode()).hexdigest()[:8]
+                chunks.append(RAGChunk(
+                    chunk_id=f"userdoc_{chunk_id}",
+                    doc_id=source_file,
+                    source_file=source_file,
+                    source_type="user_upload",
+                    title=current_title,
+                    content=current_chunk.strip(),
+                    metadata=metadata or {},
+                ))
+                current_chunk = para
+            else:
+                current_chunk += ("\n\n" if current_chunk else "") + para
+
+        if current_chunk.strip():
+            chunk_id = hashlib.md5(current_chunk.encode()).hexdigest()[:8]
+            chunks.append(RAGChunk(
+                chunk_id=f"userdoc_{chunk_id}",
+                doc_id=source_file,
+                source_file=source_file,
+                source_type="user_upload",
+                title=current_title,
+                content=current_chunk.strip(),
+                metadata=metadata or {},
+            ))
+
+        return chunks
+
     def chunk_all(
         self,
         cases: list[dict],

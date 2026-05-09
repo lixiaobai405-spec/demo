@@ -91,12 +91,12 @@ class IntakeImportResponse(BaseModel):
     field_candidates: dict[str, IntakeFieldCandidate] = Field(default_factory=dict)
     unmapped_notes: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    created_assessment_id: str | None = None
 
 
 class IntakeSessionDetailResponse(IntakeImportResponse):
     raw_content: str | None = None
     structured_fields: dict[str, str] = Field(default_factory=dict)
-    created_assessment_id: str | None = None
     created_at: str
     updated_at: str
 

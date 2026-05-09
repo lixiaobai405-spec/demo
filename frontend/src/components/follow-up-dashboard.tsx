@@ -101,12 +101,12 @@ export function FollowUpDashboard({ plan, assessmentId, onRefresh }: {
                   <span>{task.owner_suggestion}</span><span>→ {task.deliverable}</span>
                 </div>
                 {task.progress_note && (
-                  <div className="mt-2 rounded-lg border border-warm-border-light bg-warm-surface p-2">
+                  <div className="mt-2 rounded-xl border border-warm-border-light bg-warm-surface p-2">
                     <p className="text-xs leading-5 text-warm-secondary">{task.progress_note}</p>
                   </div>
                 )}
                 {task.blocker_description && (
-                  <div className="mt-2 rounded-lg border border-red-200 bg-red-50/40 p-2">
+                  <div className="mt-2 rounded-xl border border-red-200 bg-red-50/40 p-2">
                     <p className="text-xs leading-5 text-warm-danger">阻塞原因：{task.blocker_description}</p>
                   </div>
                 )}
@@ -118,15 +118,15 @@ export function FollowUpDashboard({ plan, assessmentId, onRefresh }: {
                     <input className="w-40 input-field text-xs py-1.5" placeholder="进展备注..." value={noteDraft}
                       onChange={(e) => setNoteDraft(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") handleSaveNote(task); if (e.key === "Escape") setEditingTaskId(null); }} autoFocus />
-                    <button onClick={() => handleSaveNote(task)} disabled={updating} className="rounded-lg bg-warm-success/15 px-2.5 py-1.5 text-[10px] text-warm-success hover:bg-warm-success/25">保存</button>
+                    <button onClick={() => handleSaveNote(task)} disabled={updating} className="rounded-xl bg-warm-success/15 px-2.5 py-1.5 text-[10px] text-warm-success hover:bg-warm-success/25">保存</button>
                   </div>
                 ) : (
                   <>
-                    <button onClick={() => handleQuickStatus(task, "completed")} disabled={updating || task.status === "completed"} className="rounded-lg bg-green-100 px-2 py-1 text-[10px] text-warm-success hover:bg-green-200 disabled:opacity-40">✓ 完成</button>
-                    <button onClick={() => handleQuickStatus(task, "in_progress")} disabled={updating || task.status === "completed"} className="rounded-lg bg-amber-100 px-2 py-1 text-[10px] text-warm-warning hover:bg-amber-200 disabled:opacity-40">启动</button>
-                    <button onClick={() => { setEditingTaskId(task.task_id); setNoteDraft(task.progress_note || ""); }} className="rounded-lg border border-warm-border px-2 py-1 text-[10px] text-warm-muted hover:bg-warm-surface">备注</button>
+                    <button onClick={() => handleQuickStatus(task, "completed")} disabled={updating || task.status === "completed"} className="rounded-xl bg-green-100 px-2 py-1 text-[10px] text-warm-success hover:bg-green-200 disabled:opacity-40">✓ 完成</button>
+                    <button onClick={() => handleQuickStatus(task, "in_progress")} disabled={updating || task.status === "completed"} className="rounded-xl bg-amber-100 px-2 py-1 text-[10px] text-warm-warning hover:bg-amber-200 disabled:opacity-40">启动</button>
+                    <button onClick={() => { setEditingTaskId(task.task_id); setNoteDraft(task.progress_note || ""); }} className="rounded-xl border border-warm-border px-2 py-1 text-[10px] text-warm-muted hover:bg-warm-surface">备注</button>
                     <button onClick={() => handleToggleBlock(task)} disabled={updating || task.status === "completed"}
-                      className={`rounded-lg px-2 py-1 text-[10px] ${task.blocked ? "bg-red-100 text-warm-danger hover:bg-red-200" : "border border-warm-border text-warm-muted hover:bg-red-50 hover:text-warm-danger"} disabled:opacity-40`}>
+                      className={`rounded-xl px-2 py-1 text-[10px] ${task.blocked ? "bg-red-100 text-warm-danger hover:bg-red-200" : "border border-warm-border text-warm-muted hover:bg-red-50 hover:text-warm-danger"} disabled:opacity-40`}>
                       {task.blocked ? "解除阻塞" : "标记阻塞"}
                     </button>
                   </>

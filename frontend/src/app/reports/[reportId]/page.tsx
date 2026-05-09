@@ -19,7 +19,7 @@ export default async function ReportDocumentPage({
                 ← 返回 Assessment 列表入口
               </Link>
               <span className="badge badge-success">HTML Report Preview</span>
-              <h1 className="font-heading text-4xl font-semibold tracking-tight text-warm-text">
+              <h1 className="font-heading text-4xl font-bold tracking-tight text-warm-text">
                 富文本报告预览页
               </h1>
               <p className="text-base leading-7 text-warm-secondary sm:text-lg">
@@ -27,7 +27,7 @@ export default async function ReportDocumentPage({
               </p>
             </div>
 
-            <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-5 py-4 text-sm text-amber-800">
+            <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-6 py-4 text-sm text-amber-800">
               <p className="font-medium">Report ID</p>
               <p className="mt-2 break-all font-mono text-amber-700/90">{reportId}</p>
             </div>
