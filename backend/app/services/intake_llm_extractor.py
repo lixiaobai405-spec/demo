@@ -13,6 +13,7 @@ import logging
 
 from app.core.config import settings
 
+
 logger = logging.getLogger(__name__)
 
 ASSESSMENT_FIELD_NAMES: dict[str, str] = {
@@ -87,9 +88,7 @@ class IntakeLLMExtractor:
             return {k: "" for k in ASSESSMENT_FIELD_NAMES}
 
     def _use_mock_mode(self) -> bool:
-        if settings.llm_mode != "live":
-            return True
-        return not settings.openai_api_key or not settings.openai_model
+        return settings.llm_mode != "live" or not settings.openai_api_key or not settings.openai_model
 
     def _call_llm(self, raw_text: str) -> dict[str, str]:
         from openai import OpenAI

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { HealthStatusCard } from "@/components/health-status-card";
+import { LLMConfigCard } from "@/components/llm-config-card";
 
 const milestoneItems = [
   "创建企业问卷",
@@ -69,6 +70,11 @@ export default function Home() {
               ))}
             </ul>
           </div>
+        </section>
+
+        {/* LLM Config */}
+        <section>
+          <LLMConfigCard />
         </section>
       </div>
     </main>

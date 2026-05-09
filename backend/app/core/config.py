@@ -20,7 +20,7 @@ def load_env_file(env_file: Path) -> None:
         key, value = line.split("=", 1)
         cleaned_key = key.strip()
         cleaned_value = value.strip().strip('"').strip("'")
-        os.environ.setdefault(cleaned_key, cleaned_value)
+        os.environ[cleaned_key] = cleaned_value
 
 
 def _load_mykey() -> dict:
@@ -116,3 +116,11 @@ class Settings:
 
 
 settings = Settings()
+
+
+def reload_settings() -> None:
+    """Re-read .env and mykey.py, then replace the global settings object."""
+    global _mykey, settings
+    load_env_file(ENV_FILE)
+    _mykey = _load_mykey()
+    settings = Settings()
