@@ -94,7 +94,15 @@ export function BreakthroughSelectionPanel({
             <button type="button" onClick={onConfirmSelection} disabled={isSelecting || selectedKeys.length < 2 || selectedKeys.length > 3} className="btn-primary">
               {isSelecting ? "保存中..." : selectedKeys.length < 2 ? `请至少选择 2 个要素（已选 ${selectedKeys.length}）` : selectedKeys.length > 3 ? `最多选择 3 个要素（已选 ${selectedKeys.length}）` : `确认选择（${selectedKeys.length} 个要素）`}
             </button>
-            <button type="button" onClickCapture={(e) => { e.preventDefault(); selectedKeys.forEach((k) => onToggleElement(k)); }} className="btn-secondary">
+            <button
+              type="button"
+              onClickCapture={(e) => {
+                e.preventDefault();
+                if (!window.confirm("确定要清空已选择的突破要素吗？此操作不可撤销。")) return;
+                selectedKeys.forEach((k) => onToggleElement(k));
+              }}
+              className="btn-secondary"
+            >
               清空选择
             </button>
           </div>

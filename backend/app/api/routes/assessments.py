@@ -223,7 +223,7 @@ def recommend_breakthrough(
 
     recommendation = None
     enhancer = LLMEnhancer()
-    llm_result = enhancer.enhance_breakthrough(canvas)
+    llm_result = enhancer.enhance_breakthrough(canvas, assessment_id=assessment_id)
     if llm_result is not None:
         recommendation = llm_result
     else:

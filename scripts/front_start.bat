@@ -16,8 +16,15 @@ if not exist "node_modules\next" (
   )
 )
 
-:: Find available port (auto-fallback)
-for /f "usebackq delims=" %%p in (`node "%~dp0find_port.js" 3001`) do set "PORT=%%p"
+:: Resolve port and clean up a stale local frontend if needed
+for /f "usebackq delims=" %%p in (`powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0resolve_frontend_port.ps1" -PreferredPort 3001 -FrontendDir "%CD%"`) do set "PORT=%%p"
+
+if not defined PORT (
+  echo [Meitai Demo] ERROR: failed to resolve frontend port
+  pause
+  popd
+  exit /b 1
+)
 
 echo [Meitai Demo] Frontend - http://localhost:%PORT%
 call npx next dev -p %PORT%

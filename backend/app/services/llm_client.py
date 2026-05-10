@@ -87,6 +87,18 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
 class LLMClient:
+    # ── Simple in-memory cache: avoids duplicate LLM calls on re-generation ──
+    _cache: dict[str, tuple[Any, str]] = {}
+
+    @classmethod
+    def _cache_key(cls, prefix: str, assessment_id: str) -> str:
+        return f"{prefix}:{assessment_id}"
+
+    @classmethod
+    def invalidate_cache(cls, assessment_id: str) -> None:
+        for prefix in ("profile", "canvas"):
+            cls._cache.pop(cls._cache_key(prefix, assessment_id), None)
+
     def generate_company_profile(
         self,
         assessment: Assessment,
@@ -94,12 +106,19 @@ class LLMClient:
         if self._use_mock_mode():
             return self._build_mock_profile(assessment), "mock"
 
+        cache_key = self._cache_key("profile", assessment.id)
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         profile = self._call_live_json_generation(
             model_class=CompanyProfileResult,
             system_prompt=PROFILE_SYSTEM_PROMPT,
             user_prompt=self._build_profile_prompt(assessment),
         )
-        return profile, "live"
+        result = (profile, "live")
+        self._cache[cache_key] = result
+        return result
 
     def generate_business_model_canvas(
         self,
@@ -109,12 +128,19 @@ class LLMClient:
         if self._use_mock_mode():
             return self._build_mock_canvas(assessment, profile), "mock"
 
+        cache_key = self._cache_key("canvas", assessment.id)
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         canvas = self._call_live_json_generation(
             model_class=BusinessModelCanvasResult,
             system_prompt=CANVAS_SYSTEM_PROMPT,
             user_prompt=self._build_canvas_prompt(assessment, profile),
         )
-        return canvas, "live"
+        result = (canvas, "live")
+        self._cache[cache_key] = result
+        return result
 
     def _use_mock_mode(self) -> bool:
         return settings.llm_mode != "live" or not settings.openai_api_key or not settings.openai_model

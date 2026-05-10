@@ -1,7 +1,8 @@
-"""RAG retriever with hybrid matching support."""
+"""RAG retriever with hybrid matching (rule + vector), plus optional LightRAG graph retrieval."""
 import os
 from datetime import datetime
 
+from app.core.config import settings
 from app.rag.chunker import DocumentChunker
 from app.rag.document_loader import DocumentLoader
 from app.rag.embeddings import EmbeddingManager
@@ -10,7 +11,7 @@ from app.rag.vector_store import VectorStore
 
 
 class RAGRetriever:
-    """RAG retriever with hybrid matching (rule + vector)."""
+    """RAG retriever — delegates to LightRAG when LIGHTRAG_ENABLED=true, else ChromaDB."""
 
     def __init__(
         self,
@@ -20,15 +21,25 @@ class RAGRetriever:
     ):
         self.rag_enabled = (
             rag_enabled if rag_enabled is not None
-            else os.getenv("RAG_ENABLED", "false").lower() == "true"
+            else (settings.rag_enabled or settings.lightrag_enabled)
         )
         self.persist_dir = persist_dir or os.getenv("CHROMA_PERSIST_DIR")
         self.top_k = top_k or int(os.getenv("RAG_TOP_K", "5"))
+
+        self._use_lightrag = settings.lightrag_enabled
+        self._lightrag = None
 
         self._embedding_manager: EmbeddingManager | None = None
         self._vector_store: VectorStore | None = None
         self._loader: DocumentLoader | None = None
         self._chunker: DocumentChunker | None = None
+
+    def _get_lightrag(self):
+        """Lazy-init LightRAG adapter."""
+        if self._lightrag is None and self._use_lightrag:
+            from app.rag.lightrag_adapter import LightRAGAdapter
+            self._lightrag = LightRAGAdapter()
+        return self._lightrag
 
     @property
     def embedding_manager(self) -> EmbeddingManager:
@@ -55,9 +66,14 @@ class RAGRetriever:
         return self._chunker
 
     def ingest(self) -> dict:
-        """Ingest all knowledge into vector store."""
+        """Ingest all knowledge — LightRAG graph or ChromaDB vector store."""
         if not self.rag_enabled:
             return {"status": "disabled", "message": "RAG is not enabled"}
+
+        if self._use_lightrag:
+            lr = self._get_lightrag()
+            if lr is not None:
+                return lr.ingest()
 
         # Load all sources
         sources = self.loader.load_all_sources()
@@ -95,9 +111,14 @@ class RAGRetriever:
         source_file: str,
         metadata: dict | None = None,
     ) -> dict:
-        """Ingest a single document (e.g. user-uploaded file) into the vector store."""
+        """Ingest a single document — LightRAG or ChromaDB."""
         if not self.rag_enabled:
             return {"status": "disabled", "message": "RAG is not enabled"}
+
+        if self._use_lightrag:
+            lr = self._get_lightrag()
+            if lr is not None:
+                return lr.ingest_document(text, source_file, metadata)
 
         chunks = self.chunker.chunk_user_document(
             content=text,
@@ -123,9 +144,14 @@ class RAGRetriever:
         top_k: int | None = None,
         filter_type: str | None = None,
     ) -> list[RAGSearchResult]:
-        """Search for relevant chunks."""
+        """Search for relevant chunks. Uses LightRAG graph retrieval when enabled."""
         if not self.rag_enabled:
             return []
+
+        if self._use_lightrag:
+            lr = self._get_lightrag()
+            if lr is not None:
+                return lr.search(query, top_k=top_k, filter_type=filter_type)
 
         top_k = top_k or self.top_k
 
@@ -214,7 +240,12 @@ class RAGRetriever:
         return results
 
     def get_status(self) -> RAGStatus:
-        """Get RAG system status."""
+        """Get RAG system status — LightRAG or ChromaDB."""
+        if self._use_lightrag:
+            lr = self._get_lightrag()
+            if lr is not None:
+                return lr.get_status()
+
         if not self.rag_enabled:
             return RAGStatus(
                 enabled=False,
@@ -254,7 +285,12 @@ class RAGRetriever:
             )
 
     def is_available(self) -> bool:
-        """Check if RAG is available for use."""
+        """Check if RAG is available — LightRAG or ChromaDB."""
+        if self._use_lightrag:
+            lr = self._get_lightrag()
+            if lr is not None:
+                return lr.is_available()
+
         if not self.rag_enabled:
             return False
         status = self.get_status()

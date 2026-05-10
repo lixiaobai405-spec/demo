@@ -1,5 +1,10 @@
-"""LLM-based deep writing for AI Innovation Reports."""
+"""LLM-based deep writing for AI Innovation Reports.
 
+Parallel generation: 14 sections split into 3 groups, fired concurrently.
+Each group failure falls back to template for that group only.
+"""
+
+import concurrent.futures
 import json
 import logging
 import re
@@ -38,6 +43,55 @@ REQUIRED_SECTIONS: list[tuple[str, str]] = [
     ("instructor_comments", "讲师点评区"),
     ("endgame", "商业终局设计"),
 ]
+
+# ── Parallel generation: 3 groups fired concurrently ──
+SECTION_GROUPS: list[dict[str, Any]] = [
+    {
+        "name": "foundation",
+        "focus": "企业基本画像、商业模式画布诊断、突破要素、创新方向、AI成熟度",
+        "section_keys": ["company_profile", "canvas_diagnosis", "breakthrough", "direction_expansion", "ai_readiness"],
+    },
+    {
+        "name": "strategy",
+        "focus": "AI场景推荐、场景详细规划、差异化竞争力设计、参考案例",
+        "section_keys": ["priority_scenarios", "scenario_planning", "competitiveness", "cases"],
+    },
+    {
+        "name": "execution",
+        "focus": "路线图、90天行动计划、风险管控、讲师点评、商业终局",
+        "section_keys": ["roadmap", "action_plan", "risks", "instructor_comments", "endgame"],
+    },
+]
+
+GROUP_SYSTEM_PROMPT_TEMPLATE = """你是一位专业的AI创新顾问，正在撰写报告的以下章节：{focus}。
+
+## 核心原则（必须严格遵守）
+1. **忠实于输入数据**：只能基于提供的数据进行扩写润色，绝不改变业务决策结果
+2. **禁止编造事实**：不编造企业名称、ROI数字、数据来源或案例
+3. **保持专业客观**：咨询行业规范用语，避免过度营销化
+
+## 输出格式
+必须输出 JSON：
+```json
+{{
+  "sections": [
+    {{
+      "key": "section_key",
+      "title": "章节标题",
+      "content": "章节主要内容（150-300字）",
+      "bullets": ["要点1", "要点2"],
+      "table": {{"columns": ["列1"], "rows": [["数据1"]]}},
+      "note": "补充说明（可选）"
+    }}
+  ],
+  "warnings": []
+}}
+```
+
+## 禁止事项
+- 禁止编造具体企业名称、ROI 数字、案例名称
+- 禁止改变评分、推荐顺序等业务决策
+- 找不到信息时用"待补充"标注"""
 
 PLACEHOLDER_PATTERNS = [
     re.compile(pattern, re.IGNORECASE)
@@ -236,9 +290,8 @@ class LLMReportWriter:
         metadata: dict[str, Any] = {"used_rag": False, "warnings": []}
 
         try:
-            system_prompt = self.prompt_builder.build_system_prompt()
             breakthrough_labels = self._resolve_breakthrough_labels_from_keys(breakthrough_keys or [])
-            user_prompt = self.prompt_builder.build_user_prompt(
+            shared_user_prompt = self.prompt_builder.build_user_prompt(
                 company_input=self._assessment_to_dict(assessment),
                 company_profile=self._profile_to_dict(profile),
                 canvas_diagnosis=self._canvas_to_dict(canvas_diagnosis),
@@ -247,24 +300,75 @@ class LLMReportWriter:
                 breakthrough_elements=breakthrough_labels,
             )
 
-            llm_response, llm_warning = self._call_llm(system_prompt, user_prompt)
-            if llm_warning:
-                metadata["warnings"].append(llm_warning)
-            if llm_response is None:
-                return None, metadata
-
-            parsed_sections, parse_warnings, fatal_error = self._parse_llm_response(
-                llm_response
-            )
-            metadata["warnings"].extend(parse_warnings)
-            if fatal_error or parsed_sections is None:
-                return None, metadata
-
             ai_readiness_score = self.report_builder._calculate_ai_readiness_score(
                 profile=profile,
                 canvas_diagnosis=canvas_diagnosis,
                 scenario_recommendation=scenario_recommendation,
             )
+
+            # ── Fire 3 parallel LLM calls, one per section group ──
+            all_parsed: dict[str, ReportSectionData] = {}
+            group_failures: list[str] = []
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+                futures = {
+                    executor.submit(
+                        self._generate_group_sections,
+                        group,
+                        shared_user_prompt,
+                    ): group
+                    for group in SECTION_GROUPS
+                }
+                for future in concurrent.futures.as_completed(futures):
+                    group = futures[future]
+                    try:
+                        sections, warnings = future.result(timeout=90)
+                        metadata["warnings"].extend(warnings)
+                        for s in sections:
+                            all_parsed[s.key] = s
+                    except Exception as exc:
+                        logger.warning(
+                            "LLM group '%s' failed: %s — falling back to template",
+                            group["name"], exc,
+                        )
+                        group_failures.append(group["name"])
+                        metadata["warnings"].append(
+                            f"LLM 章节组 '{group['focus']}' 生成失败 ({exc.__class__.__name__})，已回退到模板。"
+                        )
+
+            # Any group failure → fall back to template for missing sections
+            if group_failures:
+                template_report = self.report_builder.build(
+                    assessment=assessment,
+                    profile=profile,
+                    canvas_diagnosis=canvas_diagnosis,
+                    scenario_recommendation=scenario_recommendation,
+                    case_recommendation=case_recommendation,
+                    breakthrough_keys=breakthrough_keys,
+                    direction_labels=direction_labels,
+                    competitiveness_result=competitiveness_result,
+                    enrichment_result=enrichment_result,
+                    endgame_result=endgame_result,
+                )
+                for ts in template_report.sections:
+                    if ts.key not in all_parsed:
+                        all_parsed[ts.key] = ts
+
+            # Order by REQUIRED_SECTIONS
+            ordered_sections: list[ReportSectionData] = []
+            for key, title in REQUIRED_SECTIONS:
+                section = all_parsed.get(key)
+                if section is None:
+                    metadata["warnings"].append(f"Missing section '{title}'.",)
+                    continue
+                section.key = key
+                ordered_sections.append(section)
+
+            if len(ordered_sections) < len(REQUIRED_SECTIONS):
+                metadata["warnings"].append(
+                    f"仅生成了 {len(ordered_sections)}/{len(REQUIRED_SECTIONS)} 个章节。"
+                )
+                return None, metadata
 
             report = ReportData(
                 title=f"{assessment.company_name} AI 商业创新建议报告",
@@ -281,7 +385,7 @@ class LLMReportWriter:
                     canvas_diagnosis,
                 ),
                 generated_with="llm",
-                sections=parsed_sections,
+                sections=ordered_sections,
             )
             metadata["warnings"] = self._deduplicate_warnings(metadata["warnings"])
             return report, metadata
@@ -291,6 +395,37 @@ class LLMReportWriter:
                 f"LLM report generation failed: {exc.__class__.__name__}."
             )
             return None, metadata
+
+    def _generate_group_sections(
+        self,
+        group: dict[str, Any],
+        shared_user_prompt: str,
+    ) -> tuple[list[ReportSectionData], list[str]]:
+        """Generate a single group's sections via LLM."""
+        group_system = GROUP_SYSTEM_PROMPT_TEMPLATE.format(focus=group["focus"])
+        target_titles = [
+            dict(REQUIRED_SECTIONS)[k]
+            for k in group["section_keys"]
+            if k in dict(REQUIRED_SECTIONS)
+        ]
+        group_user = (
+            shared_user_prompt
+            + "\n\n请仅生成以下章节：\n"
+            + "\n".join(f"- {t}" for t in target_titles)
+        )
+
+        llm_response, llm_warning = self._call_llm(group_system, group_user)
+        warnings = [llm_warning] if llm_warning else []
+
+        if llm_response is None:
+            raise RuntimeError("LLM returned empty response")
+
+        parsed, parse_warnings, fatal = self._parse_llm_response(llm_response)
+        warnings.extend(parse_warnings)
+        if fatal or parsed is None:
+            raise RuntimeError(f"Failed to parse group '{group['name']}': {'; '.join(parse_warnings)}")
+
+        return parsed, warnings
 
     def _call_llm(
         self,

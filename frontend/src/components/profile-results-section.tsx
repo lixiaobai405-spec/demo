@@ -19,7 +19,7 @@ export function ProfileResultsSection({
         </div>
         {companyProfile ? (
           <Badge variant={profileMode === "live" ? "success" : "accent"}>
-            {profileMode === "mock" ? "Mock" : "Live"}
+            {profileMode === "mock" ? "模拟" : "真实"}
           </Badge>
         ) : null}
       </div>

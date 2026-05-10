@@ -119,6 +119,13 @@ COMPETITIVENESS_SYSTEM = """
 
 
 class LLMEnhancer:
+    _cache: dict[str, Any] = {}
+
+    @classmethod
+    def invalidate_cache_for(cls, assessment_id: str) -> None:
+        for prefix in ("breakthrough", "directions", "competitiveness"):
+            cls._cache.pop(f"{prefix}:{assessment_id}", None)
+
     def __init__(self) -> None:
         self._client = None
 
@@ -163,9 +170,15 @@ class LLMEnhancer:
     def enhance_breakthrough(
         self,
         canvas_diagnosis: CanvasDiagnosisResult,
+        assessment_id: str = "",
     ) -> BreakthroughRecommendationResult | None:
         if not self._is_live_mode():
             return None
+
+        if assessment_id:
+            cache_key = f"breakthrough:{assessment_id}"
+            if cache_key in self._cache:
+                return self._cache[cache_key]
 
         blocks_summary = "\n".join(
             f"- {b.title}({b.key}): 诊断={b.diagnosis[:60]}, 机会={b.ai_opportunity[:60]}"
@@ -188,12 +201,15 @@ class LLMEnhancer:
             elements = [BreakthroughElement.model_validate(e) for e in result.get("elements", [])]
             if len(elements) != 9:
                 return None
-            return BreakthroughRecommendationResult(
+            parsed = BreakthroughRecommendationResult(
                 generation_mode="llm",
                 elements=elements,
                 recommended_keys=result.get("recommended_keys", [])[:3],
                 overall_suggestion=result.get("overall_suggestion", ""),
             )
+            if assessment_id:
+                self._cache[f"breakthrough:{assessment_id}"] = parsed
+            return parsed
         except Exception as exc:
             logger.warning("Failed to parse LLM breakthrough response: %s", exc)
             return None

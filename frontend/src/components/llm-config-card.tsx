@@ -122,7 +122,7 @@ export function LLMConfigCard() {
           </p>
         </div>
         <Badge variant={config?.is_live ? "success" : "muted"}>
-          {config?.is_live ? "Live" : config?.mode === "live" ? "配置不完整" : "Mock"}
+          {config?.is_live ? "真实" : config?.mode === "live" ? "配置不完整" : "模拟"}
         </Badge>
       </div>
 

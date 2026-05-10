@@ -7,7 +7,7 @@ from app.schemas.assessment import AssessmentCreateRequest, AssessmentResponse
 IntakeSourceType = Literal["text", "markdown", "form", "file"]
 FieldSourceType = Literal["raw", "inferred", "missing"]
 FieldStatus = Literal["confirmed", "needs_user_confirmation", "needs_user_input"]
-CandidateSource = Literal["原文", "推断"]
+CandidateSource = Literal["原文", "推断", "LLM 提取"]
 CandidateConfidence = Literal["high", "medium"]
 IntakeSessionStatus = Literal["draft", "parsed", "confirmed", "discarded"]
 IntakeUploadedFileKind = Literal["txt", "markdown", "pdf", "docx"]

@@ -15,9 +15,14 @@ export default async function ReportDocumentPage({
         <section className="page-header">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-4xl space-y-4">
-              <Link href="/assessment" className="btn-secondary text-xs">
-                ← 返回 Assessment 列表入口
-              </Link>
+              <div className="flex flex-wrap gap-2">
+                <Link href="/" className="btn-secondary text-xs">
+                  ← 返回首页
+                </Link>
+                <Link href="/assessment" className="btn-secondary text-xs">
+                  ← 返回 Assessment 列表入口
+                </Link>
+              </div>
               <span className="badge badge-success">HTML Report Preview</span>
               <h1 className="font-heading text-4xl font-bold tracking-tight text-warm-text">
                 富文本报告预览页

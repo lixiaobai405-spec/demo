@@ -223,22 +223,27 @@ export function HealthStatusCard() {
         </div>
       ) : null}
 
-      <div className="mt-4">
-        <button onClick={runDebugTest} className="btn-secondary text-xs">
-          Run Debug Test
-        </button>
-        {debugResult && (
-          <pre className="mt-3 overflow-x-auto rounded-xl border border-warm-border-light bg-warm-inset p-4 font-mono text-xs text-warm-secondary leading-relaxed">
-            {debugResult}
-          </pre>
-        )}
-      </div>
+      <details className="mt-4 group">
+        <summary className="cursor-pointer list-none text-xs text-warm-muted hover:text-warm-text transition-colors">
+          ▶ 开发者工具
+        </summary>
+        <div className="mt-3">
+          <button onClick={runDebugTest} className="btn-secondary text-xs">
+            Run Debug Test
+          </button>
+          {debugResult && (
+            <pre className="mt-3 overflow-x-auto rounded-xl border border-warm-border-light bg-warm-inset p-4 font-mono text-xs text-warm-secondary leading-relaxed">
+              {debugResult}
+            </pre>
+          )}
+        </div>
 
-      {state.data ? (
-        <pre className="mt-4 overflow-x-auto rounded-xl border border-warm-border-light bg-warm-inset p-4 font-mono text-sm text-warm-secondary leading-relaxed">
-          {JSON.stringify(state.data, null, 2)}
-        </pre>
-      ) : null}
+        {state.data ? (
+          <pre className="mt-4 overflow-x-auto rounded-xl border border-warm-border-light bg-warm-inset p-4 font-mono text-sm text-warm-secondary leading-relaxed">
+            {JSON.stringify(state.data, null, 2)}
+          </pre>
+        ) : null}
+      </details>
     </div>
   );
 }

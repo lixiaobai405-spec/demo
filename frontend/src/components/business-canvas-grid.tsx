@@ -9,17 +9,17 @@ export function BusinessCanvasGrid({ canvasDiagnosis }: { canvasDiagnosis: Canva
           <h2 className="section-heading">商业画布 9 格诊断</h2>
         </div>
         <span className="badge badge-success">
-          {canvasDiagnosis.generation_mode === "mock" ? "Mock" : "Live"}
+          {canvasDiagnosis.generation_mode === "mock" ? "模拟" : "真实"}
         </span>
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-xl border border-warm-border-light bg-warm-inset p-6">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-warm-muted">Overall Summary</p>
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-warm-muted">总体摘要</p>
           <p className="mt-3 text-sm leading-7 text-warm-text">{canvasDiagnosis.canvas.overall_summary}</p>
         </div>
         <div className="rounded-xl border border-warm-border-light bg-warm-inset p-6">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-warm-muted">Diagnosis Meta</p>
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-warm-muted">诊断概览</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <Metric label="Overall Score" value={`${canvasDiagnosis.overall_score}`} />
             <Metric label="Weakest Blocks" value={`${canvasDiagnosis.weakest_blocks.length}`} />

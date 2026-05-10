@@ -1,4 +1,4 @@
-"""RAG ingestion script for knowledge base."""
+"""RAG / LightRAG ingestion script for knowledge base."""
 import sys
 from pathlib import Path
 
@@ -6,16 +6,18 @@ from pathlib import Path
 backend_path = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_path))
 
+from app.core.config import settings
 from app.rag.retriever import RAGRetriever
 
 
 def main():
-    """Ingest knowledge into vector store."""
+    """Ingest knowledge into vector store (ChromaDB) or LightRAG graph."""
+    mode = "LightRAG" if settings.lightrag_enabled else "ChromaDB"
     print("=" * 60)
-    print("RAG Knowledge Ingestion")
+    print(f"Knowledge Ingestion  ({mode})")
     print("=" * 60)
 
-    # Create retriever with RAG enabled
+    # Create retriever — picks backend based on settings.lightrag_enabled
     retriever = RAGRetriever(rag_enabled=True)
 
     # Check if already indexed

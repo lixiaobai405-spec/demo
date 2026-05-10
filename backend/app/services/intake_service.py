@@ -1,3 +1,5 @@
+import asyncio
+import concurrent.futures
 import json
 import re
 from io import BytesIO
@@ -232,7 +234,9 @@ class IntakeService:
                 ),
             )
 
-        raw_content, extraction_warnings = self._extract_text_from_upload(
+        # Offload CPU-bound parsing to thread to avoid blocking the event loop
+        raw_content, extraction_warnings = await asyncio.to_thread(
+            self._extract_text_from_upload,
             file_kind,
             file_bytes,
         )
@@ -323,9 +327,6 @@ class IntakeService:
         candidates: dict[str, IntakeFieldCandidate] = {}
         raw_content = payload.raw_content or ""
 
-        # Step 0: LLM extraction (covers all 11 fields at once)
-        llm_extracted = self._try_llm_extraction(raw_content)
-
         # Step 1: Structured fields from form input (always trusted)
         for field_name, value in payload.structured_fields.items():
             if field_name in ASSESSMENT_FIELD_NAMES and value:
@@ -336,20 +337,8 @@ class IntakeService:
                     evidence=f"结构化输入：{value}",
                 )
 
-        # Step 2: Fill gaps from LLM extraction
-        for field_name in ASSESSMENT_FIELD_NAMES:
-            if field_name in candidates:
-                continue
-            llm_value = llm_extracted.get(field_name, "")
-            if llm_value:
-                candidates[field_name] = IntakeFieldCandidate(
-                    value=llm_value,
-                    source="LLM 提取",
-                    confidence="high",
-                    evidence=llm_value,
-                )
-
-        # Step 3: Regex-based direct extraction for remaining gaps
+        # Step 2: Regex + keyword extraction FIRST (instant, free)
+        #  — for txt/md files with structured labels this catches most fields
         for field_name in ASSESSMENT_FIELD_NAMES:
             if field_name in candidates:
                 continue
@@ -362,7 +351,7 @@ class IntakeService:
                     evidence=direct_match,
                 )
 
-        # Step 4: Keyword inference for special fields
+        # Step 3: Keyword inference for special fields (still regex-level)
         for field_name in ("current_challenges", "ai_goals", "available_data"):
             if field_name in candidates:
                 continue
@@ -374,6 +363,24 @@ class IntakeService:
                     confidence="medium",
                     evidence=inferred_value,
                 )
+
+        # Step 4: LLM extraction — only if regex coverage is insufficient
+        #  Skips the expensive LLM call when the document is already
+        #  well-structured (e.g. markdown with explicit field labels).
+        regex_count = len(candidates)
+        if regex_count < 6 and raw_content.strip():
+            llm_extracted = self._try_llm_extraction(raw_content)
+            for field_name in ASSESSMENT_FIELD_NAMES:
+                if field_name in candidates:
+                    continue
+                llm_value = llm_extracted.get(field_name, "")
+                if llm_value:
+                    candidates[field_name] = IntakeFieldCandidate(
+                        value=llm_value,
+                        source="LLM 提取",
+                        confidence="high",
+                        evidence=llm_value,
+                    )
 
         return candidates
 
@@ -725,13 +732,15 @@ class IntakeService:
                 f"该 PDF 共 {page_count} 页，本次 OCR 仅处理前 {len(png_pages)} 页以控制解析时长。"
             )
 
-        ocr_parts: list[str] = []
-        for page_bytes in png_pages:
-            page_text = self._extract_text_from_ocr_image_bytes(engine, page_bytes)
-            if page_text:
-                ocr_parts.append(page_text)
+        # Parallel OCR across pages
+        def _ocr_page(page_bytes: bytes) -> str:
+            return self._extract_text_from_ocr_image_bytes(engine, page_bytes)
 
-        return "\n".join(ocr_parts).strip(), warnings
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, len(png_pages))) as executor:
+            ocr_parts = list(executor.map(_ocr_page, png_pages))
+
+        ocr_text = "\n".join(p for p in ocr_parts if p).strip()
+        return ocr_text, warnings
 
     def _render_pdf_pages_as_png_bytes(
         self,
@@ -753,13 +762,16 @@ class IntakeService:
         try:
             total_pages = len(document)
             render_count = min(total_pages, max_pages)
-            page_images: list[bytes] = []
             matrix = fitz.Matrix(2, 2)
 
-            for page_index in range(render_count):
+            def _render_page(page_index: int) -> bytes:
                 page = document.load_page(page_index)
                 pixmap = page.get_pixmap(matrix=matrix, alpha=False)
-                page_images.append(pixmap.tobytes("png"))
+                return pixmap.tobytes("png")
+
+            # Parallel page rendering via thread pool
+            with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, render_count)) as executor:
+                page_images = list(executor.map(_render_page, range(render_count)))
 
             return page_images, total_pages > render_count
         finally:

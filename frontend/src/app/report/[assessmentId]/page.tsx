@@ -15,9 +15,14 @@ export default async function ReportGenerationPage({
         <section className="page-header">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-4xl space-y-4">
-              <Link href={`/assessment/${assessmentId}`} className="btn-secondary text-xs">
-                ← 返回 Assessment
-              </Link>
+              <div className="flex flex-wrap gap-2">
+                <Link href="/" className="btn-secondary text-xs">
+                  ← 返回首页
+                </Link>
+                <Link href={`/assessment/${assessmentId}`} className="btn-secondary text-xs">
+                  ← 返回 Assessment
+                </Link>
+              </div>
               <span className="badge badge-accent">Report Generation</span>
               <h1 className="font-heading text-4xl font-bold tracking-tight text-warm-text">
                 报告生成与导出

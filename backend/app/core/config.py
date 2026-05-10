@@ -101,6 +101,15 @@ class Settings:
         str(ROOT_DIR / "backend" / "data" / "chroma"),
     )
     rag_top_k: int = int(os.getenv("RAG_TOP_K", "5"))
+    # LightRAG graph-enhanced retrieval (optional, replaces ChromaDB when enabled)
+    lightrag_enabled: bool = (
+        os.getenv("LIGHTRAG_ENABLED", "false").strip().lower() == "true"
+    )
+    lightrag_working_dir: str = os.getenv(
+        "LIGHTRAG_WORKING_DIR",
+        str(ROOT_DIR / "backend" / "data" / "lightrag"),
+    )
+    lightrag_top_k: int = int(os.getenv("LIGHTRAG_TOP_K", "5"))
     # LLM Report settings
     llm_report_enabled: bool = _resolve_bool("llm_report_enabled", "LLM_REPORT_ENABLED", False)
     llm_report_timeout_seconds: int = _resolve_int("llm_report_timeout_seconds", "LLM_REPORT_TIMEOUT_SECONDS", 60)

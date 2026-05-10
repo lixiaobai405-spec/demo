@@ -47,7 +47,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, init?: RequestInit & { signal?: AbortSignal }): Promise<T> {
   const maxRetries = 2;
   let lastError: unknown;
 
@@ -429,4 +429,23 @@ export function batchComment(
 
 export function instructorExportCsv(): Promise<{ export_format: string; content: string; student_count: number }> {
   return request("/api/instructor/export?format=csv");
+}
+
+/** 将 API 错误转为用户可读的中文消息，供 toast 使用 */
+export function formatMutationError(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) {
+    if (error.status === 0) return error.message;
+    if (error.status >= 500) return `${fallback}时后端服务异常（${error.status}），请稍后重试。`;
+    if (error.status === 400) return `${fallback}失败：请求参数不合法。`;
+    if (error.status === 404) return `${fallback}失败：未找到目标资源。`;
+    return error.message || `${fallback}失败。`;
+  }
+  if (error instanceof Error) {
+    if (error.message.toLowerCase().includes("timeout")) return `${fallback}超时，请稍后重试。`;
+    if (error.message.toLowerCase().includes("failed to fetch") || error.message.toLowerCase().includes("network")) {
+      return "网络连接失败，请检查后端服务是否启动。";
+    }
+    return error.message;
+  }
+  return fallback;
 }
