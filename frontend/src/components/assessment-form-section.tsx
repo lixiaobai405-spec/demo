@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCreateAssessment } from "@/hooks";
 import { toast } from "@/hooks/use-toast";
@@ -37,6 +37,18 @@ export function AssessmentFormSection({
   const answeredCount = Object.values(externalForm).filter(
     (value) => typeof value === "string" && value.trim().length > 0,
   ).length;
+
+  const hasUnsavedChanges = !assessmentId && answeredCount > 0;
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [hasUnsavedChanges]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

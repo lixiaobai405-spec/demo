@@ -69,6 +69,9 @@ from app.services.report_builder import ReportBuilder
 from app.services.report_enrichment import ReportEnrichmentService
 from app.services.report_service import ReportService
 from app.services.scenario_recommender import ScenarioRecommender
+from app.api.deps import get_current_user, require_instructor
+from app.models.user import User
+from app.schemas.assessment import AssessmentCardItem, AssessmentListResponse
 
 router = APIRouter(prefix="/api/assessments", tags=["assessments"])
 
@@ -90,16 +93,87 @@ REPORT_OUTLINE = [
 ]
 
 
+def _check_owner_or_instructor(
+    assessment: Assessment, current_user: User
+) -> None:
+    if current_user.role == "instructor":
+        return
+    if assessment.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="无权访问此评估。",
+        )
+
+
 @router.post("", response_model=AssessmentResponse, status_code=status.HTTP_201_CREATED)
 def create_assessment(
     payload: AssessmentCreateRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AssessmentResponse:
-    assessment = Assessment(**payload.model_dump())
+    assessment = Assessment(**payload.model_dump(), user_id=current_user.id)
     db.add(assessment)
     db.commit()
     db.refresh(assessment)
     return AssessmentResponse.model_validate(assessment, from_attributes=True)
+
+
+@router.get("", response_model=AssessmentListResponse, status_code=status.HTTP_200_OK)
+def list_assessments(
+    search: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    industry: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> AssessmentListResponse:
+    query = db.query(Assessment)
+    if current_user.role != "instructor":
+        query = query.filter(Assessment.user_id == current_user.id)
+    if search:
+        query = query.filter(Assessment.company_name.ilike(f"%{search}%"))
+    if date_from:
+        query = query.filter(Assessment.created_at >= date_from)
+    if date_to:
+        query = query.filter(Assessment.created_at <= date_to)
+    if industry:
+        query = query.filter(Assessment.industry == industry)
+
+    total = query.count()
+    items = (
+        query.order_by(Assessment.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    card_items = []
+    for a in items:
+        has_report = db.query(GeneratedReport).filter(
+            GeneratedReport.assessment_id == a.id
+        ).count() > 0
+        card_items.append(
+            AssessmentCardItem(
+                id=a.id,
+                company_name=a.company_name,
+                industry=a.industry,
+                company_size=a.company_size,
+                has_profile=a.has_profile,
+                has_report=has_report,
+                created_at=a.created_at,
+                updated_at=a.updated_at,
+            )
+        )
+
+    return AssessmentListResponse(
+        items=card_items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=max(1, (total + page_size - 1) // page_size),
+    )
 
 
 @router.get(
@@ -110,8 +184,10 @@ def create_assessment(
 def get_assessment_detail(
     assessment_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AssessmentDetailResponse:
     assessment = _get_assessment_or_404(db, assessment_id)
+    _check_owner_or_instructor(assessment, current_user)
     report_service = ReportService()
     profile = _load_profile_from_assessment(assessment)
     canvas = _load_canvas_diagnosis(db, assessment_id)

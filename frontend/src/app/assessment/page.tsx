@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 
 import { AssessmentWorkspace } from "@/components/assessment-workspace";
 import { InstructorDashboard } from "@/components/instructor-dashboard";
+import { AuthGuard } from "@/components/auth-guard";
 
 function AssessmentPageContent() {
   const [tab, setTab] = useState<"student" | "instructor">("student");
@@ -116,8 +117,10 @@ function AssessmentPageFallback() {
 
 export default function AssessmentPage() {
   return (
-    <Suspense fallback={<AssessmentPageFallback />}>
-      <AssessmentPageContent />
-    </Suspense>
+    <AuthGuard>
+      <Suspense fallback={<AssessmentPageFallback />}>
+        <AssessmentPageContent />
+      </Suspense>
+    </AuthGuard>
   );
 }

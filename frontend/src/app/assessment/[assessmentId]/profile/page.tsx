@@ -127,8 +127,11 @@ export default function ProfilePage({
           <div className="card-inset">
             <p className="section-label">企业画像</p>
             <p className="mt-4 text-sm leading-7 text-muted-foreground">
-              尚未生成企业画像。请先在企业问卷工作台创建问卷并生成画像。
+              尚未生成企业画像。请先在工作台生成画像后再查看。
             </p>
+            <Link href={`/assessment/${assessmentId}`} className="inline-block mt-3 btn-primary text-xs">
+              返回工作台
+            </Link>
           </div>
         )}
 

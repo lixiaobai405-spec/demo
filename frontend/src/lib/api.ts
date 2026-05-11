@@ -30,10 +30,23 @@ import type {
   RecalibratePlanRequest,
   InstructorDashboardResponse,
   BatchCommentResponse,
+  TokenResponse,
+  RegisterRequest,
+  LoginRequest,
+  UserResponse,
+  AssessmentListResponse,
 } from "@/lib/types";
 
 export const apiBaseUrl =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+
+function getAuthHeaders(): Record<string, string> {
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("auth_token");
+    if (token) return { Authorization: `Bearer ${token}` };
+  }
+  return {};
+}
 
 export class ApiError extends Error {
   status: number;
@@ -60,6 +73,7 @@ async function request<T>(path: string, init?: RequestInit & { signal?: AbortSig
         headers: {
           ...(isFormData ? {} : { "Content-Type": "application/json" }),
           "ngrok-skip-browser-warning": "true",
+          ...getAuthHeaders(),
           ...(init?.headers ?? {}),
         },
       });
@@ -448,4 +462,43 @@ export function formatMutationError(error: unknown, fallback: string): string {
     return error.message;
   }
   return fallback;
+}
+
+// ── Auth API ──
+export function registerUser(payload: RegisterRequest): Promise<TokenResponse> {
+  return request<TokenResponse>("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function loginUser(payload: LoginRequest): Promise<TokenResponse> {
+  return request<TokenResponse>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getCurrentUser(): Promise<UserResponse> {
+  return request<UserResponse>("/api/auth/me");
+}
+
+// ── History API ──
+export function listMyAssessments(params?: {
+  search?: string;
+  date_from?: string;
+  date_to?: string;
+  industry?: string;
+  page?: number;
+  page_size?: number;
+}): Promise<AssessmentListResponse> {
+  const sp = new URLSearchParams();
+  if (params?.search) sp.set("search", params.search);
+  if (params?.date_from) sp.set("date_from", params.date_from);
+  if (params?.date_to) sp.set("date_to", params.date_to);
+  if (params?.industry) sp.set("industry", params.industry);
+  if (params?.page) sp.set("page", String(params.page));
+  if (params?.page_size) sp.set("page_size", String(params.page_size));
+  const qs = sp.toString();
+  return request<AssessmentListResponse>(`/api/assessments${qs ? `?${qs}` : ""}`);
 }

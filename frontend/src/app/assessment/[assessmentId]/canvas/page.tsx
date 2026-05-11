@@ -127,8 +127,11 @@ export default function CanvasPage({
           <div className="card-inset">
             <p className="section-label">画布诊断</p>
             <p className="mt-4 text-sm leading-7 text-muted-foreground">
-              尚未生成商业画布。
+              尚未生成商业画布诊断。请先生成企业画像，再生成画布诊断。
             </p>
+            <Link href={`/assessment/${assessmentId}`} className="inline-block mt-3 btn-primary text-xs">
+              返回工作台
+            </Link>
           </div>
         )}
 

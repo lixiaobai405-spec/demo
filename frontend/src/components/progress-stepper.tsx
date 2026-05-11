@@ -91,11 +91,11 @@ export function ProgressStepper({
                     }`}
                   >
                     {status === "completed" ? (
-                      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
                     ) : (
-                      <span className="text-[10px] font-bold">{step}</span>
+                      <span className="text-[10px] font-bold" aria-hidden="true">{step}</span>
                     )}
                   </span>
                 </div>
@@ -158,11 +158,11 @@ export function ProgressStepper({
                   }`}
                 >
                   {status === "completed" ? (
-                    <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   ) : (
-                    <span className="text-[10px] font-bold">{step}</span>
+                    <span className="text-[10px] font-bold" aria-hidden="true">{step}</span>
                   )}
                 </span>
                 {!isLast && (

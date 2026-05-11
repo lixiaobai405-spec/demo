@@ -394,7 +394,9 @@ export function AssessmentWorkspace({
 
   return (
     <section className="flex flex-col gap-6">
-      <ProgressStepper hasAssessment={currentAssessment !== null} progress={progress} activeStep={activeGenStep} />
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm pb-4 -mx-6 px-6">
+        <ProgressStepper hasAssessment={currentAssessment !== null} progress={progress} activeStep={activeGenStep} />
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]" id="section-assessment-form">
         <AssessmentFormSection

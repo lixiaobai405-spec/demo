@@ -122,6 +122,10 @@ class Settings:
         os.getenv("INTAKE_PDF_OCR_MIN_TEXT_CHARS", "20")
     )
     intake_pdf_ocr_max_pages: int = int(os.getenv("INTAKE_PDF_OCR_MAX_PAGES", "12"))
+    # JWT Auth settings
+    jwt_secret_key: str = _resolve("jwt_secret_key", "JWT_SECRET_KEY", "meitai-demo-dev-secret-change-in-prod")
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = _resolve_int("jwt_expire_minutes", "JWT_EXPIRE_MINUTES", 1440)
 
 
 settings = Settings()
