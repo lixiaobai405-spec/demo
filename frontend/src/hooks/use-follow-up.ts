@@ -12,6 +12,7 @@ export function useFollowUpPlan(assessmentId: string | undefined) {
     queryKey: assessmentKeys.followUp(assessmentId!),
     queryFn: () => getFollowUpPlan(assessmentId!),
     enabled: Boolean(assessmentId),
+    staleTime: 5 * 60 * 1000,
   });
 }
 

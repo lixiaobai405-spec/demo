@@ -36,6 +36,22 @@ import {
 } from "@/lib/assessment-utils";
 import type { AssessmentCreateRequest, AssessmentProgress } from "@/lib/types";
 
+const SLOW_HINT_DELAY_MS = 5000;
+
+function withSlowHint<T>(
+  promise: Promise<T>,
+  title: string,
+  showToast: (msg: { title: string; description: string }) => void,
+): Promise<T> {
+  const timer = setTimeout(() => {
+    showToast({
+      title: "请耐心等待",
+      description: `${title}，正在进行 AI 分析...`,
+    });
+  }, SLOW_HINT_DELAY_MS);
+  return promise.finally(() => clearTimeout(timer));
+}
+
 export function AssessmentWorkspace({
   assessmentId,
   prefillSessionId,
@@ -113,7 +129,11 @@ export function AssessmentWorkspace({
   const handleGenerateProfile = useCallback(async () => {
     if (!store.assessment) return;
     try {
-      const result = await generateProfile.mutateAsync(store.assessment.id);
+      const result = await withSlowHint(
+        generateProfile.mutateAsync(store.assessment.id),
+        "正在生成企业画像",
+        toast,
+      );
       store.setAssessment(result.assessment);
       store.setCompanyProfile(result.profile);
       store.setProfileMode(result.generation_mode);
@@ -128,7 +148,11 @@ export function AssessmentWorkspace({
   const handleGenerateCanvas = useCallback(async () => {
     if (!store.assessment) return;
     try {
-      const result = await generateCanvas.mutateAsync(store.assessment.id);
+      const result = await withSlowHint(
+        generateCanvas.mutateAsync(store.assessment.id),
+        "正在生成商业画布 9 格诊断",
+        toast,
+      );
       store.setAssessment(result.assessment);
       store.setCanvasDiagnosis(result.canvas_diagnosis);
       store.resetDownstream("canvas");
@@ -142,7 +166,11 @@ export function AssessmentWorkspace({
   const handleGenerateBreakthrough = useCallback(async () => {
     if (!store.assessment) return;
     try {
-      const result = await recommendBreakthrough.mutateAsync(store.assessment.id);
+      const result = await withSlowHint(
+        recommendBreakthrough.mutateAsync(store.assessment.id),
+        "正在生成突破要素推荐",
+        toast,
+      );
       store.setBreakthroughData(result);
       if (result.breakthrough_selection && result.breakthrough_selection.selected_elements.length >= 2) {
         store.setBreakthroughSelection(result.breakthrough_selection);
@@ -178,7 +206,11 @@ export function AssessmentWorkspace({
       Promise.allSettled([
         (async () => {
           try {
-            const dResult = await expandDirections.mutateAsync(store.assessment!.id);
+            const dResult = await withSlowHint(
+              expandDirections.mutateAsync(store.assessment!.id),
+              "正在延展创新方向",
+              toast,
+            );
             store.setDirectionData(dResult);
             if (dResult.direction_selection && dResult.direction_selection.selected_directions.length > 0) {
               store.setDirectionSelection(dResult.direction_selection);
@@ -188,13 +220,21 @@ export function AssessmentWorkspace({
 
             // Chain: competitiveness after directions complete (needs selected_directions)
             try {
-              const cResult = await generateCompetitiveness.mutateAsync(store.assessment!.id);
+              const cResult = await withSlowHint(
+                generateCompetitiveness.mutateAsync(store.assessment!.id),
+                "正在分析差异化竞争力",
+                toast,
+              );
               store.setCompetitivenessData(cResult);
               toast({ title: "竞争力分析已生成" });
 
               // Chain: endgame after competitiveness (takes optional competitiveness result)
               try {
-                const eResult = await generateEndgame.mutateAsync(store.assessment!.id);
+                const eResult = await withSlowHint(
+                  generateEndgame.mutateAsync(store.assessment!.id),
+                  "正在设计商业终局",
+                  toast,
+                );
                 store.setEndgameData(eResult);
                 toast({ title: "商业终局分析已生成" });
               } catch (e) {
@@ -209,7 +249,11 @@ export function AssessmentWorkspace({
         })(),
         (async () => {
           try {
-            const sResult = await generateScenarios.mutateAsync(store.assessment!.id);
+            const sResult = await withSlowHint(
+              generateScenarios.mutateAsync(store.assessment!.id),
+              "正在匹配 AI 场景推荐",
+              toast,
+            );
             store.setAssessment(sResult.assessment);
             store.setScenarioRecommendation(sResult.scenario_recommendation);
             setProgress((prev) => computeProgress({
@@ -233,7 +277,11 @@ export function AssessmentWorkspace({
   const handleGenerateDirections = useCallback(async () => {
     if (!store.assessment) return;
     try {
-      const result = await expandDirections.mutateAsync(store.assessment.id);
+      const result = await withSlowHint(
+        expandDirections.mutateAsync(store.assessment.id),
+        "正在延展创新方向",
+        toast,
+      );
       store.setDirectionData(result);
       if (result.direction_selection && result.direction_selection.selected_directions.length > 0) {
         store.setDirectionSelection(result.direction_selection);
@@ -265,7 +313,11 @@ export function AssessmentWorkspace({
   const handleGenerateScenarios = useCallback(async () => {
     if (!store.assessment) return;
     try {
-      const result = await generateScenarios.mutateAsync(store.assessment.id);
+      const result = await withSlowHint(
+        generateScenarios.mutateAsync(store.assessment.id),
+        "正在匹配 AI 场景推荐",
+        toast,
+      );
       store.setAssessment(result.assessment);
       store.setScenarioRecommendation(result.scenario_recommendation);
       setProgress(computeProgress({
@@ -284,7 +336,11 @@ export function AssessmentWorkspace({
   const handleGenerateCompetitiveness = useCallback(async () => {
     if (!store.assessment) return;
     try {
-      const result = await generateCompetitiveness.mutateAsync(store.assessment.id);
+      const result = await withSlowHint(
+        generateCompetitiveness.mutateAsync(store.assessment.id),
+        "正在分析差异化竞争力",
+        toast,
+      );
       store.setCompetitivenessData(result);
       toast({ title: "竞争力分析已生成" });
     } catch (e) {
@@ -295,7 +351,11 @@ export function AssessmentWorkspace({
   const handleGenerateEndgame = useCallback(async () => {
     if (!store.assessment) return;
     try {
-      const result = await generateEndgame.mutateAsync(store.assessment.id);
+      const result = await withSlowHint(
+        generateEndgame.mutateAsync(store.assessment.id),
+        "正在设计商业终局",
+        toast,
+      );
       store.setEndgameData(result);
       toast({ title: "商业终局分析已生成" });
     } catch (e) {

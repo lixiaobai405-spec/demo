@@ -37,6 +37,7 @@ export function useIntakeSession(sessionId: string | null) {
     queryKey: intakeKeys.session(sessionId!),
     queryFn: () => getIntakeImportSession(sessionId!),
     enabled: Boolean(sessionId),
+    staleTime: 5 * 60 * 1000,
   });
 }
 

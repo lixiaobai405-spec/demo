@@ -158,6 +158,7 @@ class LLMClient:
             base_url=settings.openai_base_url,
         )
 
+        timeout = getattr(settings, "llm_report_timeout_seconds", 60)
         try:
             response = client.chat.completions.create(
                 model=settings.openai_model,
@@ -167,6 +168,7 @@ class LLMClient:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
+                timeout=timeout,
             )
         except Exception:
             response = client.chat.completions.create(
@@ -176,6 +178,7 @@ class LLMClient:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
+                timeout=timeout,
             )
 
         raw_content = response.choices[0].message.content or ""
