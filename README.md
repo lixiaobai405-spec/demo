@@ -65,7 +65,8 @@
 ├── start.bat                 # 一键启动（后端 + ngrok + 前端）
 ├── mykey.py.example          # 密钥配置模板
 ├── .env.example
-├── 使用方法.md                # 详细中文使用指南
+├── 使用方法.md                # API 参考与快速启动
+├── 使用说明.md                # 面向用户的操作指南（UI 流程 + 常见问题）
 └── README.md
 ```
 
@@ -334,7 +335,8 @@ python -m pytest tests/test_e2e_full_chain.py -v -s
 
 ## 更多文档
 
-- **[使用方法.md](./使用方法.md)** — 详细中文使用指南（环境要求、快速启动、API 快速参考、级联清空机制）
+- **[使用说明.md](./使用说明.md)** — 面向用户的操作指南（界面概览、14 步操作流程、常见问题）
+- **[使用方法.md](./使用方法.md)** — API 参考手册（环境要求、端点列表、环境变量、级联清空机制）
 - **[docs/CURRENT_STATUS.md](./docs/CURRENT_STATUS.md)** — 项目进展总览、已完成功能、待完成功能
 - **[docs/PROJECT_OVERVIEW.md](./docs/PROJECT_OVERVIEW.md)** — 项目架构概览
 - **[docs/B1_PRE_INPUT_IMPORT_DESIGN.md](./docs/B1_PRE_INPUT_IMPORT_DESIGN.md)** — 课前导入功能设计
