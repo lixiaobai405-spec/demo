@@ -28,7 +28,9 @@ export function IntakeSessionRecall() {
       <button
         type="button"
         onClick={() => store.setShowSessionRecall(!store.showSessionRecall)}
-        className="flex w-full items-center justify-between text-left"
+        className="flex w-full items-center justify-between text-left cursor-pointer hover:bg-accent/30 rounded-xl px-1 py-0.5 transition-colors"
+        aria-label={store.showSessionRecall ? "收起回看导入会话" : "展开回看导入会话"}
+        aria-expanded={store.showSessionRecall}
       >
         <div>
           <p className="section-label">辅助功能</p>
@@ -37,6 +39,7 @@ export function IntakeSessionRecall() {
         <span
           className="text-sm text-muted-foreground transition-transform"
           style={{ transform: store.showSessionRecall ? "rotate(90deg)" : "rotate(0deg)" }}
+          aria-hidden="true"
         >
           ▶
         </span>

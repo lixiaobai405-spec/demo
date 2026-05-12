@@ -10,6 +10,8 @@ from app.schemas.assessment import (
     InstructorExportResponse,
 )
 from app.services.instructor_service import InstructorService
+from app.api.deps import require_instructor
+from app.models.user import User
 
 router = APIRouter(prefix="/api/instructor", tags=["instructor"])
 
@@ -21,6 +23,7 @@ router = APIRouter(prefix="/api/instructor", tags=["instructor"])
 )
 def get_instructor_dashboard(
     db: Session = Depends(get_db),
+    _instructor: User = Depends(require_instructor),
 ) -> InstructorDashboardResponse:
     service = InstructorService()
     return service.get_dashboard(db)
@@ -34,6 +37,7 @@ def get_instructor_dashboard(
 def batch_comment(
     payload: BatchCommentRequest,
     db: Session = Depends(get_db),
+    _instructor: User = Depends(require_instructor),
 ) -> BatchCommentResponse:
     service = InstructorService()
     return service.batch_comment(db, payload)
@@ -46,6 +50,7 @@ def batch_comment(
 def export_students(
     format: str = Query("csv", pattern="^(csv|json)$"),
     db: Session = Depends(get_db),
+    _instructor: User = Depends(require_instructor),
 ):
     service = InstructorService()
     if format == "csv":

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { buttonVariants } from "@/components/ui/button";
 import { HealthStatusCard } from "@/components/health-status-card";
 import { LLMConfigCard } from "@/components/llm-config-card";
 
@@ -35,10 +36,10 @@ export default function Home() {
 
             <div className="flex flex-col gap-3 lg:items-end">
               <div className="flex flex-wrap gap-3 lg:justify-end">
-                <Link href="/intake" className="btn-secondary">
+                <Link href="/intake" className={buttonVariants({ variant: "outline" })}>
                   导入课前材料
                 </Link>
-                <Link href="/assessment" className="btn-primary">
+                <Link href="/assessment" className={buttonVariants()}>
                   开始企业问卷
                 </Link>
               </div>

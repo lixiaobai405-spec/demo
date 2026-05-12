@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 
 import { AssessmentWorkspace } from "@/components/assessment-workspace";
 import { InstructorDashboard } from "@/components/instructor-dashboard";
+import { AuthGuard } from "@/components/auth-guard";
 
 function AssessmentPageContent() {
   const [tab, setTab] = useState<"student" | "instructor">("student");
@@ -49,6 +50,9 @@ function AssessmentPageContent() {
             <div className="flex items-center gap-1 rounded-full border border-warm-border bg-warm-inset p-1">
               <button
                 type="button"
+                role="tab"
+                aria-selected={tab === "student"}
+                aria-current={tab === "student" ? "page" : undefined}
                 onClick={() => setTab("student")}
                 className={`rounded-full px-6 py-2 text-sm font-medium transition ${
                   tab === "student"
@@ -60,6 +64,9 @@ function AssessmentPageContent() {
               </button>
               <button
                 type="button"
+                role="tab"
+                aria-selected={tab === "instructor"}
+                aria-current={tab === "instructor" ? "page" : undefined}
                 onClick={() => setTab("instructor")}
                 className={`rounded-full px-6 py-2 text-sm font-medium transition ${
                   tab === "instructor"
@@ -110,8 +117,10 @@ function AssessmentPageFallback() {
 
 export default function AssessmentPage() {
   return (
-    <Suspense fallback={<AssessmentPageFallback />}>
-      <AssessmentPageContent />
-    </Suspense>
+    <AuthGuard>
+      <Suspense fallback={<AssessmentPageFallback />}>
+        <AssessmentPageContent />
+      </Suspense>
+    </AuthGuard>
   );
 }

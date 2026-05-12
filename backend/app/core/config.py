@@ -101,6 +101,15 @@ class Settings:
         str(ROOT_DIR / "backend" / "data" / "chroma"),
     )
     rag_top_k: int = int(os.getenv("RAG_TOP_K", "5"))
+    # LightRAG graph-enhanced retrieval (optional, replaces ChromaDB when enabled)
+    lightrag_enabled: bool = (
+        os.getenv("LIGHTRAG_ENABLED", "false").strip().lower() == "true"
+    )
+    lightrag_working_dir: str = os.getenv(
+        "LIGHTRAG_WORKING_DIR",
+        str(ROOT_DIR / "backend" / "data" / "lightrag"),
+    )
+    lightrag_top_k: int = int(os.getenv("LIGHTRAG_TOP_K", "5"))
     # LLM Report settings
     llm_report_enabled: bool = _resolve_bool("llm_report_enabled", "LLM_REPORT_ENABLED", False)
     llm_report_timeout_seconds: int = _resolve_int("llm_report_timeout_seconds", "LLM_REPORT_TIMEOUT_SECONDS", 60)
@@ -113,6 +122,10 @@ class Settings:
         os.getenv("INTAKE_PDF_OCR_MIN_TEXT_CHARS", "20")
     )
     intake_pdf_ocr_max_pages: int = int(os.getenv("INTAKE_PDF_OCR_MAX_PAGES", "12"))
+    # JWT Auth settings
+    jwt_secret_key: str = _resolve("jwt_secret_key", "JWT_SECRET_KEY", "meitai-demo-dev-secret-change-in-prod")
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = _resolve_int("jwt_expire_minutes", "JWT_EXPIRE_MINUTES", 1440)
 
 
 settings = Settings()

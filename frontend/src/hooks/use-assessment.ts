@@ -21,6 +21,7 @@ export function useAssessmentDetail(assessmentId: string | undefined) {
     queryKey: assessmentKeys.detail(assessmentId!),
     queryFn: () => getAssessmentDetail(assessmentId!),
     enabled: Boolean(assessmentId),
+    staleTime: 5 * 60 * 1000,
   });
 }
 

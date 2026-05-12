@@ -43,9 +43,11 @@ def init_db() -> None:
     from app.models.intake_session import AssessmentIntakeSession  # noqa: F401
     from app.models.push_record import PushRecord  # noqa: F401
     from app.models.scenario_recommendation import ScenarioRecommendation  # noqa: F401
+    from app.models.user import User  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
     _migrate_generated_reports_table()
+    _migrate_assessments_add_user_id()
 
 
 def _migrate_generated_reports_table() -> None:
@@ -73,6 +75,22 @@ def _migrate_generated_reports_table() -> None:
         for column_name, ddl in required_columns.items():
             if column_name not in existing_columns:
                 connection.execute(text(ddl))
+
+
+def _migrate_assessments_add_user_id() -> None:
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    if "assessments" not in inspector.get_table_names():
+        return
+
+    existing_columns = {c["name"] for c in inspector.get_columns("assessments")}
+    if "user_id" not in existing_columns:
+        with engine.begin() as connection:
+            connection.execute(
+                text("ALTER TABLE assessments ADD COLUMN user_id VARCHAR(36) REFERENCES users(id)")
+            )
 
 
 def get_db() -> Generator[Session, None, None]:

@@ -1,10 +1,15 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import DateTime, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from typing import TYPE_CHECKING
+
+from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 
 class Assessment(Base):
@@ -26,6 +31,9 @@ class Assessment(Base):
     ai_goals: Mapped[str] = mapped_column(Text, nullable=False)
     available_data: Mapped[str] = mapped_column(Text, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=True, index=True
+    )
     class_group: Mapped[str | None] = mapped_column(String(100), nullable=True)
     instructor_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     profile_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -45,6 +53,8 @@ class Assessment(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+    user: Mapped["User | None"] = relationship("User", back_populates="assessments")
 
     @property
     def has_profile(self) -> bool:

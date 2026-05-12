@@ -88,7 +88,7 @@ export function ReportPreviewViewer({ assessmentId }: { assessmentId: string }) 
 
       <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
         <div className="card-inset">
-          <p className="section-label">Readiness</p>
+          <p className="section-label">就绪检查</p>
           <h2 className="section-heading">报告生成前检查</h2>
           <div className="mt-6 space-y-3 text-sm">
             <StatusRow label="企业画像" ready={detail.progress.has_profile} text={profile ? "已生成，可直接纳入报告。" : "尚未生成，当前无法进入报告。"} />
@@ -103,7 +103,7 @@ export function ReportPreviewViewer({ assessmentId }: { assessmentId: string }) 
         </div>
 
         <div className="card">
-          <p className="section-label">Actions</p>
+          <p className="section-label">操作</p>
           <h2 className="section-heading">生成与回看</h2>
           <div className="mt-6 grid gap-3">
             <div className="rounded-xl border border-warm-border-light bg-warm-inset px-4 py-4">
@@ -130,9 +130,9 @@ export function ReportPreviewViewer({ assessmentId }: { assessmentId: string }) 
             </button>
 
             {existingReport ? (
-              <Link href={`/reports/${existingReport.report_id}`} className="btn-secondary">查看已有报告</Link>
+              <Link href={`/reports/${existingReport.report_id}`} className="btn-secondary" target="_blank" rel="noopener noreferrer">查看已有报告</Link>
             ) : null}
-            <Link href={`/report-context/${assessmentId}`} className="btn-secondary">查看报告上下文</Link>
+            <Link href={`/report-context/${assessmentId}`} className="btn-secondary" target="_blank" rel="noopener noreferrer">查看报告上下文</Link>
             <Link href={`/assessment/${assessmentId}`} className="btn-secondary">返回 Assessment 工作台</Link>
           </div>
 

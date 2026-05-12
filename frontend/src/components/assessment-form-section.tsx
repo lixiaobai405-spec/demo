@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCreateAssessment } from "@/hooks";
 import { toast } from "@/hooks/use-toast";
@@ -38,9 +38,29 @@ export function AssessmentFormSection({
     (value) => typeof value === "string" && value.trim().length > 0,
   ).length;
 
+  const hasUnsavedChanges = !assessmentId && answeredCount > 0;
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [hasUnsavedChanges]);
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitError(null);
+
+    // Client-side validation
+    const formEl = event.currentTarget;
+    if (!formEl.checkValidity()) {
+      formEl.reportValidity();
+      return;
+    }
+
     try {
       const result = await createAssessment.mutateAsync({
         ...externalForm,
@@ -82,6 +102,7 @@ export function AssessmentFormSection({
       <div className="mt-6 grid gap-6 md:grid-cols-2">
         <Field label="企业名称" required>
           <input
+            required
             value={externalForm.company_name}
             onChange={(e) => onFormChange("company_name", e.target.value)}
             className="input-field"
@@ -90,6 +111,7 @@ export function AssessmentFormSection({
         </Field>
         <Field label="所属行业" required>
           <input
+            required
             value={externalForm.industry}
             onChange={(e) => onFormChange("industry", e.target.value)}
             className="input-field"
@@ -98,6 +120,7 @@ export function AssessmentFormSection({
         </Field>
         <Field label="企业规模" required>
           <select
+            required
             value={externalForm.company_size}
             onChange={(e) => onFormChange("company_size", e.target.value)}
             className="input-field"
@@ -110,6 +133,7 @@ export function AssessmentFormSection({
         </Field>
         <Field label="所在区域" required>
           <input
+            required
             value={externalForm.region}
             onChange={(e) => onFormChange("region", e.target.value)}
             className="input-field"
@@ -118,6 +142,7 @@ export function AssessmentFormSection({
         </Field>
         <Field label="年营收范围" required>
           <select
+            required
             value={externalForm.annual_revenue_range}
             onChange={(e) => onFormChange("annual_revenue_range", e.target.value)}
             className="input-field"
@@ -130,6 +155,7 @@ export function AssessmentFormSection({
         </Field>
         <Field label="可用数据/系统基础" required>
           <textarea
+            required
             value={externalForm.available_data}
             onChange={(e) => onFormChange("available_data", e.target.value)}
             className="input-field"
@@ -141,6 +167,7 @@ export function AssessmentFormSection({
       <div className="mt-6 grid gap-6">
         <Field label="核心产品/服务" required>
           <textarea
+            required
             value={externalForm.core_products}
             onChange={(e) => onFormChange("core_products", e.target.value)}
             className="input-field"
@@ -149,6 +176,7 @@ export function AssessmentFormSection({
         </Field>
         <Field label="目标客户" required>
           <textarea
+            required
             value={externalForm.target_customers}
             onChange={(e) => onFormChange("target_customers", e.target.value)}
             className="input-field"
@@ -157,6 +185,7 @@ export function AssessmentFormSection({
         </Field>
         <Field label="当前经营/管理挑战" required>
           <textarea
+            required
             value={externalForm.current_challenges}
             onChange={(e) => onFormChange("current_challenges", e.target.value)}
             className="input-field"
@@ -165,6 +194,7 @@ export function AssessmentFormSection({
         </Field>
         <Field label="希望通过 AI 达成的目标" required>
           <textarea
+            required
             value={externalForm.ai_goals}
             onChange={(e) => onFormChange("ai_goals", e.target.value)}
             className="input-field"

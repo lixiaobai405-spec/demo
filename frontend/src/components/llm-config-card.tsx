@@ -59,6 +59,16 @@ export function LLMConfigCard() {
     fetchConfig();
   }, [fetchConfig]);
 
+  useEffect(() => {
+    if (!showForm) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [showForm]);
+
   const handleSave = () => {
     // Optimistic: close form + toast immediately
     const optimistic: LLMConfigSnapshot = {
@@ -122,7 +132,7 @@ export function LLMConfigCard() {
           </p>
         </div>
         <Badge variant={config?.is_live ? "success" : "muted"}>
-          {config?.is_live ? "Live" : config?.mode === "live" ? "配置不完整" : "Mock"}
+          {config?.is_live ? "真实" : config?.mode === "live" ? "配置不完整" : "模拟"}
         </Badge>
       </div>
 

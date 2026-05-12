@@ -1,10 +1,13 @@
+"use client";
+
 import Link from "next/link";
 
 import { IntakeWorkspace } from "@/components/intake-workspace";
+import { AuthGuard } from "@/components/auth-guard";
 
-export default function IntakePage() {
+function IntakeContent() {
   return (
-    <main className="min-h-screen px-6 py-10">
+    <div className="min-h-screen px-6 py-10">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 stagger">
         <section className="page-header">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
@@ -34,6 +37,14 @@ export default function IntakePage() {
 
         <IntakeWorkspace />
       </div>
-    </main>
+    </div>
+  );
+}
+
+export default function IntakePage() {
+  return (
+    <AuthGuard>
+      <IntakeContent />
+    </AuthGuard>
   );
 }

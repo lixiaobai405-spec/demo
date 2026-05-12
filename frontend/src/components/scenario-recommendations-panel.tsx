@@ -22,8 +22,8 @@ export function ScenarioRecommendationsPanel({
 
       {readyForReport ? (
         <div className="mt-6 flex flex-wrap gap-3">
-          <Link href={`/report-context/${assessmentId}`} className="btn-secondary">查看报告上下文</Link>
-          <Link href={`/report/${assessmentId}`} className="btn-primary">进入报告生成</Link>
+          <Link href={`/report-context/${assessmentId}`} className="btn-secondary" target="_blank" rel="noopener noreferrer">查看报告上下文</Link>
+          <Link href={`/report/${assessmentId}`} className="btn-primary" target="_blank" rel="noopener noreferrer">进入报告生成</Link>
         </div>
       ) : null}
 

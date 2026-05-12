@@ -30,10 +30,23 @@ import type {
   RecalibratePlanRequest,
   InstructorDashboardResponse,
   BatchCommentResponse,
+  TokenResponse,
+  RegisterRequest,
+  LoginRequest,
+  UserResponse,
+  AssessmentListResponse,
 } from "@/lib/types";
 
 export const apiBaseUrl =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+
+function getAuthHeaders(): Record<string, string> {
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("auth_token");
+    if (token) return { Authorization: `Bearer ${token}` };
+  }
+  return {};
+}
 
 export class ApiError extends Error {
   status: number;
@@ -47,7 +60,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, init?: RequestInit & { signal?: AbortSignal }): Promise<T> {
   const maxRetries = 2;
   let lastError: unknown;
 
@@ -60,6 +73,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
         headers: {
           ...(isFormData ? {} : { "Content-Type": "application/json" }),
           "ngrok-skip-browser-warning": "true",
+          ...getAuthHeaders(),
           ...(init?.headers ?? {}),
         },
       });
@@ -429,4 +443,62 @@ export function batchComment(
 
 export function instructorExportCsv(): Promise<{ export_format: string; content: string; student_count: number }> {
   return request("/api/instructor/export?format=csv");
+}
+
+/** 将 API 错误转为用户可读的中文消息，供 toast 使用 */
+export function formatMutationError(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) {
+    if (error.status === 0) return error.message;
+    if (error.status >= 500) return `${fallback}时后端服务异常（${error.status}），请稍后重试。`;
+    if (error.status === 400) return `${fallback}失败：请求参数不合法。`;
+    if (error.status === 404) return `${fallback}失败：未找到目标资源。`;
+    return error.message || `${fallback}失败。`;
+  }
+  if (error instanceof Error) {
+    if (error.message.toLowerCase().includes("timeout")) return `${fallback}超时，请稍后重试。`;
+    if (error.message.toLowerCase().includes("failed to fetch") || error.message.toLowerCase().includes("network")) {
+      return "网络连接失败，请检查后端服务是否启动。";
+    }
+    return error.message;
+  }
+  return fallback;
+}
+
+// ── Auth API ──
+export function registerUser(payload: RegisterRequest): Promise<TokenResponse> {
+  return request<TokenResponse>("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function loginUser(payload: LoginRequest): Promise<TokenResponse> {
+  return request<TokenResponse>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getCurrentUser(): Promise<UserResponse> {
+  return request<UserResponse>("/api/auth/me");
+}
+
+// ── History API ──
+export function listMyAssessments(params?: {
+  search?: string;
+  date_from?: string;
+  date_to?: string;
+  industry?: string;
+  page?: number;
+  page_size?: number;
+}): Promise<AssessmentListResponse> {
+  const sp = new URLSearchParams();
+  if (params?.search) sp.set("search", params.search);
+  if (params?.date_from) sp.set("date_from", params.date_from);
+  if (params?.date_to) sp.set("date_to", params.date_to);
+  if (params?.industry) sp.set("industry", params.industry);
+  if (params?.page) sp.set("page", String(params.page));
+  if (params?.page_size) sp.set("page_size", String(params.page_size));
+  const qs = sp.toString();
+  return request<AssessmentListResponse>(`/api/assessments${qs ? `?${qs}` : ""}`);
 }

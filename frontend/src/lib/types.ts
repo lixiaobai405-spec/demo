@@ -659,3 +659,49 @@ export type BatchCommentResponse = {
   updated_count: number;
   comment: string;
 };
+
+// ── Auth ──
+export type UserResponse = {
+  id: string;
+  email: string;
+  display_name: string | null;
+  role: "user" | "instructor";
+  created_at: string;
+};
+
+export type RegisterRequest = {
+  email: string;
+  password: string;
+  display_name?: string | null;
+};
+
+export type LoginRequest = {
+  email: string;
+  password: string;
+};
+
+export type TokenResponse = {
+  access_token: string;
+  token_type: string;
+  user: UserResponse;
+};
+
+// ── History ──
+export type AssessmentCardItem = {
+  id: string;
+  company_name: string;
+  industry: string;
+  company_size: string;
+  has_profile: boolean;
+  has_report: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AssessmentListResponse = {
+  items: AssessmentCardItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+};

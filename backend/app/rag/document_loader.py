@@ -10,7 +10,7 @@ class DocumentLoader:
     """Load documents from knowledge/raw directory."""
 
     def __init__(self, knowledge_dir: Path | None = None):
-        self.knowledge_dir = knowledge_dir or Path(__file__).parent.parent.parent.parent.parent / "knowledge" / "raw"
+        self.knowledge_dir = knowledge_dir or Path(__file__).resolve().parents[3] / "knowledge" / "raw"
 
     def load_yaml_cases(self) -> list[dict]:
         """Load industry cases from YAML file."""

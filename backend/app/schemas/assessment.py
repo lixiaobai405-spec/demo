@@ -1,7 +1,27 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+class AssessmentCardItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    company_name: str
+    industry: str
+    company_size: str
+    has_profile: bool
+    has_report: bool = False
+    created_at: datetime
+    updated_at: datetime
+
+
+class AssessmentListResponse(BaseModel):
+    items: list[AssessmentCardItem]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
 
 
 class AssessmentCreateRequest(BaseModel):

@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import type { InstructorDashboardResponse, StudentSummary } from "@/lib/types";
 import { getInstructorDashboard, batchComment, instructorExportCsv } from "@/lib/api";
 
-const progressIcon = (flag: boolean) => (flag ? "✅" : "⬜");
+const progressIcon = (flag: boolean, label: string) => (
+  flag ? <span role="img" aria-label={`${label}：已完成`}>✅</span> : <span role="img" aria-label={`${label}：未开始`}>⬜</span>
+);
 
 export function InstructorDashboard() {
   const [data, setData] = useState<InstructorDashboardResponse | null>(null);
@@ -107,32 +109,32 @@ export function InstructorDashboard() {
         <table className="w-full text-left text-xs">
           <thead>
             <tr className="border-b border-warm-border-light">
-              <th className="pb-2 pr-2"><input type="checkbox" checked={selectedIds.size === filtered.length && filtered.length > 0}
+              <th className="pb-2 pr-2"><input type="checkbox" aria-label="全选当前分组学员" checked={selectedIds.size === filtered.length && filtered.length > 0}
                 onChange={() => toggleSelectAll(filtered)} className="rounded" /></th>
               <th className="pb-2 pr-3 font-medium text-warm-muted">企业</th>
               <th className="pb-2 px-2 font-medium text-warm-muted hidden sm:table-cell">行业</th>
               <th className="pb-2 px-2 font-medium text-warm-muted hidden md:table-cell">分组</th>
-              <th className="pb-2 px-1 text-center font-medium text-warm-muted">P</th>
-              <th className="pb-2 px-1 text-center font-medium text-warm-muted">C</th>
-              <th className="pb-2 px-1 text-center font-medium text-warm-muted">B</th>
-              <th className="pb-2 px-1 text-center font-medium text-warm-muted">S</th>
-              <th className="pb-2 px-1 text-center font-medium text-warm-muted">R</th>
+              <th className="pb-2 px-1 text-center font-medium text-warm-muted"><abbr title="企业画像 (Profile)">P</abbr></th>
+              <th className="pb-2 px-1 text-center font-medium text-warm-muted"><abbr title="商业画布 (Canvas)">C</abbr></th>
+              <th className="pb-2 px-1 text-center font-medium text-warm-muted"><abbr title="突破要素 (Breakthrough)">B</abbr></th>
+              <th className="pb-2 px-1 text-center font-medium text-warm-muted"><abbr title="场景推荐 (Scenario)">S</abbr></th>
+              <th className="pb-2 px-1 text-center font-medium text-warm-muted"><abbr title="报告 (Report)">R</abbr></th>
               <th className="pb-2 px-2 font-medium text-warm-muted hidden lg:table-cell">讲师备注</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((student) => (
               <tr key={student.assessment_id} className="border-b border-warm-border-light hover:bg-warm-inset">
-                <td className="py-2 pr-2"><input type="checkbox" checked={selectedIds.has(student.assessment_id)}
+                <td className="py-2 pr-2"><input type="checkbox" aria-label={`选择 ${student.company_name}`} checked={selectedIds.has(student.assessment_id)}
                   onChange={() => toggleSelect(student.assessment_id)} className="rounded" /></td>
                 <td className="py-2 pr-3"><p className="font-medium text-warm-text truncate max-w-[140px]">{student.company_name}</p></td>
                 <td className="py-2 px-2 hidden sm:table-cell"><span className="text-warm-muted">{student.industry}</span></td>
                 <td className="py-2 px-2 hidden md:table-cell"><span className="badge badge-muted text-[10px]">{student.class_group || "未分组"}</span></td>
-                <td className="py-2 px-1 text-center text-[10px]">{progressIcon(student.has_profile)}</td>
-                <td className="py-2 px-1 text-center text-[10px]">{progressIcon(student.has_canvas)}</td>
-                <td className="py-2 px-1 text-center text-[10px]">{progressIcon(student.has_breakthrough)}</td>
-                <td className="py-2 px-1 text-center text-[10px]">{progressIcon(student.has_scenarios)}</td>
-                <td className="py-2 px-1 text-center text-[10px]">{student.has_report ? "📄" : "⬜"}</td>
+                <td className="py-2 px-1 text-center text-[10px]">{progressIcon(student.has_profile, "企业画像")}</td>
+                <td className="py-2 px-1 text-center text-[10px]">{progressIcon(student.has_canvas, "商业画布")}</td>
+                <td className="py-2 px-1 text-center text-[10px]">{progressIcon(student.has_breakthrough, "突破要素")}</td>
+                <td className="py-2 px-1 text-center text-[10px]">{progressIcon(student.has_scenarios, "场景推荐")}</td>
+                <td className="py-2 px-1 text-center text-[10px]">{student.has_report ? <span role="img" aria-label="已有报告">📄</span> : <span role="img" aria-label="无报告">⬜</span>}</td>
                 <td className="py-2 px-2 hidden lg:table-cell"><p className="text-[10px] text-warm-muted max-w-[180px] truncate">{student.instructor_comment || "—"}</p></td>
               </tr>
             ))}
