@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/providers/auth-provider";
@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 
-export default function LoginPage() {
+/** 登录页主体，负责读取查询参数并处理登录流程。 */
+function LoginPageContent() {
   const { login, isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -94,5 +95,19 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+/** 登录页加载占位，避免预渲染阶段直接读取查询参数。 */
+function LoginPageFallback() {
+  return <div className="min-h-screen" />;
+}
+
+/** 登录页入口，使用 Suspense 包裹依赖 useSearchParams 的内容。 */
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginPageFallback />}>
+      <LoginPageContent />
+    </Suspense>
   );
 }
