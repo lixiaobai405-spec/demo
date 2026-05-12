@@ -32,10 +32,12 @@ SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 def init_db() -> None:
     from app.models.assessment import Assessment  # noqa: F401
+    from app.models.bmc_scoring import BMCScoring  # noqa: F401
     from app.models.breakthrough_selection import BreakthroughSelection  # noqa: F401
     from app.models.case_recommendation import CaseRecommendation  # noqa: F401
     from app.models.canvas_diagnosis import CanvasDiagnosis  # noqa: F401
     from app.models.competitiveness_analysis import CompetitivenessAnalysis  # noqa: F401
+    from app.models.direction_expansion import DirectionExpansion  # noqa: F401
     from app.models.direction_selection import DirectionSelection  # noqa: F401
     from app.models.endgame_analysis import EndgameAnalysis  # noqa: F401
     from app.models.follow_up import FollowUpTask  # noqa: F401
@@ -48,6 +50,7 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
     _migrate_generated_reports_table()
     _migrate_assessments_add_user_id()
+    _migrate_assessment_intake_sessions_add_user_id()
 
 
 def _migrate_generated_reports_table() -> None:
@@ -90,6 +93,25 @@ def _migrate_assessments_add_user_id() -> None:
         with engine.begin() as connection:
             connection.execute(
                 text("ALTER TABLE assessments ADD COLUMN user_id VARCHAR(36) REFERENCES users(id)")
+            )
+
+
+def _migrate_assessment_intake_sessions_add_user_id() -> None:
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    if "assessment_intake_sessions" not in inspector.get_table_names():
+        return
+
+    existing_columns = {c["name"] for c in inspector.get_columns("assessment_intake_sessions")}
+    if "user_id" not in existing_columns:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "ALTER TABLE assessment_intake_sessions "
+                    "ADD COLUMN user_id VARCHAR(36) REFERENCES users(id)"
+                )
             )
 
 

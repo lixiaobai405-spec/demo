@@ -3,10 +3,11 @@ export { useAssessmentDetail, useCreateAssessment, assessmentKeys } from "./use-
 export { useGenerateProfile } from "./use-profile";
 export { useGenerateCanvas } from "./use-canvas";
 export { useRecommendBreakthrough, useSelectBreakthrough } from "./use-breakthrough";
-export { useExpandDirections, useSelectDirections } from "./use-directions";
+export { useDirectionPolling, useExpandDirections, useSelectDirections } from "./use-directions";
 export { useGenerateScenarios } from "./use-scenarios";
 export { useGenerateCompetitiveness } from "./use-competitiveness";
-export { useGenerateEndgame } from "./use-endgame";
+export { useEndgame, useGenerateEndgame } from "./use-endgame";
+export { useCalculateBMCScoring, useSaveBMCScoring, useGetBMCScoring, useAutoDeriveBMCScoring, bmcScoringKeys } from "./use-bmc-scoring";
 export { useFollowUpPlan, useUpdateFollowUpTask, useRecalibrateFollowUp } from "./use-follow-up";
 export { toast, useToast } from "./use-toast";
 export type { ToasterToast } from "./use-toast";

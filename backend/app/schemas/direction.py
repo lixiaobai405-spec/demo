@@ -21,7 +21,8 @@ class DirectionExpansionByElement(BaseModel):
 
 
 class DirectionExpansionResult(BaseModel):
-    generation_mode: Literal["rule_based"]
+    generation_mode: Literal["rule_based", "llm"]
+    llm_status: Literal["pending", "completed", "failed"] = "completed"
     elements: list[DirectionExpansionByElement] = Field(default_factory=list)
     total_suggestions: int
 
