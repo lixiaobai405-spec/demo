@@ -279,6 +279,45 @@ export function getBreakthrough(
   );
 }
 
+// ── BMC 三维评分 ──
+
+export function calculateBMCScoring(
+  assessmentId: string,
+  payload: { modules: import("@/lib/types").ModuleScoreInput[] },
+): Promise<import("@/lib/types").BmcScoringResult> {
+  return request<import("@/lib/types").BmcScoringResult>(
+    `/api/assessments/${assessmentId}/bmc-scoring/calculate`,
+    { method: "POST", body: JSON.stringify({ ...payload, assessment_id: assessmentId }) },
+  );
+}
+
+export function saveBMCScoring(
+  assessmentId: string,
+  payload: import("@/lib/types").BmcScoringSaveRequest,
+): Promise<import("@/lib/types").BmcScoringResponse> {
+  return request<import("@/lib/types").BmcScoringResponse>(
+    `/api/assessments/${assessmentId}/bmc-scoring/save`,
+    { method: "POST", body: JSON.stringify(payload) },
+  );
+}
+
+export function getBMCScoring(
+  assessmentId: string,
+): Promise<import("@/lib/types").BmcScoringResponse> {
+  return request<import("@/lib/types").BmcScoringResponse>(
+    `/api/assessments/${assessmentId}/bmc-scoring`,
+  );
+}
+
+export function autoDeriveBMCScoring(
+  assessmentId: string,
+): Promise<import("@/lib/types").AutoDeriveResponse> {
+  return request<import("@/lib/types").AutoDeriveResponse>(
+    `/api/assessments/${assessmentId}/bmc-scoring/auto-derive`,
+    { method: "POST" },
+  );
+}
+
 export function expandDirections(
   assessmentId: string,
 ): Promise<AssessmentDirectionResponse> {
@@ -303,9 +342,11 @@ export function selectDirections(
 
 export function getDirections(
   assessmentId: string,
+  init?: { signal?: AbortSignal },
 ): Promise<AssessmentDirectionResponse> {
   return request<AssessmentDirectionResponse>(
     `/api/assessments/${assessmentId}/directions`,
+    { ...init },
   );
 }
 

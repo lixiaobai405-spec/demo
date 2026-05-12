@@ -3,11 +3,12 @@
 import type { AssessmentDirectionResponse, DirectionSuggestion } from "@/lib/types";
 
 export function DirectionExpansionPanel({
-  data, selectedIds, isSelecting, onToggleDirection, onConfirmSelection,
+  data, selectedIds, isSelecting, isLLMPending, onToggleDirection, onConfirmSelection,
 }: {
   data: AssessmentDirectionResponse;
   selectedIds: string[];
   isSelecting: boolean;
+  isLLMPending?: boolean;
   onToggleDirection: (id: string) => void;
   onConfirmSelection: () => void;
 }) {
@@ -21,8 +22,21 @@ export function DirectionExpansionPanel({
           <p className="section-label">延展结果</p>
           <h2 className="section-heading">创新方向延展</h2>
         </div>
-        <span className="badge badge-accent">共 {direction_expansion.total_suggestions} 个方向</span>
+        <div className="flex items-center gap-2">
+          {isLLMPending && (
+            <span className="badge badge-warning animate-pulse text-xs">
+              AI 增强中...
+            </span>
+          )}
+          <span className="badge badge-accent">共 {direction_expansion.total_suggestions} 个方向</span>
+        </div>
       </div>
+
+      {isLLMPending && (
+        <p className="mt-3 text-xs text-warm-muted">
+          AI 正在生成增强建议，结果约 30-60 秒后自动更新，当前展示为规则引擎结果...
+        </p>
+      )}
 
       {hasExistingSelection ? (
         <div className="mt-6">

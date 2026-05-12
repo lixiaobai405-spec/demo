@@ -1,4 +1,6 @@
 import json
+import logging
+import threading
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -6,15 +8,17 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.session import get_db
+from app.db.session import SessionLocal, get_db
 from app.models.assessment import Assessment
 from app.models.breakthrough_selection import BreakthroughSelection
 from app.models.canvas_diagnosis import CanvasDiagnosis
 from app.models.case_recommendation import CaseRecommendation
 from app.models.competitiveness_analysis import CompetitivenessAnalysis
+from app.models.direction_expansion import DirectionExpansion
 from app.models.direction_selection import DirectionSelection
 from app.models.endgame_analysis import EndgameAnalysis
 from app.models.generated_report import GeneratedReport
+from app.models.intake_session import AssessmentIntakeSession
 from app.models.scenario_recommendation import ScenarioRecommendation
 from app.schemas.assessment import (
     AssessmentCanvasResponse,
@@ -105,6 +109,35 @@ def _check_owner_or_instructor(
         )
 
 
+def _claim_orphaned_assessment_from_intake(
+    db: Session,
+    assessment: Assessment,
+    current_user: User,
+) -> Assessment:
+    if current_user.role == "instructor" or assessment.user_id is not None:
+        return assessment
+
+    intake_session = (
+        db.query(AssessmentIntakeSession)
+        .filter(AssessmentIntakeSession.created_assessment_id == assessment.id)
+        .order_by(AssessmentIntakeSession.created_at.desc())
+        .first()
+    )
+    if intake_session is None:
+        return assessment
+    if intake_session.user_id not in (None, current_user.id):
+        return assessment
+
+    assessment.user_id = current_user.id
+    db.add(assessment)
+    if intake_session.user_id is None:
+        intake_session.user_id = current_user.id
+        db.add(intake_session)
+    db.commit()
+    db.refresh(assessment)
+    return assessment
+
+
 @router.post("", response_model=AssessmentResponse, status_code=status.HTTP_201_CREATED)
 def create_assessment(
     payload: AssessmentCreateRequest,
@@ -187,6 +220,7 @@ def get_assessment_detail(
     current_user: User = Depends(get_current_user),
 ) -> AssessmentDetailResponse:
     assessment = _get_assessment_or_404(db, assessment_id)
+    assessment = _claim_orphaned_assessment_from_intake(db, assessment, current_user)
     _check_owner_or_instructor(assessment, current_user)
     report_service = ReportService()
     profile = _load_profile_from_assessment(assessment)
@@ -391,13 +425,35 @@ def expand_directions(
 
     canvas = _require_canvas(db, assessment_id)
 
+    # Phase 1: Instant rule-based expansion
     service = DirectionExpansionService()
     expansion = service.expand(breakthrough_keys)
 
+    # Persist with pending LLM status
+    record = _upsert_direction_expansion(
+        db=db,
+        assessment_id=assessment_id,
+        expansion=expansion,
+    )
+    db.commit()
+
+    # Phase 2: Background LLM enhancement (daemon thread, non-blocking)
     enhancer = LLMEnhancer()
-    llm_directions = enhancer.enhance_directions(canvas, breakthrough_keys)
-    if llm_directions:
-        expansion = _inject_llm_directions_into_expansion(expansion, llm_directions)
+    if enhancer._is_live_mode():
+        canvas_json = canvas.model_dump_json()
+        thread = threading.Thread(
+            target=_background_enhance_directions,
+            args=(assessment_id, canvas_json, breakthrough_keys),
+            daemon=True,
+        )
+        thread.start()
+    else:
+        record.llm_status = "completed"
+        db.commit()
+        db.refresh(record)
+
+    # Set llm_status on the response expansion
+    expansion.llm_status = record.llm_status
 
     existing_selection = _load_direction_selection(db, assessment_id)
     selection_response = None
@@ -452,14 +508,22 @@ def get_directions(
     db: Session = Depends(get_db),
 ) -> AssessmentDirectionResponse:
     _get_assessment_or_404(db, assessment_id)
-    breakthrough_keys = _load_breakthrough_selection_keys(db, assessment_id) or []
-
     service = DirectionExpansionService()
-    expansion = service.expand(breakthrough_keys) if breakthrough_keys else DirectionExpansionResult(
-        generation_mode="rule_based",
-        elements=[],
-        total_suggestions=0,
-    )
+
+    # Read from persisted expansion record
+    record = _load_direction_expansion(db, assessment_id)
+    if record is not None:
+        expansion = DirectionExpansionResult.model_validate_json(record.expansion_json)
+        expansion.generation_mode = record.generation_mode  # type: ignore[assignment]
+        expansion.llm_status = record.llm_status  # type: ignore[assignment]
+    else:
+        # Fallback: re-run rule-based for backwards compatibility
+        breakthrough_keys = _load_breakthrough_selection_keys(db, assessment_id) or []
+        expansion = service.expand(breakthrough_keys) if breakthrough_keys else DirectionExpansionResult(
+            generation_mode="rule_based",
+            elements=[],
+            total_suggestions=0,
+        )
 
     existing_selection = _load_direction_selection(db, assessment_id)
     selection_response = None
@@ -1257,6 +1321,95 @@ def _inject_llm_directions_into_expansion(
     )
 
 
+def _upsert_direction_expansion(
+    db: Session,
+    assessment_id: str,
+    expansion: DirectionExpansionResult,
+) -> DirectionExpansion:
+    record = db.scalar(
+        select(DirectionExpansion).where(DirectionExpansion.assessment_id == assessment_id)
+    )
+    if record is None:
+        record = DirectionExpansion(
+            assessment_id=assessment_id,
+            generation_mode=expansion.generation_mode,
+            llm_status="pending",
+            expansion_json=expansion.model_dump_json(),
+        )
+        db.add(record)
+    else:
+        record.generation_mode = expansion.generation_mode
+        record.llm_status = "pending"
+        record.expansion_json = expansion.model_dump_json()
+    db.flush()
+    db.refresh(record)
+    return record
+
+
+def _load_direction_expansion(
+    db: Session,
+    assessment_id: str,
+) -> DirectionExpansion | None:
+    return db.scalar(
+        select(DirectionExpansion).where(DirectionExpansion.assessment_id == assessment_id)
+    )
+
+
+def _background_enhance_directions(
+    assessment_id: str,
+    canvas_json: str,
+    breakthrough_keys: list[str],
+) -> None:
+    """Run LLM enhancement in a daemon thread with its own DB session."""
+    from app.schemas.assessment import CanvasDiagnosisResult
+
+    logger = logging.getLogger(__name__)
+    db = SessionLocal()
+    try:
+        canvas = CanvasDiagnosisResult.model_validate_json(canvas_json)
+        enhancer = LLMEnhancer()
+        llm_directions = enhancer.enhance_directions(canvas, breakthrough_keys)
+
+        record = db.scalar(
+            select(DirectionExpansion).where(DirectionExpansion.assessment_id == assessment_id)
+        )
+        if record is None:
+            logger.warning("DirectionExpansion record vanished before background task completed")
+            return
+
+        if llm_directions:
+            stored_expansion = DirectionExpansionResult.model_validate_json(record.expansion_json)
+            merged = _inject_llm_directions_into_expansion(stored_expansion, llm_directions)
+            record.generation_mode = merged.generation_mode
+            record.llm_status = "completed"
+            record.expansion_json = merged.model_dump_json()
+        else:
+            record.llm_status = "failed"
+
+        record.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        logger.info(
+            "Background LLM enhancement %s for assessment %s",
+            "completed" if llm_directions else "failed (no result)",
+            assessment_id,
+        )
+    except Exception:
+        logger.warning(
+            "Background LLM enhancement failed for %s", assessment_id, exc_info=True
+        )
+        try:
+            record = db.scalar(
+                select(DirectionExpansion).where(DirectionExpansion.assessment_id == assessment_id)
+            )
+            if record is not None:
+                record.llm_status = "failed"
+                db.commit()
+        except Exception:
+            pass
+    finally:
+        db.close()
+
+
 def _load_competitiveness_analysis(
     db: Session,
     assessment_id: str,
@@ -1690,6 +1843,7 @@ def _clear_canvas_and_below(db: Session, assessment_id: str) -> None:
         [
             db.scalar(select(CanvasDiagnosis).where(CanvasDiagnosis.assessment_id == assessment_id)),
             db.scalar(select(BreakthroughSelection).where(BreakthroughSelection.assessment_id == assessment_id)),
+            db.scalar(select(DirectionExpansion).where(DirectionExpansion.assessment_id == assessment_id)),
             db.scalar(
                 select(ScenarioRecommendation).where(
                     ScenarioRecommendation.assessment_id == assessment_id
@@ -1721,6 +1875,7 @@ def _clear_breakthrough_and_below(db: Session, assessment_id: str) -> None:
         db,
         [
             db.scalar(select(BreakthroughSelection).where(BreakthroughSelection.assessment_id == assessment_id)),
+            db.scalar(select(DirectionExpansion).where(DirectionExpansion.assessment_id == assessment_id)),
             db.scalar(
                 select(ScenarioRecommendation).where(
                     ScenarioRecommendation.assessment_id == assessment_id

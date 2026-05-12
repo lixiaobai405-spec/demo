@@ -3,11 +3,9 @@ import Link from "next/link";
 import {
   getAssessmentDetail,
   getCompetitiveness,
-  getEndgame,
 } from "@/lib/api";
 import { ProfileResultsSection } from "@/components/profile-results-section";
 import { CompetitivenessPanel } from "@/components/competitiveness-panel";
-import { EndgamePanel } from "@/components/endgame-panel";
 import { ScenarioRecommendationsPanel } from "@/components/scenario-recommendations-panel";
 
 export default async function ResultsPage({
@@ -17,18 +15,15 @@ export default async function ResultsPage({
 }) {
   const { assessmentId } = await params;
 
-  // Fetch all data in parallel
-  const [detail, competitiveness, endgame] = await Promise.allSettled([
+  // Fetch all data in parallel (endgame excluded — requires all prior steps complete)
+  const [detail, competitiveness] = await Promise.allSettled([
     getAssessmentDetail(assessmentId),
     getCompetitiveness(assessmentId),
-    getEndgame(assessmentId),
   ]);
 
   const detailData = detail.status === "fulfilled" ? detail.value : null;
   const compData =
     competitiveness.status === "fulfilled" ? competitiveness.value : null;
-  const endgameData =
-    endgame.status === "fulfilled" ? endgame.value : null;
 
   const assessment = detailData?.assessment;
   const companyName = assessment?.company_name || "企业";
@@ -41,8 +36,7 @@ export default async function ResultsPage({
     companyProfile ||
     detailData?.canvas_diagnosis ||
     scenarioRecommendation ||
-    compData ||
-    endgameData;
+    compData;
 
   return (
     <main className="min-h-screen px-6 py-10">
@@ -165,8 +159,6 @@ export default async function ResultsPage({
             {/* Competitiveness */}
             {compData && <CompetitivenessPanel data={compData} />}
 
-            {/* Endgame */}
-            {endgameData && <EndgamePanel data={endgameData} />}
           </>
         )}
       </div>

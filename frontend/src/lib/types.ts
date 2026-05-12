@@ -374,7 +374,8 @@ export type DirectionExpansionByElement = {
 };
 
 export type DirectionExpansionResult = {
-  generation_mode: "rule_based";
+  generation_mode: "rule_based" | "llm";
+  llm_status: "pending" | "completed" | "failed";
   elements: DirectionExpansionByElement[];
   total_suggestions: number;
 };
@@ -665,7 +666,7 @@ export type UserResponse = {
   id: string;
   email: string;
   display_name: string | null;
-  role: "user" | "instructor";
+  role: "student" | "user" | "instructor";
   created_at: string;
 };
 
@@ -704,4 +705,74 @@ export type AssessmentListResponse = {
   page: number;
   page_size: number;
   total_pages: number;
+};
+
+// ── BMC 三维突破要素评分类型 ──
+
+export const BMC_MODULES = [
+  { key: "customer_segments", title: "客户细分", abbr: "CS", category: "market" },
+  { key: "value_propositions", title: "价值主张", abbr: "VP", category: "market" },
+  { key: "channels", title: "渠道通路", abbr: "CH", category: "market" },
+  { key: "customer_relationships", title: "客户关系", abbr: "CR", category: "market" },
+  { key: "revenue_streams", title: "收入来源", abbr: "R$", category: "market" },
+  { key: "key_resources", title: "核心资源", abbr: "KR", category: "efficiency" },
+  { key: "key_activities", title: "关键业务", abbr: "KA", category: "efficiency" },
+  { key: "key_partnerships", title: "重要合作", abbr: "KP", category: "efficiency" },
+  { key: "cost_structure", title: "成本结构", abbr: "C$", category: "efficiency" },
+] as const;
+
+export type BmcModuleKey = (typeof BMC_MODULES)[number]["key"];
+
+export type ModuleScoreInput = {
+  key: string;
+  pain: number;
+  data: number;
+  feasibility: number;
+};
+
+export type BmcScoringZone = "quickwin" | "strategic" | "longterm" | "hold" | "blocked";
+
+export type ModuleScoringResult = {
+  key: string;
+  title: string;
+  abbr: string;
+  category: string;
+  pain: number;
+  data: number;
+  feasibility: number;
+  raw_score: number;
+  normalized_score: number;
+  zone: BmcScoringZone;
+  veto_status: string;
+  veto_reason: string | null;
+  recommendation_level: string;
+  recommendation_label: string;
+  recommendation_stars: string;
+};
+
+export type BmcScoringResult = {
+  assessment_id: string;
+  module_results: ModuleScoringResult[];
+  top_3_keys: string[];
+  top_3_results: ModuleScoringResult[];
+  complementarity_warning: string | null;
+};
+
+export type BmcScoringSaveRequest = {
+  selected_keys: string[];
+  all_module_scores: ModuleScoreInput[];
+  selection_mode: "bmc_scoring" | "manual";
+};
+
+export type BmcScoringResponse = {
+  assessment_id: string;
+  scoring_result: BmcScoringResult | null;
+  selected_keys: string[];
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type AutoDeriveResponse = {
+  modules: ModuleScoreInput[];
+  derived_from_canvas: boolean;
 };
