@@ -9,6 +9,8 @@ from app.api.routes.push import router as push_router
 from app.api.routes.rag import router as rag_router
 from app.api.routes.admin import router as admin_router
 from app.api.routes.auth import router as auth_router
+from app.api.routes.bmc_scoring import router as bmc_scoring_router
+from app.api.routes.chat import router as chat_router
 from app.api.routes.reports import router as report_router
 
 api_router = APIRouter()
@@ -18,7 +20,9 @@ api_router.include_router(health_router)
 api_router.include_router(instructor_router)
 api_router.include_router(intake_router)
 api_router.include_router(assessment_router)
+api_router.include_router(bmc_scoring_router)
 api_router.include_router(follow_up_router)
 api_router.include_router(push_router)
+api_router.include_router(chat_router)
 api_router.include_router(report_router)
 api_router.include_router(rag_router)

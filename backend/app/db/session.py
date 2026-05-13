@@ -36,6 +36,7 @@ def init_db() -> None:
     from app.models.breakthrough_selection import BreakthroughSelection  # noqa: F401
     from app.models.case_recommendation import CaseRecommendation  # noqa: F401
     from app.models.canvas_diagnosis import CanvasDiagnosis  # noqa: F401
+    from app.models.chat import Conversation, Message  # noqa: F401
     from app.models.competitiveness_analysis import CompetitivenessAnalysis  # noqa: F401
     from app.models.direction_expansion import DirectionExpansion  # noqa: F401
     from app.models.direction_selection import DirectionSelection  # noqa: F401

@@ -776,3 +776,19 @@ export type AutoDeriveResponse = {
   modules: ModuleScoreInput[];
   derived_from_canvas: boolean;
 };
+
+// Chat types
+export type ChatMessageOut = {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  created_at: string | null;
+};
+
+export type ConversationOut = {
+  id: string;
+  assessment_id: string;
+  title: string;
+  messages: ChatMessageOut[];
+  created_at: string | null;
+};

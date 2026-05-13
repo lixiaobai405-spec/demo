@@ -543,3 +543,20 @@ export function listMyAssessments(params?: {
   const qs = sp.toString();
   return request<AssessmentListResponse>(`/api/assessments${qs ? `?${qs}` : ""}`);
 }
+
+// Chat
+export async function getConversation(
+  assessmentId: string,
+  init?: { signal?: AbortSignal },
+): Promise<import("@/lib/types").ConversationOut> {
+  return request<import("@/lib/types").ConversationOut>(
+    `/api/assessments/${assessmentId}/chat`,
+    { ...init },
+  );
+}
+
+export function clearConversation(assessmentId: string): Promise<void> {
+  return request<void>(`/api/assessments/${assessmentId}/chat`, {
+    method: "DELETE",
+  });
+}
