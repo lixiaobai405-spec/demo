@@ -1,0 +1,130 @@
+<h2>“AI 对话模式”页面怎么长？（点击选择）</h2>
+<p class="subtitle">目标：先上一个全新 AI 对话页面（不影响现有工作台），再把模块 1-7 的能力逐步迁移进来。下面 3 种布局从“纯聊天”到“聊天+结构化产出”逐渐增强。</p>
+
+<div class="options">
+  <div class="option" data-choice="A" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>双栏：聊天主线 + 右侧“产出/进度”面板（推荐）</h3>
+      <p>聊天负责引导与确认；右侧始终显示当前模块产出摘要、关键变量、下一步按钮。适合“逐步迁移”且信息不丢。</p>
+      <div class="mockup" style="margin-top:10px">
+        <div class="mockup-header">AI 对话模式（示意）</div>
+        <div class="mockup-body">
+          <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:12px;min-height:280px">
+            <div class="placeholder" style="border-radius:16px;padding:12px">
+              <div style="font-weight:700;margin-bottom:8px">对话流（咨询主线）</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div class="placeholder" style="border-radius:14px;padding:10px;max-width:85%">AI：我们先从企业现状开始…</div>
+                <div class="placeholder" style="border-radius:14px;padding:10px;max-width:75%;margin-left:auto">用户：我们目前主要痛点是…</div>
+                <div class="placeholder" style="border-radius:14px;padding:10px;max-width:85%">AI：我已生成画像草稿，是否确认？</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+                  <button class="mock-button" style="border-radius:999px;padding:8px 12px">确认并进入模块2</button>
+                  <button class="mock-button" style="border-radius:999px;padding:8px 12px;opacity:.85">我想修改</button>
+                </div>
+              </div>
+              <div style="margin-top:10px;display:flex;gap:8px">
+                <input class="mock-input" placeholder="输入…" style="flex:1" />
+                <button class="mock-button">发送</button>
+              </div>
+            </div>
+            <div class="placeholder" style="border-radius:16px;padding:12px">
+              <div style="font-weight:700;margin-bottom:8px">进度与产出面板</div>
+              <div style="font-size:12px;opacity:.75;margin-bottom:8px">当前：模块1 企业画像（草稿）</div>
+              <div class="placeholder" style="border-radius:12px;padding:10px;margin-bottom:8px">关键字段：企业名/行业/规模/成熟度…</div>
+              <div class="placeholder" style="border-radius:12px;padding:10px;margin-bottom:8px">9宫格预填：CS/VP/CH…（摘要）</div>
+              <div style="display:flex;gap:8px">
+                <button class="mock-button" style="border-radius:999px;padding:8px 12px">查看全量</button>
+                <button class="mock-button" style="border-radius:999px;padding:8px 12px;opacity:.85">导出（后续）</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons">
+        <div class="pros"><h4>优点</h4><ul><li>最贴合你说的“先有入口 + 逐步迁移”</li><li>聊天不丢结构化产出，便于导出</li></ul></div>
+        <div class="cons"><h4>注意</h4><ul><li>移动端需要把右侧面板做成抽屉/底部 Sheet</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="B" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>全屏聊天：产出用“对话内卡片”承载</h3>
+      <p>页面就是聊天，模块产出以大卡片穿插在消息流中（可折叠/可回看）。视觉更“像 AI”，但后期做导出/对比会更复杂。</p>
+      <div class="mockup" style="margin-top:10px">
+        <div class="mockup-header">AI 对话模式（示意）</div>
+        <div class="mockup-body">
+          <div class="placeholder" style="border-radius:16px;padding:12px;min-height:280px">
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div class="placeholder" style="border-radius:14px;padding:10px;max-width:85%">AI：我将为你生成企业画像…</div>
+              <div class="placeholder" style="border-radius:18px;padding:12px">
+                <div style="font-weight:700;margin-bottom:6px">模块1｜企业画像（卡片）</div>
+                <div style="font-size:12px;opacity:.75">企业名：…｜行业：…｜成熟度：…</div>
+                <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+                  <button class="mock-button" style="border-radius:999px;padding:8px 12px">确认</button>
+                  <button class="mock-button" style="border-radius:999px;padding:8px 12px;opacity:.85">编辑</button>
+                  <button class="mock-button" style="border-radius:999px;padding:8px 12px;opacity:.85">展开详情</button>
+                </div>
+              </div>
+              <div class="placeholder" style="border-radius:14px;padding:10px;max-width:75%;margin-left:auto">用户：我确认，但想把规模改成…</div>
+            </div>
+            <div style="margin-top:10px;display:flex;gap:8px">
+              <input class="mock-input" placeholder="输入…" style="flex:1" />
+              <button class="mock-button">发送</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons">
+        <div class="pros"><h4>优点</h4><ul><li>体验最“AI 对话”</li><li>开发初期交付快</li></ul></div>
+        <div class="cons"><h4>注意</h4><ul><li>长链路信息密度高，必须做强折叠与目录</li><li>导出/版本对比需要额外结构化抽取</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="C" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>三段式：顶部“步骤导航” + 中间聊天 + 底部“操作台”</h3>
+      <p>更像“对话式向导”：顶部展示 1-7 模块进度；底部提供当前模块的主按钮（生成/确认/回退）。</p>
+      <div class="mockup" style="margin-top:10px">
+        <div class="mockup-header">AI 对话模式（示意）</div>
+        <div class="mockup-body">
+          <div style="display:flex;flex-direction:column;gap:10px;min-height:280px">
+            <div class="placeholder" style="border-radius:14px;padding:10px">
+              <div style="font-weight:700;margin-bottom:4px">步骤导航（1-7）</div>
+              <div style="font-size:12px;opacity:.75">1画像 ✓  2画布  3突破  4方向  5场景  6竞争力  7终局</div>
+            </div>
+            <div class="placeholder" style="border-radius:16px;padding:12px;flex:1">
+              <div style="font-weight:700;margin-bottom:8px">对话区</div>
+              <div class="placeholder" style="border-radius:14px;padding:10px;max-width:85%">AI：进入模块2，我们将完善商业画布…</div>
+            </div>
+            <div class="placeholder" style="border-radius:14px;padding:10px;display:flex;justify-content:space-between;align-items:center;gap:12px">
+              <div style="font-size:12px;opacity:.75">当前模块：2 画布</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+                <button class="mock-button" style="border-radius:999px;padding:8px 12px">生成画布</button>
+                <button class="mock-button" style="border-radius:999px;padding:8px 12px;opacity:.85">编辑九宫格</button>
+                <button class="mock-button" style="border-radius:999px;padding:8px 12px;opacity:.85">返回上一步</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pros-cons">
+        <div class="pros"><h4>优点</h4><ul><li>流程感强，适合“生成按钮驱动”的现状迁移</li></ul></div>
+        <div class="cons"><h4>注意</h4><ul><li>看起来更像“向导”，弱化了“自由对话”</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:18px">
+  <div class="label">我对你提议的见解（先做入口 + 逐步迁移）</div>
+  <p>
+    这个路径非常合理：先新增“AI 对话模式”独立页面，保证主流程不受影响；然后按模块 1→7 逐步迁移，
+    每迁移一个模块，就让它在对话里“可生成/可确认/可回退”，并把结构化产出沉淀到侧边面板（或卡片）。
+    关键是：<b>对话只是交互层，产出仍要结构化落盘</b>，否则后续导出/审计/回看会很痛苦。
+  </p>
+</div>
+
