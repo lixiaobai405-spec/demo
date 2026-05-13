@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { QueryProvider } from "@/providers/query-provider";
 import { AuthProvider } from "@/providers/auth-provider";
 import { NavBar } from "@/components/nav-bar";
+import { AIChatPanel } from "@/components/ai-chat-panel";
 import { Toaster } from "@/components/ui/toaster";
 
 import "./globals.css";
@@ -42,6 +43,7 @@ export default function RootLayout({
           <AuthProvider>
             <NavBar />
             <main id="main-content">{children}</main>
+            <AIChatPanel />
             <Toaster />
           </AuthProvider>
         </QueryProvider>

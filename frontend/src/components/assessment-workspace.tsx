@@ -172,6 +172,10 @@ export function AssessmentWorkspace({
         title: "企业画像已生成",
         description: `模式：${result.generation_mode}`,
       });
+      new BroadcastChannel("ai-chat-context").postMessage({
+        type: "context-updated",
+        assessmentId: store.assessment!.id,
+      });
     } catch (error) {
       toast({
         title: "生成失败",
@@ -205,6 +209,10 @@ export function AssessmentWorkspace({
       toast({
         title: "商业画布已生成",
         description: `总分：${result.canvas_diagnosis.overall_score}`,
+      });
+      new BroadcastChannel("ai-chat-context").postMessage({
+        type: "context-updated",
+        assessmentId: store.assessment!.id,
       });
     } catch (error) {
       toast({
@@ -268,6 +276,10 @@ export function AssessmentWorkspace({
         }),
       );
       toast({ title: "创新方向已确认" });
+      new BroadcastChannel("ai-chat-context").postMessage({
+        type: "context-updated",
+        assessmentId: store.assessment!.id,
+      });
     } catch (error) {
       toast({
         title: "保存失败",
@@ -306,6 +318,10 @@ export function AssessmentWorkspace({
         }),
       );
       toast({ title: "场景推荐已生成" });
+      new BroadcastChannel("ai-chat-context").postMessage({
+        type: "context-updated",
+        assessmentId: store.assessment!.id,
+      });
     } catch (error) {
       toast({
         title: "生成失败",
@@ -348,6 +364,10 @@ export function AssessmentWorkspace({
         }),
       );
       toast({ title: "差异化竞争力分析已生成" });
+      new BroadcastChannel("ai-chat-context").postMessage({
+        type: "context-updated",
+        assessmentId: store.assessment!.id,
+      });
     } catch (error) {
       toast({
         title: "生成失败",
@@ -374,6 +394,10 @@ export function AssessmentWorkspace({
 
       store.setEndgameData(result);
       toast({ title: "商业终局设计已生成" });
+      new BroadcastChannel("ai-chat-context").postMessage({
+        type: "context-updated",
+        assessmentId: store.assessment!.id,
+      });
     } catch (error) {
       toast({
         title: "生成失败",
