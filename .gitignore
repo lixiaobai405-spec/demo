@@ -12,3 +12,10 @@ __pycache__/
 .DS_Store
 backend/exports/
 **/tsconfig.tsbuildinfo
+
+# Docker 本地启动（不提交）
+start_docker.bat
+frontend/.dockerignore
+
+# UI 重构过程文档（本地沉淀，不提交）
+ui重构相关文档/
