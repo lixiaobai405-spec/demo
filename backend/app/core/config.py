@@ -85,6 +85,7 @@ class Settings:
     app_name: str = os.getenv("APP_NAME", "Meitai AI Business Innovation Agent API")
     app_env: str = os.getenv("APP_ENV", "development")
     frontend_origin: str = os.getenv("FRONTEND_ORIGIN", "http://localhost:3001")
+    cors_allow_origin_regex: str = os.getenv("CORS_ALLOW_ORIGIN_REGEX", r"^https?://.*:3001$")
     database_url: str = os.getenv(
         "DATABASE_URL",
         f"sqlite:///{DEFAULT_DATABASE_PATH.as_posix()}",

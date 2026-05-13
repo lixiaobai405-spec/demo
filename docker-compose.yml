@@ -12,6 +12,7 @@ services:
       - ./.env
     environment:
       - DATABASE_URL=sqlite:////app/data/meitai_demo.db
+      - CORS_ALLOW_ORIGIN_REGEX=^https?://.*:3001$
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 15s

@@ -38,7 +38,30 @@ import type {
 } from "@/lib/types";
 
 export const apiBaseUrl =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+  (() => {
+    const env = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+    if (env) {
+      if (typeof window !== "undefined") {
+        const host = window.location.hostname;
+        const isLocal =
+          host === "localhost" ||
+          host === "127.0.0.1" ||
+          host.endsWith(".local");
+        const pointsToLoopback =
+          env.includes("://localhost") || env.includes("://127.0.0.1");
+        if (!isLocal && pointsToLoopback) {
+          return `${window.location.protocol}//${host}:8000`;
+        }
+      }
+      return env;
+    }
+
+    if (typeof window !== "undefined") {
+      return `${window.location.protocol}//${window.location.hostname}:8000`;
+    }
+
+    return "http://localhost:8000";
+  })();
 
 function getAuthHeaders(): Record<string, string> {
   if (typeof window !== "undefined") {

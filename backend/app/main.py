@@ -22,7 +22,6 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Frontend uses 3001 by default. Keep 3000 in CORS only for local compatibility.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[
@@ -34,6 +33,7 @@ def create_app() -> FastAPI:
             "http://192.168.112.1:3001",
             "http://198.18.0.1:3001",
         ],
+        allow_origin_regex=settings.cors_allow_origin_regex,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
