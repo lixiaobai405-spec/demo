@@ -219,7 +219,7 @@ export type AssessmentProgress = {
   has_directions: boolean;
   has_competitiveness: boolean;
   has_scenarios: boolean;
-  has_cases: boolean;
+  has_cases?: boolean;
   has_report: boolean;
   ready_for_report: boolean;
 };

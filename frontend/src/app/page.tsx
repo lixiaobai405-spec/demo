@@ -9,7 +9,6 @@ const milestoneItems = [
   "生成企业画像",
   "生成商业画布 9 格诊断",
   "生成 Top 3 AI 场景推荐",
-  "匹配匿名行业参考案例",
   "生成 Markdown / HTML 报告",
   "下载 Word / Markdown / 打印版",
 ];
@@ -29,7 +28,7 @@ export default function Home() {
                 美太 AI 商业创新智能体 Demo
               </h1>
               <p className="text-base leading-7 text-warm-secondary sm:text-lg">
-                当前 Demo 已打通企业问卷、企业画像、商业画布诊断、AI 场景推荐、案例匹配、报告生成和基础导出链路，
+                当前 Demo 已打通企业问卷、企业画像、商业画布诊断、AI 场景推荐、报告生成和基础导出链路，
                 可作为后续 RAG 与案例检索增强的稳定底座。
               </p>
             </div>

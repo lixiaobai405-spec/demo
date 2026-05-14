@@ -9,9 +9,8 @@ const stepLabels = [
   "商业画布",
   "BMC 评分",
   "方向延展",
-  "竞争力",
   "场景推荐",
-  "案例匹配",
+  "竞争力",
   "报告预览",
 ];
 
@@ -21,9 +20,8 @@ const stepSectionIds = [
   "section-canvas-grid",
   "section-breakthrough",
   "section-directions",
-  "section-competitiveness",
   "section-scenarios",
-  "section-cases",
+  "section-competitiveness",
   "section-report",
 ];
 
@@ -43,10 +41,9 @@ export function ProgressStepper({
     progress.has_canvas ? "completed" : progress.has_profile ? "active" : "pending",
     progress.has_breakthrough ? "completed" : progress.has_canvas ? "active" : "pending",
     progress.has_directions ? "completed" : progress.has_breakthrough ? "active" : "pending",
-    progress.has_competitiveness ? "completed" : progress.has_directions ? "active" : "pending",
-    progress.has_scenarios ? "completed" : progress.has_competitiveness ? "active" : "pending",
-    progress.has_cases ? "completed" : progress.ready_for_report ? "active" : "pending",
-    progress.has_report ? "completed" : progress.has_cases ? "active" : "pending",
+    progress.has_scenarios ? "completed" : progress.has_directions ? "active" : "pending",
+    progress.has_competitiveness ? "completed" : progress.has_scenarios ? "active" : "pending",
+    progress.has_report ? "completed" : progress.ready_for_report ? "active" : "pending",
   ];
 
   // Override with explicitly active step (for generation-in-progress pulse)

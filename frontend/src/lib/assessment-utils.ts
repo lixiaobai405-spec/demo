@@ -7,7 +7,6 @@ import type {
   AssessmentResponse,
   BreakthroughSelectionResponse,
   CanvasDiagnosisResult,
-  CaseRecommendationResult,
   CompanyProfileResult,
   CompetitivenessResponse,
   DirectionSelectionResponse,
@@ -23,7 +22,7 @@ export const initialForm: AssessmentCreateRequest = {
 export const initialProgress: AssessmentProgress = {
   has_profile: false, has_canvas: false, has_breakthrough: false,
   has_directions: false, has_competitiveness: false, has_scenarios: false,
-  has_cases: false, has_report: false, ready_for_report: false,
+  has_report: false, ready_for_report: false,
 };
 
 export const companySizeOptions = [
@@ -91,7 +90,6 @@ export function computeProgress(opts: {
   hasDirections?: boolean;
   hasCompetitiveness?: boolean;
   hasScenarios: boolean;
-  hasCases?: boolean;
   hasReport?: boolean;
 }): AssessmentProgress {
   return {
@@ -101,7 +99,6 @@ export function computeProgress(opts: {
     has_directions: opts.hasAssessment && (opts.hasDirections ?? false),
     has_competitiveness: opts.hasAssessment && (opts.hasCompetitiveness ?? false),
     has_scenarios: opts.hasAssessment && opts.hasScenarios,
-    has_cases: opts.hasAssessment && (opts.hasCases ?? false),
     has_report: opts.hasAssessment && (opts.hasReport ?? false),
     ready_for_report:
       opts.hasAssessment &&
@@ -126,7 +123,6 @@ export function applyAssessmentDetailToStore(
     setDirectionSelection: (s: DirectionSelectionResponse | null) => void;
     setSelectedDirectionIds: (ids: string[]) => void;
     setCompetitivenessData: (d: CompetitivenessResponse | null) => void;
-    setCaseRecommendation: (r: CaseRecommendationResult | null) => void;
   },
 ) {
   store.setAssessment(detail.assessment);
@@ -195,11 +191,4 @@ export function applyAssessmentDetailToStore(
   }
 
   store.setScenarioRecommendation(detail.scenario_recommendation);
-
-  // Sync case recommendation
-  if (detail.case_recommendation) {
-    store.setCaseRecommendation(detail.case_recommendation);
-  } else {
-    store.setCaseRecommendation(null);
-  }
 }

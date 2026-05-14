@@ -34,14 +34,14 @@ function AssessmentPageContent() {
                 返回首页
               </Link>
               <span className="badge badge-accent">
-                企业问卷 / 企业画像 / 商业画布 / AI 场景 / 案例 / 报告
+                企业问卷 / 企业画像 / 商业画布 / AI 场景 / 报告
               </span>
               <h1 className="font-heading text-4xl font-bold tracking-tight text-warm-text">
                 {activeTab === "student" ? "企业问卷工作台" : "讲师工作台"}
               </h1>
               <p className="text-base leading-7 text-warm-secondary sm:text-lg">
                 {activeTab === "student"
-                  ? "学员账户可直接填写企业问卷，并继续生成企业画像、商业画布、场景推荐、案例匹配和报告。"
+                  ? "学员账户可直接填写企业问卷，并继续生成企业画像、商业画布、场景推荐和报告。"
                   : "讲师账户可查看全体学员进展，按班级筛选，并批量提交讲师点评。"}
               </p>
               {activeTab === "student" ? (
@@ -113,7 +113,7 @@ function AssessmentPageFallback() {
               返回首页
             </Link>
             <span className="badge badge-accent">
-              企业问卷 / 企业画像 / 商业画布 / AI 场景 / 案例 / 报告
+              企业问卷 / 企业画像 / 商业画布 / AI 场景 / 报告
             </span>
             <h1 className="font-heading text-4xl font-bold tracking-tight text-warm-text">
               企业问卷工作台

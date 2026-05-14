@@ -40,7 +40,7 @@ export default async function AssessmentDetailPage({
                 </h1>
                 <p className="text-base leading-7 text-warm-secondary sm:text-lg">
                   当前页面会根据 URL 中的 assessment_id 恢复企业画像、商业画布、
-                  场景推荐、案例匹配和报告状态，支持刷新回看与重新生成。
+                  场景推荐和报告状态，支持刷新回看与重新生成。
                 </p>
               </div>
 

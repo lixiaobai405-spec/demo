@@ -11,8 +11,7 @@ export type WorkflowModule = {
     | "directions"
     | "scenarios"
     | "competitiveness"
-    | "endgame"
-    | "cases";
+    | "endgame";
   label: string;
   color: "accent" | "success" | "warn";
   disabled: boolean;

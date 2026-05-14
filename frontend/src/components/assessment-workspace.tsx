@@ -20,7 +20,7 @@ import {
   mapAssessmentToForm,
   mergePrefillIntoForm,
 } from "@/lib/assessment-utils";
-import { formatMutationError, generateCaseRecommendations } from "@/lib/api";
+import { formatMutationError } from "@/lib/api";
 import type { AssessmentCreateRequest, AssessmentProgress } from "@/lib/types";
 import {
   useAssessmentDetail,
@@ -165,9 +165,11 @@ export function AssessmentWorkspace({
           hasAssessment: true,
           hasProfile: true,
           hasCanvas: false,
+          hasBreakthrough: false,
+          hasDirections: false,
+          hasCompetitiveness: false,
           hasScenarios: false,
-          hasCases: prev.has_cases,
-          hasReport: prev.has_report,
+          hasReport: false,
         }),
       );
       toast({
@@ -205,9 +207,11 @@ export function AssessmentWorkspace({
           hasAssessment: true,
           hasProfile: true,
           hasCanvas: true,
+          hasBreakthrough: false,
+          hasDirections: false,
+          hasCompetitiveness: false,
           hasScenarios: false,
-          hasCases: prev.has_cases,
-          hasReport: prev.has_report,
+          hasReport: false,
         }),
       );
       toast({
@@ -242,20 +246,18 @@ export function AssessmentWorkspace({
         toast,
       );
 
+      store.resetDownstream("directions");
       store.setDirectionData(result);
       setProgress((prev) =>
         computeProgress({
           hasAssessment: true,
-          hasProfile: store.companyProfile !== null,
-          hasCanvas: store.canvasDiagnosis !== null,
-          hasBreakthrough:
-            prev.has_breakthrough || store.breakthroughSelection !== null,
+          hasProfile: progress.has_profile,
+          hasCanvas: progress.has_canvas,
+          hasBreakthrough: progress.has_breakthrough,
           hasDirections: true,
-          hasCompetitiveness:
-            prev.has_competitiveness || store.competitivenessData !== null,
-          hasScenarios: store.scenarioRecommendation !== null,
-          hasCases: prev.has_cases,
-          hasReport: prev.has_report,
+          hasCompetitiveness: false,
+          hasScenarios: false,
+          hasReport: false,
         }),
       );
       toast({ title: "创新方向延展已生成" });
@@ -286,16 +288,13 @@ export function AssessmentWorkspace({
       setProgress((prev) =>
         computeProgress({
           hasAssessment: true,
-          hasProfile: store.companyProfile !== null,
-          hasCanvas: store.canvasDiagnosis !== null,
-          hasBreakthrough:
-            prev.has_breakthrough || store.breakthroughSelection !== null,
+          hasProfile: progress.has_profile,
+          hasCanvas: progress.has_canvas,
+          hasBreakthrough: progress.has_breakthrough,
           hasDirections: true,
-          hasCompetitiveness:
-            prev.has_competitiveness || store.competitivenessData !== null,
-          hasScenarios: store.scenarioRecommendation !== null,
-          hasCases: prev.has_cases,
-          hasReport: prev.has_report,
+          hasCompetitiveness: false,
+          hasScenarios: false,
+          hasReport: false,
         }),
       );
       toast({ title: "创新方向已确认" });
@@ -322,24 +321,19 @@ export function AssessmentWorkspace({
         toast,
       );
 
+      store.resetDownstream("scenarios");
       store.setAssessment(result.assessment);
       store.setScenarioRecommendation(result.scenario_recommendation);
       setProgress((prev) =>
         computeProgress({
           hasAssessment: true,
-          hasProfile: store.companyProfile !== null,
-          hasCanvas: store.canvasDiagnosis !== null,
-          hasBreakthrough:
-            prev.has_breakthrough || store.breakthroughSelection !== null,
-          hasDirections:
-            prev.has_directions ||
-            store.directionData !== null ||
-            store.directionSelection !== null,
-          hasCompetitiveness:
-            prev.has_competitiveness || store.competitivenessData !== null,
+          hasProfile: progress.has_profile,
+          hasCanvas: progress.has_canvas,
+          hasBreakthrough: progress.has_breakthrough,
+          hasDirections: progress.has_directions,
+          hasCompetitiveness: false,
           hasScenarios: true,
-          hasCases: prev.has_cases,
-          hasReport: prev.has_report,
+          hasReport: false,
         }),
       );
       toast({ title: "场景推荐已生成" });
@@ -366,22 +360,18 @@ export function AssessmentWorkspace({
         toast,
       );
 
+      store.resetDownstream("competitiveness");
       store.setCompetitivenessData(result);
       setProgress((prev) =>
         computeProgress({
           hasAssessment: true,
-          hasProfile: store.companyProfile !== null,
-          hasCanvas: store.canvasDiagnosis !== null,
-          hasBreakthrough:
-            prev.has_breakthrough || store.breakthroughSelection !== null,
-          hasDirections:
-            prev.has_directions ||
-            store.directionData !== null ||
-            store.directionSelection !== null,
+          hasProfile: progress.has_profile,
+          hasCanvas: progress.has_canvas,
+          hasBreakthrough: progress.has_breakthrough,
+          hasDirections: progress.has_directions,
           hasCompetitiveness: true,
-          hasScenarios: store.scenarioRecommendation !== null,
-          hasCases: prev.has_cases,
-          hasReport: prev.has_report,
+          hasScenarios: progress.has_scenarios,
+          hasReport: false,
         }),
       );
       toast({ title: "差异化竞争力分析已生成" });
@@ -423,58 +413,15 @@ export function AssessmentWorkspace({
     }
   }, [generateEndgame, store]);
 
-  const handleGenerateCases = useCallback(async () => {
-    if (!store.assessment) return;
-
-    try {
-      const result = await withSlowHint(
-        generateCaseRecommendations(store.assessment.id),
-        "正在匹配行业案例",
-        toast,
-      );
-
-      store.setCaseRecommendation(result.case_recommendation);
-      setProgress((prev) =>
-        computeProgress({
-          hasAssessment: true,
-          hasProfile: store.companyProfile !== null,
-          hasCanvas: store.canvasDiagnosis !== null,
-          hasBreakthrough:
-            prev.has_breakthrough || store.breakthroughSelection !== null,
-          hasDirections:
-            prev.has_directions ||
-            store.directionData !== null ||
-            store.directionSelection !== null,
-          hasCompetitiveness:
-            prev.has_competitiveness || store.competitivenessData !== null,
-          hasScenarios: store.scenarioRecommendation !== null,
-          hasCases: true,
-          hasReport: prev.has_report,
-        }),
-      );
-      toast({ title: "案例匹配已完成", description: `匹配到 ${result.case_recommendation.top_cases.length} 个参考案例` });
-      new BroadcastChannel("ai-chat-context").postMessage({
-        type: "context-updated",
-        assessmentId: store.assessment!.id,
-      });
-    } catch (error) {
-      toast({
-        title: "生成失败",
-        description: formatMutationError(error, "案例匹配生成"),
-        variant: "destructive",
-      });
-    }
-  }, [store]);
-
   const activeGenStep: number | null = generateProfile.isPending
     ? 2
     : generateCanvas.isPending
       ? 3
       : expandDirections.isPending || selectDirections.isPending
         ? 5
-        : generateCompetitiveness.isPending
+        : generateScenarios.isPending
           ? 6
-          : generateScenarios.isPending
+          : generateCompetitiveness.isPending
             ? 7
             : null;
 
@@ -514,16 +461,14 @@ export function AssessmentWorkspace({
     progress.has_competitiveness || store.competitivenessData !== null;
   const hasScenarios = store.scenarioRecommendation !== null;
   const hasEndgame = store.endgameData !== null;
-  const hasCases = store.caseRecommendation !== null;
   const hasDashboard =
-    hasProfile ||
-    hasCanvas ||
-    hasBreakthrough ||
-    hasDirections ||
-    hasCompetitiveness ||
-    hasScenarios ||
-    hasEndgame ||
-    hasCases;
+    progress.has_profile ||
+    progress.has_canvas ||
+    progress.has_breakthrough ||
+    progress.has_directions ||
+    progress.has_competitiveness ||
+    progress.has_scenarios ||
+    hasEndgame;
 
   const workflowModules: WorkflowModule[] = currentAssessment
     ? [
@@ -540,64 +485,55 @@ export function AssessmentWorkspace({
           key: "canvas",
           label: "商业画布 9 格",
           color: "accent",
-          disabled: !hasProfile || generateCanvas.isPending,
+          disabled: !progress.has_profile || generateCanvas.isPending,
           loading: generateCanvas.isPending,
-          hasResult: hasCanvas,
+          hasResult: progress.has_canvas,
           onClick: handleGenerateCanvas,
         },
         {
           key: "breakthrough",
           label: "BMC 突破要素评分",
           color: "warn",
-          disabled: !hasCanvas,
+          disabled: !progress.has_canvas,
           loading: false,
-          hasResult: hasBreakthrough,
+          hasResult: progress.has_breakthrough,
           onClick: handleGenerateBreakthrough,
         },
         {
           key: "directions",
           label: "创新方向延展",
           color: "accent",
-          disabled: !hasCanvas || expandDirections.isPending,
+          disabled: !progress.has_breakthrough || expandDirections.isPending,
           loading: expandDirections.isPending,
-          hasResult: hasDirections,
+          hasResult: progress.has_directions,
           onClick: handleGenerateDirections,
         },
         {
           key: "scenarios",
           label: "Top 3 AI 场景推荐",
           color: "success",
-          disabled: !hasCanvas || generateScenarios.isPending,
+          disabled: !progress.has_directions || generateScenarios.isPending,
           loading: generateScenarios.isPending,
-          hasResult: hasScenarios,
+          hasResult: progress.has_scenarios,
           onClick: handleGenerateScenarios,
         },
         {
           key: "competitiveness",
           label: "差异化竞争力分析",
           color: "warn",
-          disabled: !hasCanvas || generateCompetitiveness.isPending,
+          disabled: !progress.has_scenarios || generateCompetitiveness.isPending,
           loading: generateCompetitiveness.isPending,
-          hasResult: hasCompetitiveness,
+          hasResult: progress.has_competitiveness,
           onClick: handleGenerateCompetitiveness,
         },
         {
           key: "endgame",
           label: "商业终局设计",
           color: "accent",
-          disabled: !hasCanvas || generateEndgame.isPending,
+          disabled: !progress.has_competitiveness || generateEndgame.isPending,
           loading: generateEndgame.isPending,
           hasResult: hasEndgame,
           onClick: handleGenerateEndgame,
-        },
-        {
-          key: "cases",
-          label: "案例匹配",
-          color: "success",
-          disabled: !hasScenarios,
-          loading: false,
-          hasResult: hasCases,
-          onClick: handleGenerateCases,
         },
       ]
     : [];
@@ -607,57 +543,59 @@ export function AssessmentWorkspace({
         {
           key: "profile",
           label: "企业画像",
-          done: hasProfile,
+          done: progress.has_profile,
           statusLabel:
-            store.profileMode === "live" ? "真实生成" : "已生成",
-          link: hasProfile
+            store.profileMode === "live" ? "真实生成" : progress.has_profile ? "已生成" : "待生成",
+          link: progress.has_profile
             ? `/assessment/${currentAssessment.id}/profile`
             : undefined,
         },
         {
           key: "canvas",
           label: "商业画布 9 格",
-          done: hasCanvas,
-          statusLabel: `${store.canvasDiagnosis?.overall_score ?? "-"}分`,
-          link: hasCanvas
+          done: progress.has_canvas,
+          statusLabel: progress.has_canvas
+            ? `${store.canvasDiagnosis?.overall_score ?? "-"}分`
+            : "待生成",
+          link: progress.has_canvas
             ? `/assessment/${currentAssessment.id}/canvas`
             : undefined,
         },
         {
           key: "breakthrough",
           label: "BMC 突破要素评分",
-          done: hasBreakthrough,
-          statusLabel: "已完成",
-          link: hasCanvas
+          done: progress.has_breakthrough,
+          statusLabel: progress.has_breakthrough ? "已锁定" : "待确认",
+          link: progress.has_canvas
             ? `/assessment/${currentAssessment.id}/scoring`
             : undefined,
         },
         {
           key: "directions",
           label: "创新方向延展",
-          done: hasDirections,
-          statusLabel: "已生成",
-          link: hasDirections
+          done: progress.has_directions,
+          statusLabel: progress.has_directions ? "已生成" : "待生成",
+          link: progress.has_breakthrough
             ? `/assessment/${currentAssessment.id}/directions`
             : undefined,
         },
         {
           key: "scenarios",
           label: "Top 3 AI 场景推荐",
-          done: hasScenarios,
-          statusLabel: `Top ${
-            store.scenarioRecommendation?.top_scenarios?.length ?? 3
-          }`,
-          link: hasScenarios
+          done: progress.has_scenarios,
+          statusLabel: progress.has_scenarios
+            ? `Top ${store.scenarioRecommendation?.top_scenarios?.length ?? 3}`
+            : "待生成",
+          link: progress.has_directions
             ? `/assessment/${currentAssessment.id}/results`
             : undefined,
         },
         {
           key: "competitiveness",
           label: "差异化竞争力分析",
-          done: hasCompetitiveness,
-          statusLabel: "已生成",
-          link: hasCompetitiveness
+          done: progress.has_competitiveness,
+          statusLabel: progress.has_competitiveness ? "已生成" : "待生成",
+          link: progress.has_scenarios
             ? `/assessment/${currentAssessment.id}/results`
             : undefined,
         },
@@ -665,20 +603,9 @@ export function AssessmentWorkspace({
           key: "endgame",
           label: "商业终局设计",
           done: hasEndgame,
-          statusLabel: "已生成",
-          link: hasEndgame
+          statusLabel: hasEndgame ? "已生成" : "待生成",
+          link: progress.has_competitiveness
             ? `/assessment/${currentAssessment.id}/endgame`
-            : undefined,
-        },
-        {
-          key: "cases",
-          label: "案例匹配",
-          done: hasCases,
-          statusLabel: hasCases
-            ? `匹配 ${store.caseRecommendation?.top_cases?.length ?? 0} 个`
-            : "待生成",
-          link: hasCases
-            ? `/assessment/${currentAssessment.id}/results`
             : undefined,
         },
       ]
