@@ -50,8 +50,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(
     async (email: string, password: string) => {
       store.setLoading(true);
-      const result = await loginUser({ email, password });
-      store.setAuth(result.user, result.access_token);
+      try {
+        const result = await loginUser({ email, password });
+        store.setAuth(result.user, result.access_token);
+      } catch (error) {
+        store.setLoading(false);
+        throw error;
+      }
     },
     [store]
   );
@@ -59,8 +64,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = useCallback(
     async (email: string, password: string, displayName?: string) => {
       store.setLoading(true);
-      const result = await registerUser({ email, password, display_name: displayName });
-      store.setAuth(result.user, result.access_token);
+      try {
+        const result = await registerUser({ email, password, display_name: displayName });
+        store.setAuth(result.user, result.access_token);
+      } catch (error) {
+        store.setLoading(false);
+        throw error;
+      }
     },
     [store]
   );
