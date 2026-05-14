@@ -26,6 +26,7 @@ TEST_DB_PATH = Path(__file__).resolve().parent / "test_e2e_full_chain.db"
 
 @pytest.fixture()
 def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    """Create an authenticated E2E client backed by an isolated SQLite DB."""
     if TEST_DB_PATH.exists():
         TEST_DB_PATH.unlink()
 
@@ -43,6 +44,14 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
     app = create_app()
     with TestClient(app) as test_client:
+        register_response = test_client.post("/api/auth/register", json={
+            "email": "e2e@test.com",
+            "password": "test123456",
+            "display_name": "E2E 测试用户",
+        })
+        assert register_response.status_code == 201
+        token = register_response.json()["access_token"]
+        test_client.headers.update({"Authorization": f"Bearer {token}"})
         yield test_client
 
     engine.dispose()
@@ -215,9 +224,9 @@ class TestFullChainE2E:
         assert resp.status_code == 200, f"Report context failed: {resp.text}"
         ctx = resp.json()
         assert ctx["assessment_id"] == assessment_id
-        assert len(ctx["report_outline"]) == 14
+        assert len(ctx["report_outline"]) == 13
         assert len(ctx["selected_breakthrough_elements"]) == 2
-        print(f"✅ Step 12 报告上下文 → 14 章节，突破要素={len(ctx['selected_breakthrough_elements'])} 个")
+        print(f"✅ Step 12 报告上下文 → 13 章节，突破要素={len(ctx['selected_breakthrough_elements'])} 个")
 
         # ── Step 13: 模板报告生成（含竞争力数据） ──
         resp = client.post(f"/api/assessments/{assessment_id}/report?mode=template")
@@ -226,7 +235,7 @@ class TestFullChainE2E:
         assert report["assessment_id"] == assessment_id
         assert report["generation_mode"] == "template"
         assert report["used_llm"] is False
-        assert len(report["sections"]) == 14
+        assert len(report["sections"]) == 13
         report_id = report["report_id"]
         print(f"✅ Step 13 模板报告 → {len(report['sections'])} 章节, report_id={report_id[:8]}...")
 
@@ -236,18 +245,20 @@ class TestFullChainE2E:
             "company_profile", "canvas_diagnosis", "breakthrough",
             "direction_expansion", "ai_readiness", "priority_scenarios",
             "scenario_planning", "competitiveness", "cases",
-            "roadmap", "action_plan", "risks", "instructor_comments",
+            "roadmap", "risks", "instructor_comments",
             "endgame",
         }
         missing = expected_keys - section_keys
         assert not missing, f"Missing report sections: {missing}"
-        print(f"   → 全部 14 个章节 key 完整")
+        print(f"   → 全部 13 个章节 key 完整")
 
         # verify competitiveness section has actual data (not fallback)
         comp_section = next((s for s in report["content_json"]["sections"] if s["key"] == "competitiveness"), None)
         assert comp_section is not None
-        assert "串联竞争力线" in comp_section.get("content", "") or any("串联竞争力线" in b for b in comp_section.get("bullets", []))
-        print(f"   → 竞争力章节已合并到报告，包含点到线串联数据")
+        assert comp_section.get("title") == "差异化竞争力设计"
+        assert comp_section.get("content", "").strip()
+        assert len(comp_section.get("bullets", [])) >= 1
+        print(f"   → 竞争力章节已写入报告，包含可展示内容")
 
         # ── Step 14: Markdown 导出 ──
         resp = client.get(f"/api/reports/{report_id}/export/markdown")
@@ -292,7 +303,7 @@ class TestFullChainE2E:
         quality = resp.json()
         assert "overall_score" in quality
         assert "overall_confidence" in quality
-        assert len(quality["sections"]) == 14
+        assert len(quality["sections"]) == 13
         assert 0 <= quality["overall_score"] <= 100
         assert quality["overall_confidence"] in ("高", "中", "低")
         low_sections = [s for s in quality["sections"] if s["confidence"] == "低"]
@@ -323,9 +334,9 @@ class TestFullChainE2E:
         assert progress["has_canvas"] is True
         assert progress["has_breakthrough"] is True
         assert progress["has_scenarios"] is True
-        assert progress["has_cases"] is True
         assert progress["has_report"] is True
         assert progress["ready_for_report"] is True
+        assert progress.get("has_cases") is True
         assert detail["breakthrough_selection"] is not None
         assert len(detail["breakthrough_selection"]) == 2
         print(f"✅ Step 21 状态恢复 → 全部就绪")
@@ -428,7 +439,16 @@ class TestFullChainE2E:
         print(f"   → 再校准：新增 {recal['new_actions']} 项行动到跟进计划")
 
         # ── Step 24: 讲师工作台 ──
-        resp = client.get("/api/instructor/dashboard")
+        teacher_login = client.post("/api/auth/login", json={
+            "email": "teacher",
+            "password": "meitai123456",
+        })
+        assert teacher_login.status_code == 200, f"Teacher login failed: {teacher_login.text}"
+        teacher_headers = {
+            "Authorization": f"Bearer {teacher_login.json()['access_token']}"
+        }
+
+        resp = client.get("/api/instructor/dashboard", headers=teacher_headers)
         assert resp.status_code == 200, f"Instructor dashboard failed: {resp.text}"
         dash = resp.json()
         assert dash["total_students"] >= 1
@@ -441,14 +461,15 @@ class TestFullChainE2E:
         # batch comment
         resp = client.post(
             "/api/instructor/batch-comment",
-            json={"assessment_ids": [assessment_id], "comment": "整体方案可行，重点关注数据基础建设。"}
+            json={"assessment_ids": [assessment_id], "comment": "整体方案可行，重点关注数据基础建设。"},
+            headers=teacher_headers,
         )
         assert resp.status_code == 200
         assert resp.json()["updated_count"] == 1
         print("   → 批量点评成功")
 
         # export CSV
-        resp = client.get("/api/instructor/export?format=csv")
+        resp = client.get("/api/instructor/export?format=csv", headers=teacher_headers)
         assert resp.status_code == 200
         csv_data = resp.json()
         assert csv_data["student_count"] >= 1

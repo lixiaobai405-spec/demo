@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -17,6 +17,7 @@ async def chat(
     assessment_id: str,
     request: Request,
 ) -> StreamingResponse:
+    """Handle chat requests and preserve uploaded files as stream attachments."""
     content_type = request.headers.get("content-type", "")
     message = ""
     attachments: list[dict[str, object]] = []
@@ -24,9 +25,11 @@ async def chat(
     if content_type.startswith("multipart/form-data"):
         form = await request.form()
         message = str(form.get("message", "") or "").strip()
-        files = [item for item in form.getlist("files") if isinstance(item, UploadFile)]
         intake_service = IntakeService()
-        for upload in files:
+        for item in form.getlist("files"):
+            upload = item if hasattr(item, "filename") and hasattr(item, "read") else None
+            if upload is None:
+                continue
             source_file, raw_content, warnings = await intake_service.extract_upload_file(
                 upload
             )

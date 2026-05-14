@@ -14,7 +14,7 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from app.db import session as db_session
-from app.db.base import Base
+from app.db.session import Base
 from app.main import create_app
 
 TEST_DB_PATH = Path(__file__).resolve().parent / "test_auth.db"
@@ -22,6 +22,7 @@ TEST_DB_PATH = Path(__file__).resolve().parent / "test_auth.db"
 
 @pytest.fixture()
 def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    """Create an isolated auth test client backed by a disposable SQLite DB."""
     if TEST_DB_PATH.exists():
         TEST_DB_PATH.unlink()
 
@@ -35,6 +36,7 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
         autoflush=False,
     )
 
+    monkeypatch.setattr(db_session, "engine", engine)
     Base.metadata.create_all(bind=engine)
     monkeypatch.setattr(db_session, "SessionLocal", testing_session_local)
 
@@ -50,6 +52,8 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     with TestClient(app) as c:
         yield c
 
+    app.dependency_overrides.clear()
+    engine.dispose()
     if TEST_DB_PATH.exists():
         TEST_DB_PATH.unlink()
 
