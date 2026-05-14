@@ -31,6 +31,7 @@ SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 
 def init_db() -> None:
+    """Create tables and apply lightweight SQLite compatibility migrations."""
     from app.models.assessment import Assessment  # noqa: F401
     from app.models.bmc_scoring import BMCScoring  # noqa: F401
     from app.models.breakthrough_selection import BreakthroughSelection  # noqa: F401
@@ -51,6 +52,7 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
     _migrate_bmc_scorings_table()
     _migrate_generated_reports_table()
+    _migrate_competitiveness_analyses_table()
     _migrate_assessments_add_user_id()
     _migrate_assessment_intake_sessions_add_user_id()
 
@@ -150,6 +152,30 @@ def _migrate_generated_reports_table() -> None:
         for column_name, ddl in required_columns.items():
             if column_name not in existing_columns:
                 connection.execute(text(ddl))
+
+
+def _migrate_competitiveness_analyses_table() -> None:
+    """Add newly required competitiveness columns for existing SQLite databases."""
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    if "competitiveness_analyses" not in inspector.get_table_names():
+        return
+
+    existing_columns = {
+        column["name"] for column in inspector.get_columns("competitiveness_analyses")
+    }
+    if "overall_narrative" in existing_columns:
+        return
+
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "ALTER TABLE competitiveness_analyses "
+                "ADD COLUMN overall_narrative TEXT"
+            )
+        )
 
 
 def _migrate_assessments_add_user_id() -> None:

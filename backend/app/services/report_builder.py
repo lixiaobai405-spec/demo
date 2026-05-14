@@ -311,6 +311,17 @@ class ReportBuilder:
             advantages_text = "；".join(
                 [f"{a.advantage_name}（壁垒{a.barrier_level}）" for a in cr.advantages[:3]]
             ) if cr.advantages else ""
+            competitiveness_content = (
+                cr.overall_narrative.strip()
+                if getattr(cr, "overall_narrative", None)
+                else ""
+            )
+            if not competitiveness_content:
+                competitiveness_content = (
+                    f"建议围绕“{vp.enhanced_vp}”组织差异化竞争力建设，优先把 "
+                    f"{connections_text or '关键竞争力线'} 转化为可被客户感知的业务优势，"
+                    f"并沉淀为 {advantages_text or '核心能力壁垒'}。"
+                )
 
             cards = []
             for conn in cr.connections[:3]:
@@ -327,7 +338,7 @@ class ReportBuilder:
             return ReportSectionData(
                 key="competitiveness",
                 title="差异化竞争力设计",
-                content=cr.overall_narrative,
+                content=competitiveness_content,
                 bullets=[
                     f"增强型价值主张：{vp.enhanced_vp[:100]}...",
                     f"客户价值转移：{vp.customer_value_shift[:100]}...",

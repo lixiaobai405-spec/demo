@@ -1478,6 +1478,7 @@ def _upsert_competitiveness_analysis(
 def _build_competitiveness_result_from_record(
     record: CompetitivenessAnalysis,
 ) -> CompetitivenessResult:
+    """Rehydrate a persisted competitiveness analysis into the API schema."""
     from app.schemas.competitiveness import (
         VPReconstruction,
         PointToLineConnection,
@@ -1496,7 +1497,7 @@ def _build_competitiveness_result_from_record(
         connections=[PointToLineConnection.model_validate(item) for item in connections_raw],
         advantages=[CoreAdvantage.model_validate(item) for item in advantages_raw],
         delivery_strategy=DeliveryStrategy.model_validate(strategy_raw),
-        overall_narrative="",
+        overall_narrative=record.overall_narrative or "",
     )
 
 
