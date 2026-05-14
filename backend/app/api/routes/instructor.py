@@ -9,6 +9,7 @@ from app.schemas.assessment import (
     InstructorDashboardResponse,
     InstructorExportResponse,
 )
+from app.schemas.auth import CreateInstructorRequest, UserResponse
 from app.services.instructor_service import InstructorService
 from app.api.deps import require_instructor
 from app.models.user import User
@@ -59,3 +60,17 @@ def export_students(
     else:
         dashboard = service.get_dashboard(db)
         return JSONResponse(content=dashboard.model_dump())
+
+
+@router.post(
+    "/create-instructor",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_instructor(
+    payload: CreateInstructorRequest,
+    db: Session = Depends(get_db),
+    _instructor: User = Depends(require_instructor),
+) -> UserResponse:
+    service = InstructorService()
+    return service.create_instructor(db, payload)
