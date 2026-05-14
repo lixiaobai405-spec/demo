@@ -57,13 +57,6 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
         TEST_DB_PATH.unlink()
 
 
-def _get_token(client, email, password="test123456"):
-    resp = client.post("/api/auth/login", json={"email": email, "password": password})
-    if resp.status_code != 200:
-        return None
-    return resp.json()["access_token"]
-
-
 # ── 权限边界 ──
 
 
@@ -171,6 +164,7 @@ def test_create_instructor_duplicate_email(client: TestClient):
     resp = client.post("/api/auth/login", json={
         "email": "teacher", "password": "meitai123456"
     })
+    assert resp.status_code == 200
     teacher_token = resp.json()["access_token"]
 
     # 第一次创建
@@ -193,6 +187,7 @@ def test_create_instructor_weak_password(client: TestClient):
     resp = client.post("/api/auth/login", json={
         "email": "teacher", "password": "meitai123456"
     })
+    assert resp.status_code == 200
     teacher_token = resp.json()["access_token"]
 
     resp = client.post(
@@ -201,3 +196,79 @@ def test_create_instructor_weak_password(client: TestClient):
         headers={"Authorization": f"Bearer {teacher_token}"},
     )
     assert resp.status_code == 422
+
+
+def test_dashboard_as_instructor_returns_200(client: TestClient):
+    resp = client.post("/api/auth/login", json={
+        "email": "teacher", "password": "meitai123456"
+    })
+    assert resp.status_code == 200
+    teacher_token = resp.json()["access_token"]
+
+    resp = client.get(
+        "/api/instructor/dashboard",
+        headers={"Authorization": f"Bearer {teacher_token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "total_students" in data
+    assert "students" in data
+
+
+def test_batch_comment_as_instructor_returns_200(client: TestClient):
+    # 先创建一个学生和测评，获得有效的 assessment_id
+    resp = client.post("/api/auth/register", json={
+        "email": "student_for_batch_positive@example.com",
+        "password": "test123456",
+    })
+    assert resp.status_code == 201
+    student_token = resp.json()["access_token"]
+
+    PAYLOAD = {
+        "company_name": "测试科技有限公司",
+        "industry": "科技",
+        "company_size": "50-200人",
+        "region": "华东",
+        "annual_revenue_range": "1亿-10亿",
+        "core_products": "测试产品",
+        "target_customers": "企业客户",
+        "current_challenges": "市场拓展",
+        "ai_goals": "效率提升",
+        "available_data": "销售数据",
+        "notes": "测试",
+    }
+    resp = client.post(
+        "/api/assessments",
+        json=PAYLOAD,
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert resp.status_code == 201
+    assessment_id = resp.json()["id"]
+
+    # 用讲师账号批量评语
+    resp = client.post("/api/auth/login", json={
+        "email": "teacher", "password": "meitai123456"
+    })
+    assert resp.status_code == 200
+    teacher_token = resp.json()["access_token"]
+
+    resp = client.post(
+        "/api/instructor/batch-comment",
+        json={"assessment_ids": [assessment_id], "comment": "test comment"},
+        headers={"Authorization": f"Bearer {teacher_token}"},
+    )
+    assert resp.status_code == 200
+
+
+def test_export_as_instructor_returns_200(client: TestClient):
+    resp = client.post("/api/auth/login", json={
+        "email": "teacher", "password": "meitai123456"
+    })
+    assert resp.status_code == 200
+    teacher_token = resp.json()["access_token"]
+
+    resp = client.get(
+        "/api/instructor/export?format=csv",
+        headers={"Authorization": f"Bearer {teacher_token}"},
+    )
+    assert resp.status_code == 200
