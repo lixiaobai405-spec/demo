@@ -1,9 +1,13 @@
 "use client";
 
+import React from "react";
 import { useState } from "react";
 import Link from "next/link";
 import type { ScenarioRecommendationResult } from "@/lib/types";
 
+/**
+ * 渲染 AI 场景推荐列表与展开详情。
+ */
 export function ScenarioRecommendationsPanel({
   assessmentId, readyForReport, scenarioRecommendation,
 }: {
@@ -55,7 +59,7 @@ export function ScenarioRecommendationsPanel({
                     <p className="mt-1 text-2xl font-semibold text-warm-text">{item.score}</p>
                   </div>
                 </div>
-                <p className="mt-4 text-sm leading-7 text-warm-secondary line-clamp-2">{item.summary}</p>
+                <p className="mt-4 text-sm leading-7 text-warm-secondary">{item.summary}</p>
                 <div className="mt-3 flex items-center gap-1 text-xs text-warm-accent">
                   <span>{isExpanded ? "▲ 收起" : "▼ 展开查看推荐理由与数据需求"}</span>
                 </div>

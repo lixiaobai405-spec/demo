@@ -53,6 +53,7 @@ def init_db() -> None:
     _migrate_bmc_scorings_table()
     _migrate_generated_reports_table()
     _migrate_competitiveness_analyses_table()
+    _migrate_endgame_analyses_table()
     _migrate_assessments_add_user_id()
     _migrate_assessment_intake_sessions_add_user_id()
 
@@ -174,6 +175,28 @@ def _migrate_competitiveness_analyses_table() -> None:
             text(
                 "ALTER TABLE competitiveness_analyses "
                 "ADD COLUMN overall_narrative TEXT"
+            )
+        )
+
+
+def _migrate_endgame_analyses_table() -> None:
+    """Add newly required endgame columns for existing SQLite databases."""
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    if "endgame_analyses" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("endgame_analyses")}
+    if "three_stage_strategy_json" in existing_columns:
+        return
+
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "ALTER TABLE endgame_analyses "
+                "ADD COLUMN three_stage_strategy_json TEXT NOT NULL DEFAULT '{}'"
             )
         )
 

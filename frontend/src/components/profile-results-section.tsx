@@ -1,8 +1,13 @@
 "use client";
 
+import React from "react";
+
 import { Badge } from "@/components/ui/badge";
 import type { CompanyProfileResult } from "@/lib/types";
 
+/**
+ * 展示企业画像结果，对外隐藏待补充信息模块。
+ */
 export function ProfileResultsSection({
   companyProfile,
   profileMode,
@@ -32,12 +37,14 @@ export function ProfileResultsSection({
         <ProfileBlock title="数字化与 AI 准备度" content={companyProfile.digital_and_ai_readiness} />
         <ListBlock title="关键挑战" items={companyProfile.key_challenges} />
         <ListBlock title="优先 AI 切入方向" items={companyProfile.priority_ai_directions} />
-        <ListBlock title="待补充信息" items={companyProfile.missing_information} />
       </div>
     </div>
   );
 }
 
+/**
+ * 渲染企业画像中的文本型区块。
+ */
 function ProfileBlock({ title, content }: { title: string; content: string }) {
   return (
     <div className="rounded-xl border border-border bg-secondary p-6">
@@ -49,6 +56,9 @@ function ProfileBlock({ title, content }: { title: string; content: string }) {
   );
 }
 
+/**
+ * 渲染企业画像中的列表型区块。
+ */
 function ListBlock({ title, items }: { title: string; items: string[] }) {
   return (
     <div className="rounded-xl border border-border bg-secondary p-6">
