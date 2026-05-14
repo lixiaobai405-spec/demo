@@ -35,6 +35,7 @@ import type {
   LoginRequest,
   UserResponse,
   AssessmentListResponse,
+  CreateInstructorRequest,
 } from "@/lib/types";
 
 export const apiBaseUrl =
@@ -46,6 +47,59 @@ function getAuthHeaders(): Record<string, string> {
     if (token) return { Authorization: `Bearer ${token}` };
   }
   return {};
+}
+
+export async function postChatMessage(
+  assessmentId: string,
+  payload: { message: string; files?: File[] },
+  init?: { signal?: AbortSignal },
+): Promise<Response> {
+  const hasFiles = Boolean(payload.files && payload.files.length > 0);
+  const headers: Record<string, string> = {
+    "ngrok-skip-browser-warning": "true",
+    ...getAuthHeaders(),
+  };
+
+  let body: BodyInit;
+  if (hasFiles) {
+    const formData = new FormData();
+    formData.append("message", payload.message);
+    for (const file of payload.files ?? []) {
+      formData.append("files", file);
+    }
+    body = formData;
+  } else {
+    headers["Content-Type"] = "application/json";
+    body = JSON.stringify({ message: payload.message });
+  }
+
+  const response = await fetch(`${apiBaseUrl}/api/assessments/${assessmentId}/chat`, {
+    method: "POST",
+    cache: "no-store",
+    headers,
+    body,
+    signal: init?.signal,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    let detail: unknown = text;
+    let message = text || `HTTP ${response.status}`;
+
+    try {
+      const parsed = JSON.parse(text) as { detail?: unknown };
+      detail = parsed.detail ?? parsed;
+      if (typeof parsed.detail === "string" && parsed.detail.trim()) {
+        message = parsed.detail;
+      }
+    } catch {
+      // keep raw response body
+    }
+
+    throw new ApiError(message, response.status, detail);
+  }
+
+  return response;
 }
 
 export class ApiError extends Error {
@@ -484,6 +538,18 @@ export function batchComment(
 
 export function instructorExportCsv(): Promise<{ export_format: string; content: string; student_count: number }> {
   return request("/api/instructor/export?format=csv");
+}
+
+export function createInstructor(payload: CreateInstructorRequest): Promise<UserResponse> {
+  return fetch(`${apiBaseUrl}/api/instructor/create-instructor`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+    body: JSON.stringify(payload),
+  }).then(async (res) => {
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail ?? "创建讲师失败");
+    return data;
+  });
 }
 
 /** 将 API 错误转为用户可读的中文消息，供 toast 使用 */
