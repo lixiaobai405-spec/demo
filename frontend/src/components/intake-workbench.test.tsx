@@ -368,6 +368,67 @@ describe("IntakeWorkbench", () => {
     expect(pushMock).toHaveBeenCalledWith("/assessment?import_session_id=session-partial");
   });
 
+  it("removes the old prefill preview step and highlights missing fields in red", async () => {
+    (importAssessmentIntake as Mock).mockResolvedValue({
+      import_session_id: "session-step-2",
+    });
+    (getIntakeImportSession as Mock).mockResolvedValue(
+      buildSessionDetail({
+        import_session_id: "session-step-2",
+        assessment_prefill: {
+          company_name: "测试零售企业",
+          industry: "零售",
+          company_size: "100-499人",
+          region: "华东",
+          annual_revenue_range: "",
+          core_products: "社区零售门店",
+          target_customers: "社区家庭用户",
+          current_challenges: "",
+          ai_goals: "提升复购和运营效率",
+          available_data: "POS、会员系统",
+          notes: "",
+        },
+        field_meta: {
+          company_name: { source_type: "raw", status: "confirmed" },
+          industry: { source_type: "raw", status: "confirmed" },
+          company_size: { source_type: "raw", status: "confirmed" },
+          region: { source_type: "raw", status: "confirmed" },
+          annual_revenue_range: { source_type: "missing", status: "needs_user_input" },
+          core_products: { source_type: "raw", status: "confirmed" },
+          target_customers: { source_type: "raw", status: "confirmed" },
+          current_challenges: { source_type: "missing", status: "needs_user_input" },
+          ai_goals: { source_type: "raw", status: "confirmed" },
+          available_data: { source_type: "raw", status: "confirmed" },
+          notes: { source_type: "missing", status: "needs_user_input" },
+        },
+        warnings: [
+          "年营收范围未识别，请用户补充。",
+          "当前经营/管理挑战未识别，请用户补充。",
+        ],
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(<IntakeWorkbench />);
+
+    await user.click(screen.getByRole("button", { name: "导入并生成预填建议" }));
+    await screen.findByRole("button", { name: "确认并创建问卷" });
+
+    expect(screen.queryByText("步骤三")).not.toBeInTheDocument();
+    expect(screen.getByText("步骤二")).toBeInTheDocument();
+    expect(screen.queryByText("问卷预填建议")).not.toBeInTheDocument();
+    expect(screen.queryByText("提示信息")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("年营收范围未识别，请用户补充。"),
+    ).not.toBeInTheDocument();
+
+    const missingNote = screen.getAllByText("系统未识别，请手动补充")[0];
+    expect(missingNote.className).toContain("text-destructive");
+
+    const revenueInput = screen.getByLabelText(/^年营收范围/);
+    expect(revenueInput.className).toContain("border-destructive");
+  });
+
   it("allows creating an assessment from incomplete imported fields", async () => {
     (importAssessmentIntake as Mock).mockResolvedValue({
       import_session_id: "session-partial-create",

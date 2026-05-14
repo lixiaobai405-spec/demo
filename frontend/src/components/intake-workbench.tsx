@@ -43,18 +43,6 @@ const sourceTypeLabels: Record<IntakeSourceType, string> = {
   file: "文件上传",
 };
 
-const metaStatusLabels = {
-  confirmed: "已确认",
-  needs_user_confirmation: "需要确认",
-  needs_user_input: "需要补充",
-} as const;
-
-const metaSourceLabels = {
-  raw: "原文",
-  inferred: "推断",
-  missing: "缺失",
-} as const;
-
 const maxUploadSizeBytes = 10 * 1024 * 1024;
 const allowedUploadExtensions = [".txt", ".md", ".markdown", ".pdf", ".docx"];
 
@@ -464,91 +452,11 @@ export function IntakeWorkbench() {
 
       {/* Right column */}
       <div className="flex flex-col gap-6">
-        {/* Prefill preview */}
-        <div className="card" ref={prefillRef}>
+        {/* Confirm draft */}
+        <div className="card-inset" ref={prefillRef}>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="section-label">步骤二</p>
-              <h2 className="section-heading">问卷预填建议</h2>
-            </div>
-            {sessionDetail ? (
-              <button type="button" onClick={handleContinueToAssessment} className="btn-secondary text-xs">
-                {sessionDetail.created_assessment_id ? "进入已创建问卷" : "带入企业问卷继续补充"}
-              </button>
-            ) : null}
-          </div>
-
-          {importSuccessMsg ? (
-            <div className="mt-4 rounded-xl msg-success p-3 text-sm">{importSuccessMsg}</div>
-          ) : null}
-
-          {sessionDetail ? (
-            <div className="mt-5 space-y-6">
-              {sessionDetail.warnings.length > 0 ? (
-                <div className="rounded-xl msg-warning p-4 text-sm">
-                  <p className="font-medium">提示信息</p>
-                  <ul className="mt-3 space-y-2">
-                    {sessionDetail.warnings.map((warning) => (
-                      <li key={warning}>{warning}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              <div className="grid gap-4">
-                {intakeFieldDefinitions.map(({ key, label }) => {
-                  const value = sessionDetail.assessment_prefill[key];
-                  const meta = sessionDetail.field_meta[key];
-                  const candidate = sessionDetail.field_candidates[key];
-                  return (
-                    <div key={key} className="rounded-xl border border-warm-border-light bg-warm-inset p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-medium text-warm-text">{label}</p>
-                          <p className="mt-2 text-sm leading-6 text-warm-secondary">
-                            {value?.trim() ? value : "尚未识别，需用户补充"}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap gap-2 text-xs">
-                          <span className="badge badge-accent">
-                            来源：{meta ? metaSourceLabels[meta.source_type] : "未知"}
-                          </span>
-                          <span className="badge badge-muted">
-                            状态：{meta ? metaStatusLabels[meta.status] : "未知"}
-                          </span>
-                        </div>
-                      </div>
-                      {candidate ? (
-                        <p className="mt-3 text-xs leading-5 text-warm-muted">证据：{candidate.evidence}</p>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {sessionDetail.unmapped_notes.length > 0 ? (
-                <div className="rounded-xl border border-warm-border-light bg-warm-surface p-4 text-sm text-warm-secondary">
-                  <p className="font-medium text-warm-text">未映射备注</p>
-                  <ul className="mt-3 space-y-2">
-                    {sessionDetail.unmapped_notes.map((note) => (
-                      <li key={note}>{note}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <p className="mt-5 text-sm leading-6 text-warm-muted">
-              导入成功后，这里会展示每个问卷字段的预填值、来源标签、确认状态和证据。
-            </p>
-          )}
-        </div>
-
-        {/* Confirm draft */}
-        <div className="card-inset">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="section-label">步骤三</p>
               <h2 className="section-heading">确认并创建问卷</h2>
               <p className="mt-2 text-sm leading-6 text-warm-secondary">
                 你可以在这里修改系统预填建议。所有字段都允许手动覆盖；
@@ -559,6 +467,10 @@ export function IntakeWorkbench() {
               已确认 {confirmedCount} / {intakeFieldDefinitions.length} 项
             </span>
           </div>
+
+          {importSuccessMsg ? (
+            <div className="mt-4 rounded-xl msg-success p-3 text-sm">{importSuccessMsg}</div>
+          ) : null}
 
           {sessionDetail ? (
             <div className="mt-4 flex flex-wrap gap-2 text-xs">
@@ -575,12 +487,8 @@ export function IntakeWorkbench() {
                   const meta = sessionDetail.field_meta[key];
                   const originalValue = buildConfirmedForm(sessionDetail)[key];
                   const isModified = normalizeFieldValue(value) !== normalizeFieldValue(originalValue);
-                  const fieldNote =
-                    meta?.status === "needs_user_confirmation"
-                      ? "系统推断，请重点确认"
-                      : meta?.status === "needs_user_input"
-                        ? "系统未识别，请手动补充"
-                        : "已从原文识别";
+                  const fieldNote = getFieldNote(meta?.status);
+                  const needsUserInput = isFieldMissing(meta?.status);
 
                   return (
                     <label key={key} className="flex flex-col gap-2 text-sm text-warm-text">
@@ -603,19 +511,35 @@ export function IntakeWorkbench() {
                             </button>
                           )}
                         </div>
-                        <span className="text-xs text-warm-muted">{fieldNote}</span>
+                        <span
+                          className={`text-xs ${
+                            needsUserInput
+                              ? "font-medium text-destructive"
+                              : "text-warm-muted"
+                          }`}
+                        >
+                          {fieldNote}
+                        </span>
                       </div>
                       {inputType === "textarea" ? (
                         <textarea
                           value={value}
                           onChange={(event) => updateConfirmedField(key, event.target.value)}
-                          className="input-field min-h-[120px]"
+                          className={`input-field min-h-[120px] ${
+                            needsUserInput
+                              ? "border-destructive focus:border-destructive focus:ring-[rgba(220,38,38,0.12)]"
+                              : ""
+                          }`}
                         />
                       ) : (
                         <input
                           value={value}
                           onChange={(event) => updateConfirmedField(key, event.target.value)}
-                          className="input-field"
+                          className={`input-field ${
+                            needsUserInput
+                              ? "border-destructive focus:border-destructive focus:ring-[rgba(220,38,38,0.12)]"
+                              : ""
+                          }`}
                         />
                       )}
                     </label>
@@ -692,6 +616,26 @@ function buildStructuredFieldPayload(
     return value ? [[key, value] as const] : [];
   });
   return Object.fromEntries(entries);
+}
+
+/**
+ * 根据字段状态生成用户可读的提示文案。
+ */
+function getFieldNote(status?: string | null): string {
+  if (status === "needs_user_confirmation") {
+    return "系统推断，请重点确认";
+  }
+  if (status === "needs_user_input") {
+    return "系统未识别，请手动补充";
+  }
+  return "已从原文识别";
+}
+
+/**
+ * 判断字段是否需要红色补充提醒。
+ */
+function isFieldMissing(status?: string | null): boolean {
+  return status === "needs_user_input";
 }
 
 function formatFileSize(sizeBytes: number): string {

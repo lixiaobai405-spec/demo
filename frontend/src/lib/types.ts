@@ -510,12 +510,25 @@ export type OPCDesign = {
   data_flywheel_effect: string;
 };
 
+export type ThreeStageStrategyStage = {
+  title: string;
+  focus: string;
+  objective: string;
+};
+
+export type ThreeStageStrategy = {
+  stage_1: ThreeStageStrategyStage;
+  stage_2: ThreeStageStrategyStage;
+  stage_3: ThreeStageStrategyStage;
+  key_risks: string[];
+};
+
 export type StrategicPath = {
   path_name: string;
   path_type: "保守" | "均衡" | "激进";
-  timeline: string;
+  execution_rhythm: string;
   key_milestones: string[];
-  required_investments: string;
+  capability_requirements: string;
   expected_outcomes: string;
   major_risks: string[];
   recommendation_level: "推荐" | "可选" | "不推荐";
@@ -526,6 +539,7 @@ export type EndgameResult = {
   private_domain: PrivateDomainDesign;
   ecosystem: EcosystemDesign;
   opc: OPCDesign;
+  three_stage_strategy: ThreeStageStrategy;
   strategic_paths: StrategicPath[];
   overall_narrative: string;
 };

@@ -136,3 +136,23 @@ export function countModifiedFields(
       normalizeFieldValue(confirmedForm[key]) !== normalizeFieldValue(originalForm[key]),
   ).length;
 }
+
+/**
+ * 根据字段状态生成用户可读的提示文案。
+ */
+export function getIntakeFieldNote(status?: string | null): string {
+  if (status === "needs_user_confirmation") {
+    return "系统推断，请重点确认";
+  }
+  if (status === "needs_user_input") {
+    return "系统未识别，请手动补充";
+  }
+  return "已从原文识别";
+}
+
+/**
+ * 判断字段是否需要使用高优先级红色提醒。
+ */
+export function isIntakeFieldMissing(status?: string | null): boolean {
+  return status === "needs_user_input";
+}
