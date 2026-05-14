@@ -1,6 +1,7 @@
 """D3: Instructor Service — 讲师仪表盘 / 批量点评 / 成果导出"""
 from collections import defaultdict
 
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.assessment import Assessment
@@ -11,6 +12,7 @@ from app.models.competitiveness_analysis import CompetitivenessAnalysis
 from app.models.direction_selection import DirectionSelection
 from app.models.generated_report import GeneratedReport
 from app.models.scenario_recommendation import ScenarioRecommendation
+from app.models.user import User
 from app.schemas.assessment import (
     BatchCommentRequest,
     BatchCommentResponse,
@@ -18,6 +20,8 @@ from app.schemas.assessment import (
     InstructorExportResponse,
     StudentSummary,
 )
+from app.schemas.auth import CreateInstructorRequest, UserResponse
+from app.services.auth_service import _hash_password
 
 
 class InstructorService:
@@ -135,6 +139,26 @@ class InstructorService:
             content=csv_content,
             student_count=len(assessments),
         )
+
+    def create_instructor(self, db: Session, request: CreateInstructorRequest) -> UserResponse:
+        existing = db.query(User).filter(User.email == request.email).first()
+        if existing is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="该邮箱已被注册。",
+            )
+
+        user = User(
+            email=request.email,
+            hashed_password=_hash_password(request.password),
+            display_name=request.display_name,
+            role="instructor",
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        return UserResponse.model_validate(user, from_attributes=True)
 
 
 # ── Batch-load helpers (avoid N+1 queries) ──────────────────────────
