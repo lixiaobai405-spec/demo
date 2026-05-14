@@ -44,6 +44,17 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
     app = create_app()
     with TestClient(app) as test_client:
+        register_response = test_client.post(
+            "/api/auth/register",
+            json={
+                "email": "mainflow@test.com",
+                "password": "test123456",
+                "display_name": "主流程测试用户",
+            },
+        )
+        assert register_response.status_code == 201
+        token = register_response.json()["access_token"]
+        test_client.headers.update({"Authorization": f"Bearer {token}"})
         yield test_client
 
     engine.dispose()
@@ -271,6 +282,54 @@ def test_report_generation_auto_matches_cases_when_missing(
     assert detail_body["progress"]["has_cases"] is True
     assert detail_body["case_recommendation"]["scoring_method"] == "layered_v1"
     assert len(detail_body["case_recommendation"]["top_cases"]) >= 1
+
+
+def test_assessment_detail_serializes_direction_selection(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+) -> None:
+    assessment_id = _create_assessment(client, assessment_payload)
+
+    assert client.post(f"/api/assessments/{assessment_id}/profile").status_code == 200
+    assert client.post(f"/api/assessments/{assessment_id}/canvas").status_code == 200
+
+    breakthrough_response = client.post(
+        f"/api/assessments/{assessment_id}/breakthrough/recommend"
+    )
+    recommended_keys = breakthrough_response.json()["breakthrough_recommendation"][
+        "recommended_keys"
+    ]
+    assert client.post(
+        f"/api/assessments/{assessment_id}/breakthrough/select",
+        json={
+            "selected_keys": recommended_keys[:2],
+            "selection_mode": "system_recommended",
+        },
+    ).status_code == 200
+
+    expand_response = client.post(f"/api/assessments/{assessment_id}/directions/expand")
+    assert expand_response.status_code == 200
+    expanded = expand_response.json()["direction_expansion"]["elements"]
+    selected_direction_ids = [
+        expanded[0]["suggestions"][0]["direction_id"],
+        expanded[1]["suggestions"][0]["direction_id"],
+    ]
+
+    select_response = client.post(
+        f"/api/assessments/{assessment_id}/directions/select",
+        json={"selected_direction_ids": selected_direction_ids},
+    )
+    assert select_response.status_code == 200
+
+    detail_response = client.get(f"/api/assessments/{assessment_id}")
+
+    assert detail_response.status_code == 200
+    detail_body = detail_response.json()
+    assert detail_body["direction_selection"] is not None
+    assert {
+        item["direction_id"]
+        for item in detail_body["direction_selection"]["selected_directions"]
+    } == set(selected_direction_ids)
 
 
 def test_scenario_recommendations_alias_is_backward_compatible(

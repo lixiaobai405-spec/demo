@@ -457,10 +457,7 @@ def expand_directions(
     # Set llm_status on the response expansion
     expansion.llm_status = record.llm_status
 
-    existing_selection = _load_direction_selection(db, assessment_id)
-    selection_response = None
-    if existing_selection is not None:
-        selection_response = _build_direction_selection_response(db, existing_selection, service)
+    selection_response = _load_direction_selection(db, assessment_id)
 
     return AssessmentDirectionResponse(
         assessment_id=assessment_id,
@@ -527,10 +524,7 @@ def get_directions(
             total_suggestions=0,
         )
 
-    existing_selection = _load_direction_selection(db, assessment_id)
-    selection_response = None
-    if existing_selection is not None:
-        selection_response = _build_direction_selection_response(db, existing_selection, service)
+    selection_response = _load_direction_selection(db, assessment_id)
 
     return AssessmentDirectionResponse(
         assessment_id=assessment_id,
@@ -1160,7 +1154,7 @@ def _build_breakthrough_selection_response(
     )
 
 
-def _load_direction_selection(
+def _load_direction_selection_record(
     db: Session,
     assessment_id: str,
 ) -> DirectionSelection | None:
@@ -1169,6 +1163,16 @@ def _load_direction_selection(
             DirectionSelection.assessment_id == assessment_id
         )
     )
+
+
+def _load_direction_selection(
+    db: Session,
+    assessment_id: str,
+) -> DirectionSelectionResponse | None:
+    record = _load_direction_selection_record(db, assessment_id)
+    if record is None:
+        return None
+    return _build_direction_selection_response(record)
 
 
 def _load_direction_expansion_result(
@@ -1193,7 +1197,7 @@ def _load_direction_categories(
 ) -> list[str] | None:
     from app.schemas.direction import DirectionSuggestion
 
-    record = _load_direction_selection(db, assessment_id)
+    record = _load_direction_selection_record(db, assessment_id)
     if record is None:
         return None
 
@@ -1217,7 +1221,7 @@ def _load_direction_labels(
 ) -> list[str] | None:
     from app.schemas.direction import DirectionSuggestion
 
-    record = _load_direction_selection(db, assessment_id)
+    record = _load_direction_selection_record(db, assessment_id)
     if record is None:
         return None
 
@@ -1241,7 +1245,7 @@ def _upsert_direction_selection(
 ) -> DirectionSelection:
     from app.schemas.direction import DirectionSuggestion
 
-    record = _load_direction_selection(db, assessment_id)
+    record = _load_direction_selection_record(db, assessment_id)
     if record is None:
         record = DirectionSelection(
             assessment_id=assessment_id,
@@ -1266,9 +1270,7 @@ def _upsert_direction_selection(
 
 
 def _build_direction_selection_response(
-    db: Session,
     record: DirectionSelection,
-    service,
 ) -> DirectionSelectionResponse:
     from app.schemas.direction import DirectionSuggestion
 
@@ -1293,7 +1295,7 @@ def _load_selected_directions(
 ) -> list:
     from app.schemas.direction import DirectionSuggestion
 
-    record = _load_direction_selection(db, assessment_id)
+    record = _load_direction_selection_record(db, assessment_id)
     if record is None:
         return []
 
