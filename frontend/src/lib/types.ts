@@ -661,6 +661,12 @@ export type BatchCommentResponse = {
   comment: string;
 };
 
+export type CreateInstructorRequest = {
+  email: string;
+  password: string;
+  display_name?: string | null;
+};
+
 // ── Auth ──
 export type UserResponse = {
   id: string;
