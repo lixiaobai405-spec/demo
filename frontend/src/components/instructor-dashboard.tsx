@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import type { InstructorDashboardResponse, StudentSummary } from "@/lib/types";
-import { getInstructorDashboard, batchComment, instructorExportCsv } from "@/lib/api";
+import { getInstructorDashboard, batchComment, instructorExportCsv, createInstructor } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "@/hooks/use-toast";
 
 const progressIcon = (flag: boolean, label: string) => (
   flag ? <span role="img" aria-label={`${label}：已完成`}>✅</span> : <span role="img" aria-label={`${label}：未开始`}>⬜</span>
@@ -15,6 +18,12 @@ export function InstructorDashboard() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [commentDraft, setCommentDraft] = useState("");
   const [commentStatus, setCommentStatus] = useState<string | null>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newName, setNewName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [groupFilter, setGroupFilter] = useState<string>("全部");
 
   useEffect(() => { loadDashboard(); }, []);
@@ -44,6 +53,29 @@ export function InstructorDashboard() {
       a.href = url; a.download = `instructor_export_${new Date().toISOString().slice(0, 10)}.csv`;
       a.click(); URL.revokeObjectURL(url);
     } catch { setError("导出失败"); }
+  }
+
+  async function handleCreateInstructor(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newEmail.trim() || !newPassword) return;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      await createInstructor({
+        email: newEmail.trim(),
+        password: newPassword,
+        display_name: newName.trim() || undefined,
+      });
+      setShowCreateDialog(false);
+      setNewEmail("");
+      setNewPassword("");
+      setNewName("");
+      toast({ title: "创建成功", description: `讲师 ${newEmail} 已创建。` });
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "创建失败");
+    } finally {
+      setCreating(false);
+    }
   }
 
   function toggleSelect(id: string) {
@@ -78,6 +110,8 @@ export function InstructorDashboard() {
             <p className="text-[10px] uppercase text-warm-muted">报告完成率</p>
             <p className="text-xl font-bold text-warm-success">{data.overall_completion_pct}%</p>
           </div>
+          <button type="button" onClick={() => setShowCreateDialog(true)}
+            className="btn-primary text-xs">创建讲师</button>
           <button type="button" onClick={handleExport} className="btn-secondary text-xs">导出 CSV</button>
         </div>
       </div>
@@ -144,6 +178,66 @@ export function InstructorDashboard() {
           </tbody>
         </table>
       </div>
+
+      {showCreateDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => { setShowCreateDialog(false); setCreateError(null); }}>
+          <form
+            className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md space-y-4"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={handleCreateInstructor}
+          >
+            <h3 className="font-heading text-lg font-bold text-warm-text">创建讲师账号</h3>
+
+            {createError && (
+              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{createError}</div>
+            )}
+
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="font-medium">邮箱</span>
+              <Input
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="instructor@example.com"
+                required
+                autoFocus
+              />
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="font-medium">显示名称（选填）</span>
+              <Input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="张老师"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="font-medium">密码（至少 6 位）</span>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="输入密码"
+                required
+                minLength={6}
+              />
+            </label>
+
+            <div className="flex gap-3 justify-end pt-2">
+              <Button type="button" variant="outline"
+                onClick={() => { setShowCreateDialog(false); setCreateError(null); }}>
+                取消
+              </Button>
+              <Button type="submit" loading={creating}>
+                {creating ? "创建中..." : "创建讲师"}
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
