@@ -5,6 +5,13 @@ import type { InstructorDashboardResponse, StudentSummary } from "@/lib/types";
 import { getInstructorDashboard, batchComment, instructorExportCsv, createInstructor } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 
 const progressIcon = (flag: boolean, label: string) => (
@@ -25,6 +32,13 @@ export function InstructorDashboard() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [groupFilter, setGroupFilter] = useState<string>("全部");
+
+  function resetCreateForm() {
+    setNewEmail("");
+    setNewPassword("");
+    setNewName("");
+    setCreateError(null);
+  }
 
   useEffect(() => { loadDashboard(); }, []);
 
@@ -66,10 +80,8 @@ export function InstructorDashboard() {
         password: newPassword,
         display_name: newName.trim() || undefined,
       });
+      resetCreateForm();
       setShowCreateDialog(false);
-      setNewEmail("");
-      setNewPassword("");
-      setNewName("");
       toast({ title: "创建成功", description: `讲师 ${newEmail} 已创建。` });
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "创建失败");
@@ -179,16 +191,16 @@ export function InstructorDashboard() {
         </table>
       </div>
 
-      {showCreateDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-          onClick={() => { setShowCreateDialog(false); setCreateError(null); }}>
-          <form
-            className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md space-y-4"
-            onClick={(e) => e.stopPropagation()}
-            onSubmit={handleCreateInstructor}
-          >
-            <h3 className="font-heading text-lg font-bold text-warm-text">创建讲师账号</h3>
+      <Dialog open={showCreateDialog} onOpenChange={(open) => {
+        if (!open) { resetCreateForm(); }
+        setShowCreateDialog(open);
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>创建讲师账号</DialogTitle>
+          </DialogHeader>
 
+          <form onSubmit={handleCreateInstructor} className="space-y-4">
             {createError && (
               <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{createError}</div>
             )}
@@ -226,18 +238,18 @@ export function InstructorDashboard() {
               />
             </label>
 
-            <div className="flex gap-3 justify-end pt-2">
+            <DialogFooter className="gap-2 sm:gap-2">
               <Button type="button" variant="outline"
-                onClick={() => { setShowCreateDialog(false); setCreateError(null); }}>
+                onClick={() => { resetCreateForm(); setShowCreateDialog(false); }}>
                 取消
               </Button>
               <Button type="submit" loading={creating}>
                 {creating ? "创建中..." : "创建讲师"}
               </Button>
-            </div>
+            </DialogFooter>
           </form>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

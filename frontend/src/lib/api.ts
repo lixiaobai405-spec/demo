@@ -541,14 +541,9 @@ export function instructorExportCsv(): Promise<{ export_format: string; content:
 }
 
 export function createInstructor(payload: CreateInstructorRequest): Promise<UserResponse> {
-  return fetch(`${apiBaseUrl}/api/instructor/create-instructor`, {
+  return request<UserResponse>("/api/instructor/create-instructor", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
     body: JSON.stringify(payload),
-  }).then(async (res) => {
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail ?? "创建讲师失败");
-    return data;
   });
 }
 
