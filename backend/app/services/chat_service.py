@@ -8,9 +8,15 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models.assessment import Assessment
+from app.models.breakthrough_selection import BreakthroughSelection
 from app.models.canvas_diagnosis import CanvasDiagnosis
+from app.models.case_recommendation import CaseRecommendation
+from app.models.competitiveness_analysis import CompetitivenessAnalysis
+from app.models.direction_expansion import DirectionExpansion
 from app.models.direction_selection import DirectionSelection
 from app.models.endgame_analysis import EndgameAnalysis
+from app.models.generated_report import GeneratedReport
+from app.models.scenario_recommendation import ScenarioRecommendation
 from app.models.chat import Conversation, Message
 
 logger = logging.getLogger(__name__)
@@ -19,34 +25,55 @@ DEFAULT_ATTACHMENT_PROMPT = "请先提炼我上传资料中的关键信息，并
 
 
 def _build_context(assessment_id: str, db: Session) -> str:
-    """Build AI context from all generated assessment results."""
+    """Build AI context from all generated assessment results, with progress table."""
     parts: list[str] = []
+    progress_rows: list[str] = []
 
-    # Assessment basic info
+    # Assessment basic info (always present)
     assessment = db.scalar(
         select(Assessment).where(Assessment.id == assessment_id)
     )
-    if assessment:
-        parts.append(f"## 企业基础信息")
-        parts.append(f"- 公司名称：{assessment.company_name}")
-        parts.append(f"- 行业：{assessment.industry}")
-        parts.append(f"- 规模：{assessment.company_size}")
-        parts.append(f"- 地区：{assessment.region}")
-        parts.append(f"- 收入范围：{assessment.annual_revenue_range}")
-        parts.append(f"- 核心产品：{assessment.core_products}")
-        parts.append(f"- 目标客户：{assessment.target_customers}")
-        parts.append(f"- 当前挑战：{assessment.current_challenges}")
-        parts.append(f"- AI 目标：{assessment.ai_goals}")
-        parts.append(f"- 可用数据：{assessment.available_data}")
-        if assessment.notes:
-            parts.append(f"- 备注：{assessment.notes}")
+    if not assessment:
+        return "暂无评估数据。"
 
-    # Canvas diagnosis
+    parts.append("## 企业基础信息")
+    parts.append(f"- 公司名称：{assessment.company_name}")
+    parts.append(f"- 行业：{assessment.industry}")
+    parts.append(f"- 规模：{assessment.company_size}")
+    parts.append(f"- 地区：{assessment.region}")
+    parts.append(f"- 收入范围：{assessment.annual_revenue_range}")
+    parts.append(f"- 核心产品：{assessment.core_products}")
+    parts.append(f"- 目标客户：{assessment.target_customers}")
+    parts.append(f"- 当前挑战：{assessment.current_challenges}")
+    parts.append(f"- AI 目标：{assessment.ai_goals}")
+    parts.append(f"- 可用数据：{assessment.available_data}")
+    if assessment.notes:
+        parts.append(f"- 备注：{assessment.notes}")
+
+    # ── 1. Company profile ──
+    has_profile = bool(assessment.profile_payload)
+    progress_rows.append(f"| 企业画像 | {'✅ 已生成' if has_profile else '❌ 未生成'} |")
+    if has_profile and assessment.profile_payload:
+        try:
+            profile_data = json.loads(assessment.profile_payload)
+            if isinstance(profile_data, dict):
+                parts.append("\n## 企业画像")
+                for key, value in profile_data.items():
+                    value_str = str(value)
+                    if len(value_str) > 300:
+                        value_str = value_str[:300] + "..."
+                    parts.append(f"- {key}：{value_str}")
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    # ── 2. Canvas diagnosis ──
     canvas = db.scalar(
         select(CanvasDiagnosis).where(CanvasDiagnosis.assessment_id == assessment_id)
     )
+    has_canvas = canvas is not None
+    progress_rows.append(f"| 商业画布 | {'✅ 已生成' if has_canvas else '❌ 未生成'} |")
     if canvas:
-        parts.append(f"\n## 商业画布 9 格诊断")
+        parts.append("\n## 商业画布 9 格诊断")
         parts.append(f"总分：{canvas.overall_score}")
         if canvas.canvas_json:
             try:
@@ -58,15 +85,46 @@ def _build_context(assessment_id: str, db: Session) -> str:
             except (json.JSONDecodeError, TypeError):
                 pass
 
-    # Direction selection
-    direction = db.scalar(
+    # ── 3. Breakthrough selection ──
+    breakthrough = db.scalar(
+        select(BreakthroughSelection).where(
+            BreakthroughSelection.assessment_id == assessment_id
+        )
+    )
+    has_breakthrough = breakthrough is not None
+    progress_rows.append(
+        f"| BMC 突破要素 | {'✅ 已生成' if has_breakthrough else '❌ 未生成'} |"
+    )
+    if has_breakthrough:
+        try:
+            selected = json.loads(breakthrough.selected_elements_json)
+            if isinstance(selected, list) and selected:
+                parts.append(f"\n## BMC 突破要素（{len(selected)} 个）")
+                for elem in selected:
+                    if isinstance(elem, str):
+                        parts.append(f"- {elem}")
+                    elif isinstance(elem, dict):
+                        parts.append(
+                            f"- {elem.get('key', elem.get('title', str(elem)))}"
+                        )
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    # ── 4. Direction expansion & selection ──
+    direction_sel = db.scalar(
         select(DirectionSelection).where(
             DirectionSelection.assessment_id == assessment_id
         )
     )
-    if direction and direction.directions_json:
+    has_directions = direction_sel is not None and bool(
+        getattr(direction_sel, "directions_json", None)
+    )
+    progress_rows.append(
+        f"| 方向延展 | {'✅ 已生成' if has_directions else '❌ 未生成'} |"
+    )
+    if has_directions and direction_sel.directions_json:
         try:
-            dirs = json.loads(direction.directions_json)
+            dirs = json.loads(direction_sel.directions_json)
             if isinstance(dirs, list) and dirs:
                 parts.append(f"\n## 已选创新方向（{len(dirs)} 个）")
                 for d in dirs:
@@ -77,17 +135,109 @@ def _build_context(assessment_id: str, db: Session) -> str:
         except (json.JSONDecodeError, TypeError):
             pass
 
-    # Endgame analysis
+    # ── 5. Competitiveness analysis ──
+    competitiveness = db.scalar(
+        select(CompetitivenessAnalysis).where(
+            CompetitivenessAnalysis.assessment_id == assessment_id
+        )
+    )
+    has_competitiveness = competitiveness is not None
+    progress_rows.append(
+        f"| 竞争力分析 | {'✅ 已生成' if has_competitiveness else '❌ 未生成'} |"
+    )
+    if has_competitiveness:
+        parts.append("\n## 竞争力分析")
+        try:
+            strategy = json.loads(competitiveness.strategy_json)
+            if isinstance(strategy, dict):
+                for key in ("summary", "core_strategy", "recommendation"):
+                    if key in strategy:
+                        val = str(strategy[key])
+                        if len(val) > 500:
+                            val = val[:500] + "..."
+                        parts.append(f"- {key}：{val}")
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    # ── 6. Endgame analysis ──
     endgame = db.scalar(
         select(EndgameAnalysis).where(
             EndgameAnalysis.assessment_id == assessment_id
         )
     )
-    if endgame and endgame.overall_narrative:
-        parts.append(f"\n## 商业终局设计")
-        parts.append(endgame.overall_narrative)
+    has_endgame = endgame is not None and bool(endgame.overall_narrative)
+    progress_rows.append(
+        f"| 终局设计 | {'✅ 已生成' if has_endgame else '❌ 未生成'} |"
+    )
+    if has_endgame and endgame.overall_narrative:
+        parts.append("\n## 商业终局设计")
+        narrative = endgame.overall_narrative
+        if len(narrative) > 800:
+            narrative = narrative[:800] + "..."
+        parts.append(narrative)
 
-    return "\n".join(parts)
+    # ── 7. Scenario recommendations ──
+    scenarios = db.scalar(
+        select(ScenarioRecommendation).where(
+            ScenarioRecommendation.assessment_id == assessment_id
+        )
+    )
+    has_scenarios = scenarios is not None
+    progress_rows.append(
+        f"| 场景推荐 | {'✅ 已生成' if has_scenarios else '❌ 未生成'} |"
+    )
+    if has_scenarios:
+        try:
+            top = json.loads(scenarios.top_scenarios)
+            if isinstance(top, list) and top:
+                parts.append(f"\n## 场景推荐（Top {len(top)}）")
+                for s in top:
+                    parts.append(f"- {s}")
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    # ── 8. Case recommendations ──
+    cases = db.scalar(
+        select(CaseRecommendation).where(
+            CaseRecommendation.assessment_id == assessment_id
+        )
+    )
+    has_cases = cases is not None
+    progress_rows.append(
+        f"| 案例匹配 | {'✅ 已生成' if has_cases else '❌ 未生成'} |"
+    )
+    if has_cases:
+        try:
+            top = json.loads(cases.top_cases)
+            if isinstance(top, list) and top:
+                parts.append(f"\n## 案例匹配（Top {len(top)}）")
+                for c in top:
+                    parts.append(f"- {c}")
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    # ── 9. Report ──
+    report = db.scalar(
+        select(GeneratedReport).where(
+            GeneratedReport.assessment_id == assessment_id
+        )
+    )
+    has_report = report is not None
+    progress_rows.append(
+        f"| 报告 | {'✅ 已生成' if has_report else '❌ 未生成'} |"
+    )
+
+    # ── Build progress table, prepended to context ──
+    progress_table = (
+        "## 模块生成状态\n\n"
+        "| 模块 | 状态 |\n"
+        "|------|------|\n"
+        + "\n".join(progress_rows)
+        + "\n\n> 你只能基于上述 ✅ 已生成 的模块数据回答用户问题。"
+        "对于未生成的模块，如果用户问到相关内容，请引导用户先去生成该模块，不要猜测或编造数据。\n"
+    )
+
+    return progress_table + "\n" + "\n".join(parts)
 
 
 SYSTEM_PROMPT_TEMPLATE = """你是一个 AI 商业创新顾问，专门帮助企业分析商业模式、制定 AI 转型策略。
@@ -98,12 +248,17 @@ SYSTEM_PROMPT_TEMPLATE = """你是一个 AI 商业创新顾问，专门帮助企
 
 ## 对话要求
 
-- 基于上面的评估数据回答用户问题
-- 如果数据不足以回答某个问题，诚实说明并建议先生成对应模块
+- 基于上面的评估数据回答用户问题，优先引用已生成模块中的具体信息
 - 回答简洁专业，聚焦可落地的商业建议
-- 优先引用评估数据中的具体信息
 - 用户可能在不同页面（画布、方向延展、终局设计、结果仪表盘）与你对话
 - 当用户在新页面生成新结果后，你会自动获得更新后的上下文
+
+## 重要约束
+
+- 最上方的"模块生成状态"表格列出了每个模块的生成状态
+- 对于标记为"❌ 未生成"的模块，不要在回答中主动提及或讨论其内容
+- 如果用户问到的内容涉及未生成模块，诚实告知该模块尚未生成，引导用户先去完成对应步骤
+- 不要猜测或编造未生成模块的数据
 
 请用中文回答。"""
 

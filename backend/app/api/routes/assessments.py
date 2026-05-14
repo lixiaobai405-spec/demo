@@ -1122,7 +1122,7 @@ def _upsert_breakthrough_selection(
     db.add(record)
     db.commit()
     db.refresh(record)
-    _clear_cases_and_reports(db, assessment_id)
+    _clear_directions_and_below(db, assessment_id)
 
     return record
 
@@ -1264,7 +1264,7 @@ def _upsert_direction_selection(
     db.add(record)
     db.commit()
     db.refresh(record)
-    _clear_scenarios_and_below(db, assessment_id)
+    _clear_competitiveness_and_below(db, assessment_id)
 
     return record
 
@@ -1470,7 +1470,7 @@ def _upsert_competitiveness_analysis(
     db.add(record)
     db.commit()
     db.refresh(record)
-    _clear_scenarios_and_below(db, assessment_id)
+    _clear_endgame_and_below(db, assessment_id)
 
     return record
 
@@ -1907,10 +1907,59 @@ def _clear_canvas_and_below(db: Session, assessment_id: str) -> None:
     )
 
 
-def _clear_scenarios_and_below(db: Session, assessment_id: str) -> None:
+def _clear_competitiveness_and_below(db: Session, assessment_id: str) -> None:
+    """Clear competitiveness analysis, endgame, and everything downstream (scenarios, cases, reports).
+
+    Used after direction re-selection, which invalidates competitiveness and below.
+    """
     _delete_records(
         db,
         [
+            db.scalar(select(CompetitivenessAnalysis).where(CompetitivenessAnalysis.assessment_id == assessment_id)),
+            db.scalar(select(EndgameAnalysis).where(EndgameAnalysis.assessment_id == assessment_id)),
+            db.scalar(
+                select(ScenarioRecommendation).where(
+                    ScenarioRecommendation.assessment_id == assessment_id
+                )
+            ),
+            db.scalar(select(CaseRecommendation).where(CaseRecommendation.assessment_id == assessment_id)),
+            db.scalar(select(GeneratedReport).where(GeneratedReport.assessment_id == assessment_id)),
+        ],
+    )
+
+
+def _clear_endgame_and_below(db: Session, assessment_id: str) -> None:
+    """Clear endgame analysis and everything downstream (scenarios, cases, reports).
+
+    Used after competitiveness re-generation, which invalidates endgame and below.
+    Does NOT clear competitiveness itself.
+    """
+    _delete_records(
+        db,
+        [
+            db.scalar(select(EndgameAnalysis).where(EndgameAnalysis.assessment_id == assessment_id)),
+            db.scalar(
+                select(ScenarioRecommendation).where(
+                    ScenarioRecommendation.assessment_id == assessment_id
+                )
+            ),
+            db.scalar(select(CaseRecommendation).where(CaseRecommendation.assessment_id == assessment_id)),
+            db.scalar(select(GeneratedReport).where(GeneratedReport.assessment_id == assessment_id)),
+        ],
+    )
+
+
+def _clear_directions_and_below(db: Session, assessment_id: str) -> None:
+    """Clear direction expansion, direction selection, and everything downstream.
+
+    Used after breakthrough re-selection, which invalidates all direction-related
+    data plus competitiveness, endgame, scenarios, cases, and reports.
+    """
+    _delete_records(
+        db,
+        [
+            db.scalar(select(DirectionExpansion).where(DirectionExpansion.assessment_id == assessment_id)),
+            db.scalar(select(DirectionSelection).where(DirectionSelection.assessment_id == assessment_id)),
             db.scalar(select(CompetitivenessAnalysis).where(CompetitivenessAnalysis.assessment_id == assessment_id)),
             db.scalar(select(EndgameAnalysis).where(EndgameAnalysis.assessment_id == assessment_id)),
             db.scalar(
