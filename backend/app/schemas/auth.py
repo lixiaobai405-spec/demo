@@ -9,6 +9,12 @@ class RegisterRequest(BaseModel):
     display_name: str | None = Field(default=None, max_length=100)
 
 
+class CreateInstructorRequest(BaseModel):
+    email: str = Field(max_length=255)
+    password: str = Field(min_length=6, max_length=128)
+    display_name: str | None = Field(default=None, max_length=100)
+
+
 class LoginRequest(BaseModel):
     email: str
     password: str
