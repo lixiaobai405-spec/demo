@@ -90,7 +90,6 @@ REPORT_OUTLINE = [
     "差异化竞争力设计",
     "参考案例与启示",
     "三阶段 AI 创新路线图",
-    "90 天行动计划",
     "风险与阻力",
     "讲师点评区",
     "商业终局设计",
@@ -230,6 +229,7 @@ def get_assessment_detail(
     cases = _load_case_recommendation(db, assessment_id)
     report_summary = report_service.get_report_summary_by_assessment(db, assessment_id)
     direction_selection = _load_direction_selection(db, assessment_id)
+    direction_expansion = _load_direction_expansion_result(db, assessment_id)
     competitiveness = _load_competitiveness_analysis(db, assessment_id)
 
     return AssessmentDetailResponse(
@@ -237,6 +237,8 @@ def get_assessment_detail(
         company_profile=profile,
         canvas_diagnosis=canvas,
         breakthrough_selection=breakthrough_keys,
+        direction_expansion=direction_expansion,
+        direction_selection=direction_selection,
         scenario_recommendation=scenarios,
         case_recommendation=cases,
         generated_report=report_summary,
@@ -1169,6 +1171,22 @@ def _load_direction_selection(
     )
 
 
+def _load_direction_expansion_result(
+    db: Session,
+    assessment_id: str,
+) -> DirectionExpansionResult | None:
+    from app.schemas.direction import DirectionExpansionResult
+
+    record = _load_direction_expansion(db, assessment_id)
+    if record is None or not record.expansion_json:
+        return None
+    try:
+        raw = json.loads(record.expansion_json)
+        return DirectionExpansionResult.model_validate(raw)
+    except Exception:
+        return None
+
+
 def _load_direction_categories(
     db: Session,
     assessment_id: str,
@@ -1627,9 +1645,10 @@ def _generate_and_store_profile(
 def _calculate_canvas_metadata(
     canvas_result: BusinessModelCanvasResult,
 ) -> tuple[int, list[str], list[str]]:
-    block_scores: list[tuple[str, int, str]] = []
+    block_scores: list[tuple[str, int, str, str]] = []
     for block in canvas_result.blocks:
         score = 10
+        completeness_issues = 0
         for content in (
             block.current_state,
             block.diagnosis,
@@ -1638,19 +1657,48 @@ def _calculate_canvas_metadata(
         ):
             if "待补充" in content:
                 score -= 2
+                completeness_issues += 1
             if "缺失" in content or "不完整" in content or "不足" in content:
                 score -= 1
-        block_scores.append((block.title, max(3, score), block.ai_opportunity))
+        block_scores.append(
+            (block.title, max(3, score), block.ai_opportunity, block.diagnosis)
+        )
 
     if not block_scores:
         return 0, [], []
 
     total_score = sum(item[1] for item in block_scores)
+    # Demo mode: score based on 9-block completeness (0-100)
     overall_score = max(0, min(100, round(total_score / (len(block_scores) * 10) * 100)))
     weakest = sorted(block_scores, key=lambda item: item[1])[:3]
     weakest_blocks = [item[0] for item in weakest]
-    recommended_focus = [f"{item[0]}：{item[2]}" for item in weakest]
+
+    # Build concise, actionable recommended_focus (one sentence per element)
+    recommended_focus: list[str] = []
+    for title, _, _, diagnosis in weakest:
+        # Extract the core diagnostic insight and make it actionable
+        short_diag = diagnosis.split("。")[0] if "。" in diagnosis else diagnosis
+        if len(short_diag) > 60:
+            short_diag = short_diag[:57] + "..."
+        abbr = _block_title_to_abbr(title)
+        recommended_focus.append(f"{title}（{abbr}）：{short_diag}。—— 建议优先完善该模块数据基础并启动 AI 试点。")
+
     return overall_score, weakest_blocks, recommended_focus
+
+
+def _block_title_to_abbr(title: str) -> str:
+    abbr_map = {
+        "关键合作伙伴": "KP",
+        "关键业务活动": "KA",
+        "关键资源": "KR",
+        "价值主张": "VP",
+        "客户关系": "CR",
+        "渠道通路": "CH",
+        "客户细分": "CS",
+        "成本结构": "C$",
+        "收入来源": "R$",
+    }
+    return abbr_map.get(title, title[:2])
 
 
 def _upsert_canvas_diagnosis(
@@ -1844,6 +1892,8 @@ def _clear_canvas_and_below(db: Session, assessment_id: str) -> None:
             db.scalar(select(CanvasDiagnosis).where(CanvasDiagnosis.assessment_id == assessment_id)),
             db.scalar(select(BreakthroughSelection).where(BreakthroughSelection.assessment_id == assessment_id)),
             db.scalar(select(DirectionExpansion).where(DirectionExpansion.assessment_id == assessment_id)),
+            db.scalar(select(CompetitivenessAnalysis).where(CompetitivenessAnalysis.assessment_id == assessment_id)),
+            db.scalar(select(EndgameAnalysis).where(EndgameAnalysis.assessment_id == assessment_id)),
             db.scalar(
                 select(ScenarioRecommendation).where(
                     ScenarioRecommendation.assessment_id == assessment_id
@@ -1859,6 +1909,8 @@ def _clear_scenarios_and_below(db: Session, assessment_id: str) -> None:
     _delete_records(
         db,
         [
+            db.scalar(select(CompetitivenessAnalysis).where(CompetitivenessAnalysis.assessment_id == assessment_id)),
+            db.scalar(select(EndgameAnalysis).where(EndgameAnalysis.assessment_id == assessment_id)),
             db.scalar(
                 select(ScenarioRecommendation).where(
                     ScenarioRecommendation.assessment_id == assessment_id
@@ -1876,6 +1928,8 @@ def _clear_breakthrough_and_below(db: Session, assessment_id: str) -> None:
         [
             db.scalar(select(BreakthroughSelection).where(BreakthroughSelection.assessment_id == assessment_id)),
             db.scalar(select(DirectionExpansion).where(DirectionExpansion.assessment_id == assessment_id)),
+            db.scalar(select(CompetitivenessAnalysis).where(CompetitivenessAnalysis.assessment_id == assessment_id)),
+            db.scalar(select(EndgameAnalysis).where(EndgameAnalysis.assessment_id == assessment_id)),
             db.scalar(
                 select(ScenarioRecommendation).where(
                     ScenarioRecommendation.assessment_id == assessment_id

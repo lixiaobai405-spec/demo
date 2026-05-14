@@ -38,7 +38,14 @@ export default function RegisterPage() {
   }
 
   if (authLoading || isAuthenticated) {
-    return <div className="min-h-screen" />;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-warm-accent border-t-transparent" />
+          <p className="text-sm text-muted-foreground">验证登录状态...</p>
+        </div>
+      </div>
+    );
   }
 
   return (

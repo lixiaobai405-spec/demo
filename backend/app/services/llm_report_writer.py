@@ -38,7 +38,6 @@ REQUIRED_SECTIONS: list[tuple[str, str]] = [
     ("competitiveness", "差异化竞争力设计"),
     ("cases", "参考案例与启示"),
     ("roadmap", "三阶段 AI 创新路线图"),
-    ("action_plan", "90 天行动计划"),
     ("risks", "风险与阻力"),
     ("instructor_comments", "讲师点评区"),
     ("endgame", "商业终局设计"),
@@ -58,8 +57,8 @@ SECTION_GROUPS: list[dict[str, Any]] = [
     },
     {
         "name": "execution",
-        "focus": "路线图、90天行动计划、风险管控、讲师点评、商业终局",
-        "section_keys": ["roadmap", "action_plan", "risks", "instructor_comments", "endgame"],
+        "focus": "路线图、风险管控、讲师点评、商业终局",
+        "section_keys": ["roadmap", "risks", "instructor_comments", "endgame"],
     },
 ]
 

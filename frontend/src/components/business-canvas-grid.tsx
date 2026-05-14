@@ -35,10 +35,10 @@ export function BusinessCanvasGrid({ canvasDiagnosis }: { canvasDiagnosis: Canva
           <div key={block.key} className="rounded-xl border border-warm-border-light bg-warm-inset p-6">
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-warm-accent">{block.title}</p>
             <div className="mt-4 space-y-4 text-sm leading-7 text-warm-text">
-              <CanvasDetail label="当前状态" content={block.current_state} />
-              <CanvasDetail label="诊断" content={block.diagnosis} />
-              <CanvasDetail label="AI 机会" content={block.ai_opportunity} />
-              <CanvasDetail label="待补充" content={block.missing_information} />
+              <CanvasDetail label="📊 当前状态" content={block.current_state} />
+              <CanvasDetail label="🔍 诊断" content={block.diagnosis} />
+              <CanvasDetail label="🤖 AI 机会" content={block.ai_opportunity} />
+              <CanvasDetail label="📝 待补充" content={block.missing_information} />
             </div>
           </div>
         ))}

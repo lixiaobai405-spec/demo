@@ -5,6 +5,7 @@ import type {
   AssessmentResponse,
   BreakthroughSelectionResponse,
   CanvasDiagnosisResult,
+  CaseRecommendationResult,
   CompanyProfileResult,
   CompetitivenessResponse,
   DirectionSelectionResponse,
@@ -29,6 +30,7 @@ interface AssessmentState {
   directionSelection: DirectionSelectionResponse | null;
   competitivenessData: CompetitivenessResponse | null;
   endgameData: EndgameResponse | null;
+  caseRecommendation: CaseRecommendationResult | null;
   followUpPlan: FollowUpPlan | null;
 
   // Selection
@@ -47,6 +49,7 @@ interface AssessmentState {
   setDirectionSelection: (s: DirectionSelectionResponse | null) => void;
   setCompetitivenessData: (d: CompetitivenessResponse | null) => void;
   setEndgameData: (d: EndgameResponse | null) => void;
+  setCaseRecommendation: (r: CaseRecommendationResult | null) => void;
   setFollowUpPlan: (p: FollowUpPlan | null) => void;
   setSelectedBreakthroughKeys: (keys: string[]) => void;
   toggleBreakthroughKey: (key: string) => void;
@@ -71,6 +74,7 @@ export const useAssessmentStore = create<AssessmentState>((set, get) => ({
   directionSelection: null,
   competitivenessData: null,
   endgameData: null,
+  caseRecommendation: null,
   followUpPlan: null,
   selectedBreakthroughKeys: [],
   selectedDirectionIds: [],
@@ -86,6 +90,7 @@ export const useAssessmentStore = create<AssessmentState>((set, get) => ({
   setDirectionSelection: (s) => set({ directionSelection: s }),
   setCompetitivenessData: (d) => set({ competitivenessData: d }),
   setEndgameData: (d) => set({ endgameData: d }),
+  setCaseRecommendation: (r) => set({ caseRecommendation: r }),
   setFollowUpPlan: (p) => set({ followUpPlan: p }),
   setSelectedBreakthroughKeys: (keys) => set({ selectedBreakthroughKeys: keys }),
   toggleBreakthroughKey: (key) =>
@@ -107,7 +112,7 @@ export const useAssessmentStore = create<AssessmentState>((set, get) => ({
     }),
 
   resetDownstream: (fromStep) => {
-    const steps = ["profile", "canvas", "breakthrough", "directions", "competitiveness", "endgame", "scenarios"];
+    const steps = ["profile", "canvas", "breakthrough", "directions", "competitiveness", "endgame", "scenarios", "cases"];
     const fromIdx = steps.indexOf(fromStep);
     if (fromIdx === -1) return;
 
@@ -136,6 +141,9 @@ export const useAssessmentStore = create<AssessmentState>((set, get) => ({
         case "scenarios":
           reset.scenarioRecommendation = null;
           break;
+        case "cases":
+          reset.caseRecommendation = null;
+          break;
       }
     }
     set(reset);
@@ -154,6 +162,7 @@ export const useAssessmentStore = create<AssessmentState>((set, get) => ({
       directionSelection: null,
       competitivenessData: null,
       endgameData: null,
+      caseRecommendation: null,
       followUpPlan: null,
       selectedBreakthroughKeys: [],
       selectedDirectionIds: [],

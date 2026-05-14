@@ -14,6 +14,8 @@ from app.models.endgame_analysis import EndgameAnalysis
 from app.models.chat import Conversation, Message
 
 logger = logging.getLogger(__name__)
+MAX_ATTACHMENT_TEXT_CHARS = 12000
+DEFAULT_ATTACHMENT_PROMPT = "请先提炼我上传资料中的关键信息，并结合当前评估上下文给出建议。"
 
 
 def _build_context(assessment_id: str, db: Session) -> str:
@@ -111,7 +113,40 @@ def build_system_prompt(assessment_id: str, db: Session) -> str:
     return SYSTEM_PROMPT_TEMPLATE.format(context=context)
 
 
-async def stream_chat(assessment_id: str, user_message: str):
+def _compose_user_message(
+    user_message: str,
+    attachments: list[dict[str, object]] | None = None,
+) -> str:
+    cleaned_message = user_message.strip()
+    cleaned_attachments = attachments or []
+    if not cleaned_attachments:
+        return cleaned_message
+
+    parts: list[str] = [cleaned_message or DEFAULT_ATTACHMENT_PROMPT, "", "## 用户上传资料"]
+    for attachment in cleaned_attachments:
+        file_name = str(attachment.get("name", "未命名文件"))
+        file_kind = str(attachment.get("kind", "unknown"))
+        warnings = attachment.get("warnings", [])
+        extracted_text = str(attachment.get("content", "")).strip()
+        if len(extracted_text) > MAX_ATTACHMENT_TEXT_CHARS:
+            extracted_text = (
+                extracted_text[:MAX_ATTACHMENT_TEXT_CHARS].rstrip()
+                + "\n\n[内容过长，已截断]"
+            )
+
+        parts.append(f"### 文件：{file_name} ({file_kind})")
+        if warnings:
+            parts.append("解析提示：" + "；".join(str(item) for item in warnings))
+        parts.append(extracted_text or "[未提取到文本内容]")
+
+    return "\n".join(parts).strip()
+
+
+async def stream_chat(
+    assessment_id: str,
+    user_message: str,
+    attachments: list[dict[str, object]] | None = None,
+):
     """Stream AI chat response via SSE using DeepSeek API.
 
     Yields SSE-formatted strings:
@@ -137,10 +172,12 @@ async def stream_chat(assessment_id: str, user_message: str):
             db.refresh(conversation)
 
         # Save user message
+        composed_message = _compose_user_message(user_message, attachments)
+
         user_msg = Message(
             conversation_id=conversation.id,
             role="user",
-            content=user_message,
+            content=composed_message,
         )
         db.add(user_msg)
         db.commit()

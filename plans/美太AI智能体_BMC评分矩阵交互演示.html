@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>美太 AI · BMC 突破要素评分矩阵</title>
+<style>
+  :root {
+    --bg: #f5f0e8;
+    --card: #ffffff;
+    --green: #8aaf7a;
+    --green-dark: #5d8a4a;
+    --tan: #c8b89a;
+    --tan-dark: #9a8060;
+    --red: #e07070;
+    --orange: #e0a060;
+    --yellow: #d4c060;
+    --blue: #6090c8;
+    --text: #2c2c2c;
+    --text-muted: #7a7a7a;
+    --border: #e0d8cc;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'PingFang SC', 'Microsoft YaHei', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  .header .subtitle { font-size: 12px; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px; }
+  .header h1 { font-size: 26px; font-weight: 700; color: var(--text); }
+  .header .desc { font-size: 13px; color: var(--text-muted); margin-top: 6px; }
+
+  .layout { display: grid; grid-template-columns: 380px 1fr; gap: 20px; max-width: 1200px; margin: 0 auto; }
+
+  /* LEFT PANEL */
+  .panel {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+  }
+  .panel-title {
+    font-size: 13px; font-weight: 700; letter-spacing: 1px;
+    color: var(--text-muted); text-transform: uppercase; margin-bottom: 20px;
+    padding-bottom: 10px; border-bottom: 1px solid var(--border);
+  }
+
+  /* Module selector */
+  .module-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px;
+  }
+  .module-btn {
+    padding: 9px 8px; border-radius: 10px; border: 2px solid var(--border);
+    background: #faf8f4; cursor: pointer; font-size: 12px; font-weight: 600;
+    color: var(--text-muted); transition: all 0.2s; text-align: center;
+  }
+  .module-btn:hover { border-color: var(--green); color: var(--green-dark); }
+  .module-btn.active { border-color: var(--green); background: #e8f2e0; color: var(--green-dark); }
+  .module-btn .abbr { font-size: 10px; font-weight: 400; display: block; }
+
+  /* Sliders */
+  .dim-block { margin-bottom: 18px; }
+  .dim-label {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px;
+  }
+  .dim-name { font-size: 13px; font-weight: 600; }
+  .dim-score {
+    font-size: 20px; font-weight: 800; color: var(--green-dark);
+    min-width: 32px; text-align: right;
+  }
+  .dim-desc { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; }
+
+  input[type=range] {
+    width: 100%; height: 6px; border-radius: 3px;
+    -webkit-appearance: none; appearance: none;
+    background: linear-gradient(to right, var(--green) 0%, var(--green) 50%, #e0d8cc 50%);
+    outline: none; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 20px; height: 20px;
+    border-radius: 50%; background: var(--green-dark);
+    border: 3px solid white; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+
+  .score-labels {
+    display: flex; justify-content: space-between;
+    font-size: 10px; color: var(--text-muted); margin-top: 4px;
+  }
+
+  /* Result card */
+  .result-card {
+    border-radius: 12px; padding: 16px; margin-top: 4px;
+    border: 2px solid var(--border);
+  }
+  .result-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .result-label { font-size: 12px; color: var(--text-muted); }
+  .result-value { font-size: 18px; font-weight: 800; }
+  .result-zone {
+    font-size: 13px; font-weight: 700; padding: 6px 12px;
+    border-radius: 8px; text-align: center; margin-top: 8px;
+  }
+
+  .zone-quickwin { background: #e8f2e0; color: var(--green-dark); }
+  .zone-strategic { background: #fff3e0; color: #c07020; }
+  .zone-longterm { background: #e3f0fa; color: #3070a0; }
+  .zone-hold { background: #ffeaea; color: #c04040; }
+  .zone-blocked { background: #f0e0f0; color: #804080; }
+
+  .formula-box {
+    background: #f5f0e8; border-radius: 10px; padding: 12px;
+    font-size: 11px; color: var(--text-muted); margin-top: 14px;
+    font-family: 'Courier New', monospace; line-height: 1.7;
+  }
+  .formula-box .highlight { color: var(--green-dark); font-weight: 700; }
+
+  /* Veto warnings */
+  .veto-warn {
+    background: #fff0f0; border: 1px solid #f0c0c0; border-radius: 8px;
+    padding: 10px 12px; font-size: 11px; color: #c04040;
+    margin-top: 8px; display: none;
+  }
+  .veto-warn.show { display: block; }
+
+  /* RIGHT PANEL - Matrix */
+  .matrix-panel { display: flex; flex-direction: column; gap: 16px; }
+
+  .matrix-wrap {
+    background: var(--card); border-radius: 16px; padding: 24px;
+    box-shadow: var(--shadow); flex: 1;
+  }
+  .matrix-container { position: relative; margin: 0 auto; }
+  canvas#matrix { border-radius: 8px; display: block; }
+
+  /* Bar chart */
+  .bars-wrap {
+    background: var(--card); border-radius: 16px; padding: 20px 24px;
+    box-shadow: var(--shadow);
+  }
+  .bars-title { font-size: 13px; font-weight: 700; color: var(--text-muted); letter-spacing: 1px; margin-bottom: 14px; }
+  .bar-row { display: flex; align-items: center; margin-bottom: 10px; }
+  .bar-name { width: 90px; font-size: 11px; font-weight: 600; color: var(--text-muted); flex-shrink: 0; }
+  .bar-track { flex: 1; height: 22px; background: #f0ece4; border-radius: 5px; overflow: hidden; position: relative; }
+  .bar-fill { height: 100%; border-radius: 5px; transition: width 0.5s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; }
+  .bar-score { font-size: 11px; font-weight: 700; color: white; }
+  .bar-tag { width: 80px; font-size: 10px; text-align: right; flex-shrink: 0; margin-left: 8px; font-weight: 600; }
+
+  /* All modules summary */
+  .all-scores {
+    background: var(--card); border-radius: 16px; padding: 20px 24px;
+    box-shadow: var(--shadow);
+  }
+  .scores-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+  .score-chip {
+    border-radius: 10px; padding: 10px; text-align: center;
+    border: 2px solid var(--border); position: relative; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .score-chip:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  .score-chip.current { border-color: var(--green-dark); }
+  .score-chip .chip-abbr { font-size: 11px; font-weight: 700; color: var(--text-muted); }
+  .score-chip .chip-name { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+  .score-chip .chip-score { font-size: 18px; font-weight: 800; margin-top: 4px; }
+  .score-chip .chip-zone { font-size: 9px; font-weight: 600; margin-top: 3px; }
+
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+  .leg-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-muted); }
+  .leg-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .scores-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="subtitle">美太 AI 商业创新智能体 · 后台算法</div>
+  <h1>商业画布突破要素 · AI 推荐评分矩阵</h1>
+  <div class="desc">选择画布模块，调整三个维度得分，实时查看优先级矩阵定位与推荐结论</div>
+</div>
+
+<div class="layout">
+
+  <!-- LEFT: Controls -->
+  <div class="panel">
+    <div class="panel-title">📐 评分参数配置</div>
+
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;font-weight:600;">选择要评估的画布模块：</div>
+    <div class="module-grid" id="moduleGrid"></div>
+
+    <div style="border-top:1px solid var(--border);margin:14px 0 16px;"></div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px;font-weight:600;">调整三维评分（1-5分）：</div>
+
+    <!-- Pain -->
+    <div class="dim-block">
+      <div class="dim-label">
+        <span class="dim-name">🔴 痛点迫切度（Pain）</span>
+        <span class="dim-score" id="painVal">3</span>
+      </div>
+      <div class="dim-desc">该模块对应的业务痛点，对当前经营的威胁程度</div>
+      <input type="range" id="painSlider" min="1" max="5" step="0.5" value="3">
+      <div class="score-labels"><span>1·无痛点</span><span>3·中度</span><span>5·生死攸关</span></div>
+    </div>
+
+    <!-- Data -->
+    <div class="dim-block">
+      <div class="dim-label">
+        <span class="dim-name">💎 数据基础度（Data）</span>
+        <span class="dim-score" id="dataVal">3</span>
+      </div>
+      <div class="dim-desc">该环节的数据积累质量，决定AI能否被训练落地</div>
+      <input type="range" id="dataSlider" min="1" max="5" step="0.5" value="3">
+      <div class="score-labels"><span>1·无数据</span><span>3·基础</span><span>5·数据金矿</span></div>
+    </div>
+
+    <!-- Feasibility -->
+    <div class="dim-block">
+      <div class="dim-label">
+        <span class="dim-name">🚀 实施可行度（Feasibility）</span>
+        <span class="dim-score" id="feasVal">3</span>
+      </div>
+      <div class="dim-desc">组织意愿、技术门槛、资源匹配的综合评估</div>
+      <input type="range" id="feasSlider" min="1" max="5" step="0.5" value="3">
+      <div class="score-labels"><span>1·不可行</span><span>3·需准备</span><span>5·随时启动</span></div>
+    </div>
+
+    <!-- Veto warnings -->
+    <div class="veto-warn" id="veto1">🚫 <strong>一票否决</strong>：实施可行度 = 1，存在根本性障碍，强制暂缓</div>
+    <div class="veto-warn" id="veto2">⚠️ <strong>一票否决</strong>：数据空白（≤1）且痛点不严重（≤3），AI投入产出比极低</div>
+    <div class="veto-warn" id="veto3">💡 <strong>痛点不足</strong>：痛点迫切度 ≤ 2，组织缺乏改变动力，不推荐</div>
+
+    <!-- Result -->
+    <div class="result-card" id="resultCard">
+      <div class="result-row">
+        <span class="result-label">原始优先级得分</span>
+        <span class="result-value" id="rawScore" style="color:var(--green-dark)">—</span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">归一化总分（/100）</span>
+        <span class="result-value" id="normScore" style="font-size:26px">—</span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">推荐等级</span>
+        <span id="starRating" style="font-size:16px">—</span>
+      </div>
+      <div class="result-zone" id="zoneLabel">—</div>
+    </div>
+
+    <div class="formula-box">
+      Score = (<span id="fP">3</span>×0.40) + (<span id="fD">3</span>×0.35) + (<span id="fF">3</span>×0.25) + (<span id="fP2">3</span>×<span id="fD2">3</span>×0.05)<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= <span id="fComp" class="highlight">—</span><br>
+      Norm = (raw − 1.05) / 5.20 × 100 = <span id="fNorm" class="highlight">—</span>
+    </div>
+  </div>
+
+  <!-- RIGHT: Visuals -->
+  <div class="matrix-panel">
+
+    <!-- Matrix -->
+    <div class="matrix-wrap">
+      <div class="panel-title">📊 优先级四象限矩阵</div>
+      <div class="matrix-container">
+        <canvas id="matrix" width="600" height="360"></canvas>
+      </div>
+      <div class="legend" style="margin-top:12px;">
+        <div class="leg-item"><div class="leg-dot" style="background:#8aaf7a"></div>快赢黄金区（≥70分）</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#e0a060"></div>战略攻坚区（50-69分）</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#6090c8"></div>长效培育区（40-59分）</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#c0c0c0"></div>暂缓观望区（&lt;40分）</div>
+      </div>
+    </div>
+
+    <!-- Bar chart for all 9 modules -->
+    <div class="bars-wrap">
+      <div class="bars-title">📋 九大模块得分概览（当前参数应用于选中模块）</div>
+      <div id="allBars"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const MODULES = [
+  { abbr:'CS', name:'客户细分', defaultP:3, defaultD:3, defaultF:3 },
+  { abbr:'VP', name:'价值主张', defaultP:3.5, defaultD:2.5, defaultF:3 },
+  { abbr:'CH', name:'渠道通路', defaultP:3, defaultD:3.5, defaultF:3.5 },
+  { abbr:'CR', name:'客户关系', defaultP:4.5, defaultD:2, defaultF:3.5 },
+  { abbr:'R$', name:'收入来源', defaultP:3, defaultD:3, defaultF:2.5 },
+  { abbr:'KR', name:'核心资源', defaultP:4, defaultD:2.5, defaultF:3 },
+  { abbr:'KA', name:'关键业务', defaultP:4.5, defaultD:3.5, defaultF:4 },
+  { abbr:'KP', name:'重要合作', defaultP:2.5, defaultD:2, defaultF:3 },
+  { abbr:'C$', name:'成本结构', defaultP:3.5, defaultD:3, defaultF:3.5 },
+];
+
+// Per-module stored scores
+const scores = {};
+MODULES.forEach(m => {
+  scores[m.abbr] = { p: m.defaultP, d: m.defaultD, f: m.defaultF };
+});
+
+let currentModule = 'CR';
+
+function calcScore(p, d, f) {
+  const raw = (p*0.40) + (d*0.35) + (f*0.25) + (p*d*0.05);
+  const norm = Math.round((raw - 1.05) / 5.20 * 1000) / 10;
+  return { raw: Math.round(raw*100)/100, norm: Math.max(0, Math.min(100, norm)) };
+}
+
+function getZone(p, d, norm) {
+  // Veto checks
+  if (p <= 1) return 'blocked';
+  if (d <= 1 && p <= 3) return 'blocked';
+  if (p <= 2) return 'hold';
+
+  if (p >= 4 && d >= 4) return 'quickwin';
+  if (p >= 4 && d < 4) return 'strategic';
+  if (p < 4 && d >= 4) return 'longterm';
+  return 'hold';
+}
+
+const ZONE_INFO = {
+  quickwin:  { label:'🚀 快赢黄金区 · 强烈推荐', cls:'zone-quickwin', star:'⭐⭐⭐', color:'#8aaf7a' },
+  strategic: { label:'📋 战略攻坚区 · 战略推荐', cls:'zone-strategic', star:'⭐⭐', color:'#e0a060' },
+  longterm:  { label:'🌱 长效培育区 · 培育推荐', cls:'zone-longterm', star:'⭐', color:'#6090c8' },
+  hold:      { label:'⏸ 暂缓观望区 · 暂不推荐', cls:'zone-hold', star:'—', color:'#b0b0b0' },
+  blocked:   { label:'🚫 一票否决 · 强制暂缓', cls:'zone-blocked', star:'🚫', color:'#c040c0' },
+};
+
+function updateUI() {
+  const s = scores[currentModule];
+  const p = s.p, d = s.d, f = s.f;
+  const { raw, norm } = calcScore(p, d, f);
+  const zone = getZone(p, d, norm);
+  const zi = ZONE_INFO[zone];
+
+  // Update slider display values
+  document.getElementById('painVal').textContent = p;
+  document.getElementById('dataVal').textContent = d;
+  document.getElementById('feasVal').textContent = f;
+
+  // Formula display
+  document.getElementById('fP').textContent = p;
+  document.getElementById('fD').textContent = d;
+  document.getElementById('fF').textContent = f;
+  document.getElementById('fP2').textContent = p;
+  document.getElementById('fD2').textContent = d;
+  const p1 = (p*0.40).toFixed(3), p2 = (d*0.35).toFixed(3), p3 = (f*0.25).toFixed(3), p4 = (p*d*0.05).toFixed(3);
+  document.getElementById('fComp').textContent = `${p1} + ${p2} + ${p3} + ${p4} = ${raw}`;
+  document.getElementById('fNorm').textContent = `${norm.toFixed(1)}分`;
+
+  // Result card
+  document.getElementById('rawScore').textContent = raw.toFixed(2);
+  document.getElementById('normScore').textContent = norm.toFixed(1);
+  document.getElementById('starRating').textContent = zi.star;
+
+  const zl = document.getElementById('zoneLabel');
+  zl.textContent = zi.label;
+  zl.className = 'result-zone ' + zi.cls;
+
+  // Veto warnings
+  document.getElementById('veto1').className = 'veto-warn' + (f <= 1 ? ' show' : '');
+  document.getElementById('veto2').className = 'veto-warn' + (d <= 1 && p <= 3 ? ' show' : '');
+  document.getElementById('veto3').className = 'veto-warn' + (p <= 2 && zone !== 'blocked' ? ' show' : '');
+
+  // Slider gradient update
+  ['pain','data','feas'].forEach((id, i) => {
+    const slider = document.getElementById(id+'Slider');
+    const pct = ((parseFloat(slider.value) - 1) / 4) * 100;
+    slider.style.background = `linear-gradient(to right, #8aaf7a 0%, #8aaf7a ${pct}%, #e0d8cc ${pct}%)`;
+  });
+
+  drawMatrix();
+  drawBars();
+}
+
+// Module grid
+function buildModuleGrid() {
+  const grid = document.getElementById('moduleGrid');
+  MODULES.forEach(m => {
+    const btn = document.createElement('div');
+    btn.className = 'module-btn' + (m.abbr === currentModule ? ' active' : '');
+    btn.innerHTML = `<strong>${m.abbr}</strong><span class="abbr">${m.name}</span>`;
+    btn.onclick = () => selectModule(m.abbr);
+    grid.appendChild(btn);
+  });
+}
+
+function selectModule(abbr) {
+  currentModule = abbr;
+  const s = scores[abbr];
+  document.getElementById('painSlider').value = s.p;
+  document.getElementById('dataSlider').value = s.d;
+  document.getElementById('feasSlider').value = s.f;
+
+  document.querySelectorAll('.module-btn').forEach((b, i) => {
+    b.className = 'module-btn' + (MODULES[i].abbr === abbr ? ' active' : '');
+  });
+  updateUI();
+}
+
+// Slider events
+['pain','data','feas'].forEach(id => {
+  document.getElementById(id+'Slider').addEventListener('input', e => {
+    const val = parseFloat(e.target.value);
+    const key = id === 'pain' ? 'p' : id === 'data' ? 'd' : 'f';
+    scores[currentModule][key] = val;
+    updateUI();
+  });
+});
+
+// Matrix canvas
+function drawMatrix() {
+  const canvas = document.getElementById('matrix');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const pad = { l:50, r:20, t:30, b:50 };
+  const iW = W - pad.l - pad.r;
+  const iH = H - pad.t - pad.b;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Background quadrants
+  const quads = [
+    { x:0, y:0, w:0.5, h:0.5, color:'#fff3e8', label:'② 战略攻坚区' },
+    { x:0.5, y:0, w:0.5, h:0.5, color:'#eaf3e0', label:'① 快赢黄金区' },
+    { x:0, y:0.5, w:0.5, h:0.5, color:'#f0f0f0', label:'④ 暂缓观望区' },
+    { x:0.5, y:0.5, w:0.5, h:0.5, color:'#e8f0f8', label:'③ 长效培育区' },
+  ];
+
+  quads.forEach(q => {
+    const qx = pad.l + q.x * iW;
+    const qy = pad.t + q.y * iH;
+    ctx.fillStyle = q.color;
+    ctx.fillRect(qx, qy, q.w * iW, q.h * iH);
+
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.font = '11px PingFang SC, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(q.label, qx + (q.w * iW)/2, qy + (q.h * iH)/2 + 4);
+  });
+
+  // Grid lines
+  ctx.strokeStyle = '#d8d0c4';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  // Vertical center
+  ctx.beginPath();
+  ctx.moveTo(pad.l + iW*0.5, pad.t);
+  ctx.lineTo(pad.l + iW*0.5, pad.t + iH);
+  ctx.stroke();
+  // Horizontal center
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t + iH*0.5);
+  ctx.lineTo(pad.l + iW, pad.t + iH*0.5);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Axes
+  ctx.strokeStyle = '#a0978a';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t);
+  ctx.lineTo(pad.l, pad.t + iH);
+  ctx.lineTo(pad.l + iW, pad.t + iH);
+  ctx.stroke();
+
+  // Axis labels
+  ctx.fillStyle = '#7a7a7a';
+  ctx.font = 'bold 11px PingFang SC, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('← 数据薄弱          数据充足 →', pad.l + iW/2, pad.t + iH + 36);
+
+  ctx.save();
+  ctx.translate(14, pad.t + iH/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.textAlign = 'center';
+  ctx.fillText('← 痛点一般          痛点迫切 →', 0, 0);
+  ctx.restore();
+
+  // Axis tick labels
+  ctx.font = '10px PingFang SC, sans-serif';
+  ctx.fillStyle = '#a0978a';
+  ctx.textAlign = 'center';
+  [1,2,3,4,5].forEach(v => {
+    const x = pad.l + ((v-1)/4) * iW;
+    ctx.fillText(v, x, pad.t + iH + 14);
+    ctx.beginPath();
+    ctx.moveTo(x, pad.t + iH);
+    ctx.lineTo(x, pad.t + iH + 5);
+    ctx.stroke();
+  });
+  ctx.textAlign = 'right';
+  [1,2,3,4,5].forEach(v => {
+    const y = pad.t + iH - ((v-1)/4) * iH;
+    ctx.fillText(v, pad.l - 6, y + 4);
+    ctx.beginPath();
+    ctx.moveTo(pad.l, y);
+    ctx.lineTo(pad.l - 5, y);
+    ctx.stroke();
+  });
+
+  // Plot all module dots
+  MODULES.forEach(m => {
+    const s = scores[m.abbr];
+    const { raw, norm } = calcScore(s.p, s.d, s.f);
+    const zone = getZone(s.p, s.d, norm);
+    const zi = ZONE_INFO[zone];
+
+    const cx = pad.l + ((s.d - 1) / 4) * iW;
+    const cy = pad.t + iH - ((s.p - 1) / 4) * iH;
+
+    // Bubble size by feasibility
+    const r = 8 + s.f * 3;
+
+    const isCurrent = m.abbr === currentModule;
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI*2);
+    ctx.fillStyle = zi.color + (isCurrent ? 'ff' : '99');
+    ctx.fill();
+    if (isCurrent) {
+      ctx.strokeStyle = '#2c2c2c';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // Label
+    ctx.fillStyle = isCurrent ? '#fff' : 'rgba(255,255,255,0.9)';
+    ctx.font = `bold ${isCurrent ? 11 : 9}px PingFang SC, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(m.abbr, cx, cy + 4);
+  });
+
+  // Score annotation for current
+  const cs = scores[currentModule];
+  const { norm: cn } = calcScore(cs.p, cs.d, cs.f);
+  const cx2 = pad.l + ((cs.d - 1) / 4) * iW;
+  const cy2 = pad.t + iH - ((cs.p - 1) / 4) * iH;
+  ctx.fillStyle = '#2c2c2c';
+  ctx.font = 'bold 11px PingFang SC, sans-serif';
+  ctx.textAlign = cx2 > pad.l + iW*0.7 ? 'right' : 'left';
+  const tx = cx2 > pad.l + iW*0.7 ? cx2 - 18 : cx2 + 18;
+  ctx.fillText(`${cn.toFixed(0)}分`, tx, cy2 - 14);
+}
+
+function drawBars() {
+  const container = document.getElementById('allBars');
+  container.innerHTML = '';
+  
+  const allScores = MODULES.map(m => {
+    const s = scores[m.abbr];
+    const { norm } = calcScore(s.p, s.d, s.f);
+    const zone = getZone(s.p, s.d, norm);
+    return { ...m, norm, zone };
+  }).sort((a, b) => b.norm - a.norm);
+
+  allScores.forEach(item => {
+    const zi = ZONE_INFO[item.zone];
+    const isCurrent = item.abbr === currentModule;
+    const row = document.createElement('div');
+    row.className = 'bar-row';
+    row.innerHTML = `
+      <div class="bar-name" style="color:${isCurrent ? '#2c2c2c' : ''}; font-weight:${isCurrent ? '800' : '600'}">${item.abbr} ${item.name}</div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${Math.max(item.norm,4)}%;background:${zi.color}${isCurrent ? '' : '99'}">
+          <span class="bar-score">${item.norm.toFixed(0)}</span>
+        </div>
+      </div>
+      <div class="bar-tag" style="color:${zi.color}">${zi.star}</div>
+    `;
+    container.appendChild(row);
+  });
+}
+
+// Init
+buildModuleGrid();
+selectModule('CR');
+</script>
+</body>
+</html>

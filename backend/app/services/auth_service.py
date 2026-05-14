@@ -14,6 +14,9 @@ from app.schemas.auth import (
     UserResponse,
 )
 
+TEACHER_EMAIL = "teacher"
+TEACHER_PASSWORD = "meitai123456"
+
 
 def _hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
@@ -43,6 +46,7 @@ def register(db: Session, request: RegisterRequest) -> TokenResponse:
         email=request.email,
         hashed_password=_hash_password(request.password),
         display_name=request.display_name,
+        role="student",
     )
     db.add(user)
     db.commit()
@@ -56,6 +60,25 @@ def register(db: Session, request: RegisterRequest) -> TokenResponse:
 
 
 def authenticate(db: Session, request: LoginRequest) -> TokenResponse:
+    # 硬编码讲师账户
+    if request.email == TEACHER_EMAIL and request.password == TEACHER_PASSWORD:
+        teacher = db.query(User).filter(User.email == TEACHER_EMAIL).first()
+        if teacher is None:
+            teacher = User(
+                email=TEACHER_EMAIL,
+                hashed_password=_hash_password(TEACHER_PASSWORD),
+                display_name="讲师",
+                role="instructor",
+            )
+            db.add(teacher)
+            db.commit()
+            db.refresh(teacher)
+        token = _create_access_token(teacher.id)
+        return TokenResponse(
+            access_token=token,
+            user=UserResponse.model_validate(teacher, from_attributes=True),
+        )
+
     user = db.query(User).filter(User.email == request.email).first()
     if user is None or not _verify_password(request.password, user.hashed_password):
         raise HTTPException(

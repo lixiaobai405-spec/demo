@@ -1,0 +1,18 @@
+2026-05-10 19:19:11,336 - WARNING - Scaffold valence check failed (over-valence): [(0, 53, 2, 1)]
+2026-05-10 19:19:38,370 - INFO - Total molecules: 38443, Valid decompositions: 35255
+2026-05-10 19:19:38,370 - INFO - Functional group distribution: {'alcohol': 7691, 'ester': 1966, 'sulfone': 1030, 'halide': 3717, 'ether': 2461, 'aromatic_ring': 4104, 'amide': 4356, 'amine': 3819, 'furan': 179, 'thiol': 154, 'phosphate': 92, 'sulfide': 439, 'nitrile': 510, 'nitro': 812, 'ketone': 2604, 'pyridine': 105, 'imine': 12}
+2026-05-10 19:20:37,276 - WARNING - Scaffold valence check failed (over-valence): [(0, 53, 2, 1)]
+2026-05-10 19:21:21,803 - INFO - Total molecules: 46132, Valid decompositions: 42474
+2026-05-10 19:21:21,803 - INFO - Functional group distribution: {'alcohol': 9235, 'ester': 2396, 'sulfone': 1249, 'halide': 4440, 'ether': 2926, 'aromatic_ring': 4889, 'amide': 5308, 'amine': 4609, 'furan': 215, 'thiol': 199, 'phosphate': 104, 'sulfide': 532, 'nitrile': 639, 'nitro': 1015, 'ketone': 3113, 'pyridine': 141, 'imine': 13}
+2026-05-10 19:22:45,153 - WARNING - Scaffold valence check failed (over-valence): [(0, 53, 2, 1)]
+2026-05-10 19:23:12,253 - INFO - Total molecules: 38443, Valid decompositions: 35255
+2026-05-10 19:23:12,253 - INFO - Functional group distribution: {'alcohol': 7691, 'ester': 1966, 'sulfone': 1030, 'halide': 3717, 'ether': 2461, 'aromatic_ring': 4104, 'amide': 4356, 'amine': 3819, 'furan': 179, 'thiol': 154, 'phosphate': 92, 'sulfide': 439, 'nitrile': 510, 'nitro': 812, 'ketone': 2604, 'pyridine': 105, 'imine': 12}
+2026-05-10 19:24:11,045 - WARNING - Scaffold valence check failed (over-valence): [(0, 53, 2, 1)]
+2026-05-10 19:24:55,446 - INFO - Total molecules: 46132, Valid decompositions: 42474
+2026-05-10 19:24:55,447 - INFO - Functional group distribution: {'alcohol': 9235, 'ester': 2396, 'sulfone': 1249, 'halide': 4440, 'ether': 2926, 'aromatic_ring': 4889, 'amide': 5308, 'amine': 4609, 'furan': 215, 'thiol': 199, 'phosphate': 104, 'sulfide': 532, 'nitrile': 639, 'nitro': 1015, 'ketone': 3113, 'pyridine': 141, 'imine': 13}
+2026-05-10 19:26:34,377 - WARNING - Scaffold valence check failed (over-valence): [(0, 53, 2, 1)]
+2026-05-10 19:27:01,521 - INFO - Total molecules: 38443, Valid decompositions: 35255
+2026-05-10 19:27:01,521 - INFO - Functional group distribution: {'alcohol': 7691, 'ester': 1966, 'sulfone': 1030, 'halide': 3717, 'ether': 2461, 'aromatic_ring': 4104, 'amide': 4356, 'amine': 3819, 'furan': 179, 'thiol': 154, 'phosphate': 92, 'sulfide': 439, 'nitrile': 510, 'nitro': 812, 'ketone': 2604, 'pyridine': 105, 'imine': 12}
+2026-05-10 19:28:00,639 - WARNING - Scaffold valence check failed (over-valence): [(0, 53, 2, 1)]
+2026-05-10 19:28:45,083 - INFO - Total molecules: 46132, Valid decompositions: 42474
+2026-05-10 19:28:45,083 - INFO - Functional group distribution: {'alcohol': 9235, 'ester': 2396, 'sulfone': 1249, 'halide': 4440, 'ether': 2926, 'aromatic_ring': 4889, 'amide': 5308, 'amine': 4609, 'furan': 215, 'thiol': 199, 'phosphate': 104, 'sulfide': 532, 'nitrile': 639, 'nitro': 1015, 'ketone': 3113, 'pyridine': 141, 'imine': 13}

@@ -20,7 +20,7 @@ import {
   mapAssessmentToForm,
   mergePrefillIntoForm,
 } from "@/lib/assessment-utils";
-import { formatMutationError } from "@/lib/api";
+import { formatMutationError, generateCaseRecommendations } from "@/lib/api";
 import type { AssessmentCreateRequest, AssessmentProgress } from "@/lib/types";
 import {
   useAssessmentDetail,
@@ -160,12 +160,14 @@ export function AssessmentWorkspace({
       store.setCompanyProfile(result.profile);
       store.setProfileMode(result.generation_mode);
       store.resetDownstream("profile");
-      setProgress(
+      setProgress((prev) =>
         computeProgress({
           hasAssessment: true,
           hasProfile: true,
           hasCanvas: false,
           hasScenarios: false,
+          hasCases: prev.has_cases,
+          hasReport: prev.has_report,
         }),
       );
       toast({
@@ -198,12 +200,14 @@ export function AssessmentWorkspace({
       store.setAssessment(result.assessment);
       store.setCanvasDiagnosis(result.canvas_diagnosis);
       store.resetDownstream("canvas");
-      setProgress(
+      setProgress((prev) =>
         computeProgress({
           hasAssessment: true,
           hasProfile: true,
           hasCanvas: true,
           hasScenarios: false,
+          hasCases: prev.has_cases,
+          hasReport: prev.has_report,
         }),
       );
       toast({
@@ -239,10 +243,27 @@ export function AssessmentWorkspace({
       );
 
       store.setDirectionData(result);
-      window.open(
-        `/assessment/${store.assessment.id}/directions`,
-        "_blank",
+      setProgress((prev) =>
+        computeProgress({
+          hasAssessment: true,
+          hasProfile: store.companyProfile !== null,
+          hasCanvas: store.canvasDiagnosis !== null,
+          hasBreakthrough:
+            prev.has_breakthrough || store.breakthroughSelection !== null,
+          hasDirections: true,
+          hasCompetitiveness:
+            prev.has_competitiveness || store.competitivenessData !== null,
+          hasScenarios: store.scenarioRecommendation !== null,
+          hasCases: prev.has_cases,
+          hasReport: prev.has_report,
+        }),
       );
+      toast({ title: "创新方向延展已生成" });
+      new BroadcastChannel("ai-chat-context").postMessage({
+        type: "context-updated",
+        assessmentId: store.assessment!.id,
+      });
+      router.push(`/assessment/${store.assessment.id}/directions`);
     } catch (error) {
       toast({
         title: "生成失败",
@@ -250,7 +271,7 @@ export function AssessmentWorkspace({
         variant: "destructive",
       });
     }
-  }, [expandDirections, store]);
+  }, [expandDirections, router, store]);
 
   const handleSelectDirections = useCallback(async () => {
     if (!store.assessment || store.selectedDirectionIds.length < 1) return;
@@ -262,17 +283,19 @@ export function AssessmentWorkspace({
       });
 
       store.setDirectionSelection(result);
-      setProgress(
+      setProgress((prev) =>
         computeProgress({
           hasAssessment: true,
           hasProfile: store.companyProfile !== null,
           hasCanvas: store.canvasDiagnosis !== null,
           hasBreakthrough:
-            progress.has_breakthrough || store.breakthroughSelection !== null,
+            prev.has_breakthrough || store.breakthroughSelection !== null,
           hasDirections: true,
           hasCompetitiveness:
-            progress.has_competitiveness || store.competitivenessData !== null,
+            prev.has_competitiveness || store.competitivenessData !== null,
           hasScenarios: store.scenarioRecommendation !== null,
+          hasCases: prev.has_cases,
+          hasReport: prev.has_report,
         }),
       );
       toast({ title: "创新方向已确认" });
@@ -287,7 +310,7 @@ export function AssessmentWorkspace({
         variant: "destructive",
       });
     }
-  }, [progress.has_breakthrough, progress.has_competitiveness, selectDirections, store]);
+  }, [selectDirections, store]);
 
   const handleGenerateScenarios = useCallback(async () => {
     if (!store.assessment) return;
@@ -301,20 +324,22 @@ export function AssessmentWorkspace({
 
       store.setAssessment(result.assessment);
       store.setScenarioRecommendation(result.scenario_recommendation);
-      setProgress(
+      setProgress((prev) =>
         computeProgress({
           hasAssessment: true,
           hasProfile: store.companyProfile !== null,
           hasCanvas: store.canvasDiagnosis !== null,
           hasBreakthrough:
-            progress.has_breakthrough || store.breakthroughSelection !== null,
+            prev.has_breakthrough || store.breakthroughSelection !== null,
           hasDirections:
-            progress.has_directions ||
+            prev.has_directions ||
             store.directionData !== null ||
             store.directionSelection !== null,
           hasCompetitiveness:
-            progress.has_competitiveness || store.competitivenessData !== null,
+            prev.has_competitiveness || store.competitivenessData !== null,
           hasScenarios: true,
+          hasCases: prev.has_cases,
+          hasReport: prev.has_report,
         }),
       );
       toast({ title: "场景推荐已生成" });
@@ -329,13 +354,7 @@ export function AssessmentWorkspace({
         variant: "destructive",
       });
     }
-  }, [
-    generateScenarios,
-    progress.has_breakthrough,
-    progress.has_competitiveness,
-    progress.has_directions,
-    store,
-  ]);
+  }, [generateScenarios, store]);
 
   const handleGenerateCompetitiveness = useCallback(async () => {
     if (!store.assessment) return;
@@ -348,19 +367,21 @@ export function AssessmentWorkspace({
       );
 
       store.setCompetitivenessData(result);
-      setProgress(
+      setProgress((prev) =>
         computeProgress({
           hasAssessment: true,
           hasProfile: store.companyProfile !== null,
           hasCanvas: store.canvasDiagnosis !== null,
           hasBreakthrough:
-            progress.has_breakthrough || store.breakthroughSelection !== null,
+            prev.has_breakthrough || store.breakthroughSelection !== null,
           hasDirections:
-            progress.has_directions ||
+            prev.has_directions ||
             store.directionData !== null ||
             store.directionSelection !== null,
           hasCompetitiveness: true,
           hasScenarios: store.scenarioRecommendation !== null,
+          hasCases: prev.has_cases,
+          hasReport: prev.has_report,
         }),
       );
       toast({ title: "差异化竞争力分析已生成" });
@@ -375,12 +396,7 @@ export function AssessmentWorkspace({
         variant: "destructive",
       });
     }
-  }, [
-    generateCompetitiveness,
-    progress.has_breakthrough,
-    progress.has_directions,
-    store,
-  ]);
+  }, [generateCompetitiveness, store]);
 
   const handleGenerateEndgame = useCallback(async () => {
     if (!store.assessment) return;
@@ -406,6 +422,49 @@ export function AssessmentWorkspace({
       });
     }
   }, [generateEndgame, store]);
+
+  const handleGenerateCases = useCallback(async () => {
+    if (!store.assessment) return;
+
+    try {
+      const result = await withSlowHint(
+        generateCaseRecommendations(store.assessment.id),
+        "正在匹配行业案例",
+        toast,
+      );
+
+      store.setCaseRecommendation(result.case_recommendation);
+      setProgress((prev) =>
+        computeProgress({
+          hasAssessment: true,
+          hasProfile: store.companyProfile !== null,
+          hasCanvas: store.canvasDiagnosis !== null,
+          hasBreakthrough:
+            prev.has_breakthrough || store.breakthroughSelection !== null,
+          hasDirections:
+            prev.has_directions ||
+            store.directionData !== null ||
+            store.directionSelection !== null,
+          hasCompetitiveness:
+            prev.has_competitiveness || store.competitivenessData !== null,
+          hasScenarios: store.scenarioRecommendation !== null,
+          hasCases: true,
+          hasReport: prev.has_report,
+        }),
+      );
+      toast({ title: "案例匹配已完成", description: `匹配到 ${result.case_recommendation.top_cases.length} 个参考案例` });
+      new BroadcastChannel("ai-chat-context").postMessage({
+        type: "context-updated",
+        assessmentId: store.assessment!.id,
+      });
+    } catch (error) {
+      toast({
+        title: "生成失败",
+        description: formatMutationError(error, "案例匹配生成"),
+        variant: "destructive",
+      });
+    }
+  }, [store]);
 
   const activeGenStep: number | null = generateProfile.isPending
     ? 2
@@ -455,6 +514,7 @@ export function AssessmentWorkspace({
     progress.has_competitiveness || store.competitivenessData !== null;
   const hasScenarios = store.scenarioRecommendation !== null;
   const hasEndgame = store.endgameData !== null;
+  const hasCases = store.caseRecommendation !== null;
   const hasDashboard =
     hasProfile ||
     hasCanvas ||
@@ -462,7 +522,8 @@ export function AssessmentWorkspace({
     hasDirections ||
     hasCompetitiveness ||
     hasScenarios ||
-    hasEndgame;
+    hasEndgame ||
+    hasCases;
 
   const workflowModules: WorkflowModule[] = currentAssessment
     ? [
@@ -528,6 +589,15 @@ export function AssessmentWorkspace({
           loading: generateEndgame.isPending,
           hasResult: hasEndgame,
           onClick: handleGenerateEndgame,
+        },
+        {
+          key: "cases",
+          label: "案例匹配",
+          color: "success",
+          disabled: !hasScenarios,
+          loading: false,
+          hasResult: hasCases,
+          onClick: handleGenerateCases,
         },
       ]
     : [];
@@ -598,6 +668,17 @@ export function AssessmentWorkspace({
           statusLabel: "已生成",
           link: hasEndgame
             ? `/assessment/${currentAssessment.id}/endgame`
+            : undefined,
+        },
+        {
+          key: "cases",
+          label: "案例匹配",
+          done: hasCases,
+          statusLabel: hasCases
+            ? `匹配 ${store.caseRecommendation?.top_cases?.length ?? 0} 个`
+            : "待生成",
+          link: hasCases
+            ? `/assessment/${currentAssessment.id}/results`
             : undefined,
         },
       ]

@@ -16,6 +16,7 @@ if str(BACKEND_DIR) not in sys.path:
 
 from app.db import session as db_session
 from app.main import create_app
+from app.models.assessment import Assessment  # noqa: F401
 from app.models.intake_session import AssessmentIntakeSession  # noqa: F401
 from app.services.intake_service import IntakeService
 
@@ -45,6 +46,17 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     db_session.Base.metadata.create_all(bind=engine)
     db_session._migrate_generated_reports_table()
     with TestClient(app) as test_client:
+        register_response = test_client.post(
+            "/api/auth/register",
+            json={
+                "email": "student@example.com",
+                "password": "password123",
+                "display_name": "Test Student",
+            },
+        )
+        assert register_response.status_code == 201
+        token = register_response.json()["access_token"]
+        test_client.headers.update({"Authorization": f"Bearer {token}"})
         yield test_client
 
     engine.dispose()
@@ -81,12 +93,17 @@ def test_intake_import_returns_prefill_and_field_meta(client: TestClient) -> Non
 所属行业：零售
 企业规模：100-499人
 所在区域：华东
+年营收范围：5000万-1亿元
 核心产品/服务：社区零售门店、会员运营与到家服务
 目标客户：社区家庭用户、周边白领与会员客户
 
-目前最大的挑战是门店运营效率波动，会员复购不稳定。
-希望通过 AI 稳定门店管理并提升复购。
-当前可用数据包括 POS、会员系统和商品主数据。
+目前最大的挑战是门店运营效率波动，会员复购不稳定，店长培养周期长。
+需要通过 AI 改进的关键点：
+1）门店排班与补货计划依赖人工经验，高峰时段服务响应慢；
+2）会员生命周期缺乏自动化运营，高价值客户流失无预警；
+3）门店知识分散在老员工脑中，新人上手周期 3-6 个月。
+希望通过 AI 稳定门店管理并提升复购，沉淀可复制的门店运营知识体系。
+当前可用数据包括 POS、会员系统、商品主数据，另有巡店和客服记录。
             """,
         },
     )
@@ -98,12 +115,12 @@ def test_intake_import_returns_prefill_and_field_meta(client: TestClient) -> Non
     assert body["source_type"] == "markdown"
     assert body["import_session_id"]
     assert body["assessment_prefill"]["company_name"] == "测试连锁零售企业"
+    assert body["assessment_prefill"]["annual_revenue_range"] == "5000万-1亿元"
     assert body["field_meta"]["company_name"] == {
         "source_type": "raw",
         "status": "confirmed",
     }
     assert body["field_meta"]["ai_goals"]["source_type"] in ("raw", "inferred")
-    assert any("年营收范围未识别" in warning for warning in body["warnings"])
 
 
 def test_intake_import_maps_markdown_heading_blocks_to_partial_prefill(client: TestClient) -> None:
@@ -118,12 +135,20 @@ def test_intake_import_maps_markdown_heading_blocks_to_partial_prefill(client: T
 ## 所属行业
 工业软件
 
+## 年营收范围
+3000万-5000万
+
 ## 核心产品/服务
 设备数据采集平台
 智能报表系统
 
 ## 当前经营/管理挑战
 项目交付依赖人工经验，需求响应速度不稳定。
+产品更新迭代周期长，客户反馈到版本发布平均需要 4-6 周。
+
+## AI 改进方向
+希望引入 AI 自动诊断生产设备异常，并根据历史案例推荐处理方案，
+缩短现场工程师的排障时间，提升首次修复率。
             """,
         },
     )
@@ -133,8 +158,9 @@ def test_intake_import_maps_markdown_heading_blocks_to_partial_prefill(client: T
 
     assert body["assessment_prefill"]["company_name"] == "测试工业软件企业"
     assert body["assessment_prefill"]["industry"] == "工业软件"
+    assert body["assessment_prefill"]["annual_revenue_range"] == "3000万-5000万"
     assert body["assessment_prefill"]["core_products"] == "设备数据采集平台\n智能报表系统"
-    assert body["assessment_prefill"]["current_challenges"] == "项目交付依赖人工经验，需求响应速度不稳定。"
+    assert "项目交付依赖人工经验" in (body["assessment_prefill"]["current_challenges"] or "")
     assert body["assessment_prefill"]["target_customers"] is None
     assert any("目标客户未识别" in warning for warning in body["warnings"])
 
@@ -184,6 +210,8 @@ def test_get_intake_import_session_detail_returns_persisted_payload(client: Test
 所属行业：零售
 企业规模：100-499人
 所在区域：华东
+年营收范围：5000万-1亿元
+当前经营/管理挑战：门店运营效率波动，会员复购不稳定，店长培养周期长，一线人员流动率高
 希望通过 AI 达成的目标：提升门店运营效率，增强会员复购
 当前可用数据/系统基础：POS、会员系统、商品主数据
 另有备注：优先选择华东区域试点。
@@ -389,3 +417,52 @@ def test_get_intake_import_session_detail_returns_404_for_unknown_id(client: Tes
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Intake import session not found."
+
+
+def test_assessment_detail_claims_legacy_ownerless_intake_assessment(
+    client: TestClient,
+    confirmed_assessment_input: dict[str, str],
+) -> None:
+    import_response = client.post(
+        "/api/intake/import",
+        json={
+            "source_type": "form",
+            "structured_fields": {
+                "company_name": "legacy-company",
+                "industry": "retail",
+            },
+        },
+    )
+    assert import_response.status_code == 200
+    import_session_id = import_response.json()["import_session_id"]
+
+    create_response = client.post(
+        f"/api/intake/import/{import_session_id}/assessment",
+        json={"confirmed_assessment_input": confirmed_assessment_input},
+    )
+    assert create_response.status_code == 201
+    assessment_id = create_response.json()["assessment"]["id"]
+
+    with db_session.SessionLocal() as db:
+        assessment = db.get(Assessment, assessment_id)
+        session = db.get(AssessmentIntakeSession, import_session_id)
+        assert assessment is not None
+        assert session is not None
+        assessment.user_id = None
+        session.user_id = None
+        db.add(assessment)
+        db.add(session)
+        db.commit()
+
+    detail_response = client.get(f"/api/assessments/{assessment_id}")
+
+    assert detail_response.status_code == 200
+    assert detail_response.json()["assessment"]["id"] == assessment_id
+
+    with db_session.SessionLocal() as db:
+        assessment = db.get(Assessment, assessment_id)
+        session = db.get(AssessmentIntakeSession, import_session_id)
+        assert assessment is not None
+        assert session is not None
+        assert assessment.user_id is not None
+        assert session.user_id == assessment.user_id

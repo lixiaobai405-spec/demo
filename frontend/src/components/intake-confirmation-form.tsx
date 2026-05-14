@@ -143,20 +143,6 @@ export function IntakeConfirmationForm() {
                       <Badge variant={isModified ? "success" : "muted"}>
                         {isModified ? "已修改" : "沿用建议"}
                       </Badge>
-                      {isModified && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setConfirmedForm((prev) => ({
-                              ...prev,
-                              [key]: normalizeFieldValue(originalValue),
-                            }))
-                          }
-                          className="text-xs text-primary underline underline-offset-2 hover:text-foreground"
-                        >
-                          恢复建议值
-                        </button>
-                      )}
                     </div>
                     <span className="text-xs text-muted-foreground">{fieldNote}</span>
                   </div>

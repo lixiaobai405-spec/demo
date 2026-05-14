@@ -113,15 +113,7 @@ export function InstructorDashboard() {
           <p className="section-label">讲师工作台</p>
           <h2 className="section-heading">讲师工作台</h2>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="text-right">
-            <p className="text-[10px] uppercase text-warm-muted">学员数</p>
-            <p className="text-xl font-bold text-warm-text">{data.total_students}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-[10px] uppercase text-warm-muted">报告完成率</p>
-            <p className="text-xl font-bold text-warm-success">{data.overall_completion_pct}%</p>
-          </div>
+        <div className="flex items-center gap-3">
           <button type="button" onClick={() => setShowCreateDialog(true)}
             className="btn-primary text-xs">创建讲师</button>
           <button type="button" onClick={handleExport} className="btn-secondary text-xs">导出 CSV</button>

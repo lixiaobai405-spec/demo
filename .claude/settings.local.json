@@ -37,7 +37,17 @@
       "Bash(taskkill /PID 29168 /F)",
       "Bash(cmd.exe /c \"taskkill /PID 29168 /F\")",
       "Bash(/c/Windows/System32/taskkill.exe *)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(/e/Anaconda3/envs/rag-env/python -c \"import sys; sys.path.insert\\(0, 'backend'\\); from app.models.chat import Conversation, Message; print\\('OK: models'\\)\")",
+      "Bash(/e/Anaconda3/envs/rag-env/python -c \"import sys; sys.path.insert\\(0, 'backend'\\); from app.services.chat_service import stream_chat; print\\('OK: service'\\)\")",
+      "Bash(/e/Anaconda3/envs/rag-env/python -c \"import sys; sys.path.insert\\(0, 'backend'\\); from app.api.routes.chat import router; print\\('OK: routes'\\)\")",
+      "Bash(npx -p typescript tsc --noEmit)",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(rtk git *)",
+      "Bash(rtk git commit -m ' *)"
     ]
   }
 }

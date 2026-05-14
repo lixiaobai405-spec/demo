@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.schemas.direction import DirectionExpansionResult, DirectionSelectionResponse
+
 
 class AssessmentCardItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -273,6 +275,8 @@ class AssessmentDetailResponse(BaseModel):
     company_profile: CompanyProfileResult | None
     canvas_diagnosis: CanvasDiagnosisResult | None
     breakthrough_selection: list[str] | None = None
+    direction_expansion: DirectionExpansionResult | None = None
+    direction_selection: DirectionSelectionResponse | None = None
     scenario_recommendation: ScenarioRecommendationResult | None
     case_recommendation: CaseRecommendationResult | None
     generated_report: ReportSummaryResponse | None

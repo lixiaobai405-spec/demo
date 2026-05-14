@@ -34,7 +34,6 @@ class ReportBuilder:
             scenario_recommendation=scenario_recommendation,
         )
         roadmap = self._build_roadmap(canvas_diagnosis, scenario_recommendation)
-        action_plan = self._build_action_plan(canvas_diagnosis, scenario_recommendation)
         breakthrough_labels = self._resolve_breakthrough_labels(breakthrough_keys or [])
         direction_labels = direction_labels or []
         canvas_blocks = canvas_diagnosis.canvas.blocks
@@ -50,7 +49,6 @@ class ReportBuilder:
             self._build_competitiveness_section(profile, canvas_diagnosis, scenario_recommendation, competitiveness_result),
             self._build_cases_section(case_recommendation),
             self._build_roadmap_section(roadmap),
-            self._build_action_plan_section(action_plan),
             self._build_risk_section(profile, canvas_diagnosis, scenario_recommendation),
             self._build_instructor_section(profile, scenario_recommendation, enrichment_result),
             self._build_endgame_section(endgame_result, profile, canvas_diagnosis),
@@ -139,29 +137,59 @@ class ReportBuilder:
         self,
         canvas_diagnosis: CanvasDiagnosisResult,
     ) -> ReportSectionData:
+        # Build an overview table of all 9 blocks
+        overview_table = ReportTableData(
+            columns=["画布模块", "当前状态摘要", "核心诊断", "AI 机会方向"],
+            rows=[
+                [
+                    block.title,
+                    self._truncate_text(block.current_state, 80),
+                    self._truncate_text(block.diagnosis, 80),
+                    self._truncate_text(block.ai_opportunity, 80),
+                ]
+                for block in canvas_diagnosis.canvas.blocks
+            ],
+        )
+
+        # Detailed cards for the 3 weakest blocks
+        weakest_titles = set(canvas_diagnosis.weakest_blocks)
+        weakest_blocks = [b for b in canvas_diagnosis.canvas.blocks if b.title in weakest_titles]
+        other_blocks = [b for b in canvas_diagnosis.canvas.blocks if b.title not in weakest_titles]
+
+        detail_cards = []
+        for block in weakest_blocks + other_blocks:
+            is_weak = block.title in weakest_titles
+            detail_cards.append(
+                ReportCardData(
+                    title=f"{'⚠️ ' if is_weak else ''}{block.title}",
+                    subtitle="薄弱环节 · 重点关注" if is_weak else "Business Model Canvas",
+                    content=block.current_state,
+                    highlight=f"🤖 AI 机会：{block.ai_opportunity}",
+                    bullets=[
+                        f"🔍 诊断：{block.diagnosis}",
+                        f"📝 待补充：{block.missing_information}",
+                    ],
+                )
+            )
+
         return ReportSectionData(
             key="canvas_diagnosis",
             title="当前商业模式画布诊断",
             content=canvas_diagnosis.canvas.overall_summary,
             bullets=[
-                f"整体评分：{canvas_diagnosis.overall_score}",
+                f"整体评分：{canvas_diagnosis.overall_score} 分（基于 9 格信息完整度评估）",
                 f"薄弱模块：{self._join_or_todo(canvas_diagnosis.weakest_blocks)}",
-                f"建议优先动作：{self._join_or_todo(canvas_diagnosis.recommended_focus)}",
             ],
-            cards=[
-                ReportCardData(
-                    title=block.title,
-                    subtitle="Business Model Canvas",
-                    content=block.current_state,
-                    highlight=f"AI 机会：{block.ai_opportunity}",
-                    bullets=[
-                        f"诊断：{block.diagnosis}",
-                        f"待补充：{block.missing_information}",
-                    ],
-                )
-                for block in canvas_diagnosis.canvas.blocks
-            ],
+            table=overview_table,
+            cards=detail_cards,
+            note=f"建议优先动作：{'；'.join(canvas_diagnosis.recommended_focus[:3])}" if canvas_diagnosis.recommended_focus else None,
         )
+
+    @staticmethod
+    def _truncate_text(text: str, max_len: int) -> str:
+        if len(text) <= max_len:
+            return text
+        return text[:max_len] + "..."
 
     def _build_ai_readiness_section(
         self,
@@ -169,16 +197,48 @@ class ReportBuilder:
         profile: CompanyProfileResult,
         canvas_diagnosis: CanvasDiagnosisResult,
     ) -> ReportSectionData:
+        # Build readiness dimension cards
+        dim_cards = [
+            ReportCardData(
+                title="数据基础",
+                subtitle="Data Foundation",
+                content=f"现有系统：{self._join_or_todo([profile.operations_and_resources[:120]], '；')}",
+                highlight=f"状态：{'✅ 已具备初步数据底座' if score >= 60 else '⚠️ 数据基础需要加强'}",
+                bullets=[f"待补充：{self._join_or_todo(profile.missing_information[:2])}"],
+            ),
+            ReportCardData(
+                title="组织意愿",
+                subtitle="Organization Readiness",
+                content=f"AI 目标方向：{self._join_or_todo(profile.priority_ai_directions[:2], '；')}",
+                highlight=f"状态：{'✅ 目标明确，可推进试点' if score >= 70 else '⚠️ 建议先统一内部共识'}",
+                bullets=[f"关键挑战：{self._join_or_todo(profile.key_challenges[:2])}"],
+            ),
+            ReportCardData(
+                title="技术可行性",
+                subtitle="Technical Feasibility",
+                content=f"数字化与 AI 准备度：{profile.digital_and_ai_readiness}",
+                highlight=f"状态：{'✅ 技术条件基本具备' if score >= 65 else '⚠️ 需先补齐基础系统'}",
+                bullets=[f"画布薄弱环节：{self._join_or_todo(canvas_diagnosis.weakest_blocks[:2])}"],
+            ),
+            ReportCardData(
+                title="综合就绪度",
+                subtitle="Overall Score",
+                content=self._build_ai_readiness_summary(score, profile, canvas_diagnosis),
+                highlight=f"综合评分：{score} 分",
+            ),
+        ]
+
         return ReportSectionData(
             key="ai_readiness",
             title="AI 成熟度评估",
-            content=self._build_ai_readiness_summary(score, profile, canvas_diagnosis),
+            content=f"综合评估得分 {score} 分。{self._build_ai_readiness_summary(score, profile, canvas_diagnosis)}",
+            cards=dim_cards,
             bullets=[
-                f"AI 就绪度评分：{score}",
                 f"数字化与 AI 准备度判断：{profile.digital_and_ai_readiness}",
                 f"当前优先补齐项：{self._join_or_todo(profile.missing_information[:3])}",
+                f"优先 AI 方向：{self._join_or_todo(profile.priority_ai_directions[:3])}",
             ],
-            note="该评分仅作为管理层判断和排序参考，不代表财务回报承诺，也不替代正式立项评审。",
+            note="该评分基于画布完整度、数据基础和 AI 目标明确度综合计算，仅作为管理层判断和排序参考，不代表财务回报承诺，也不替代正式立项评审。",
         )
 
     def _build_priority_scenarios_section(
@@ -314,28 +374,44 @@ class ReportBuilder:
                 bullets=["待补充：后续可在报告生成端接入案例检索与 RAG。"],
             )
 
+        # Build a summary table for quick comparison
+        cases_table = ReportTableData(
+            columns=["案例", "行业", "匹配度", "核心启示", "数据基础"],
+            rows=[
+                [
+                    item.title,
+                    item.industry,
+                    f"{'★' * max(1, min(5, item.fit_score // 20))} {item.fit_score}分",
+                    self._join_or_todo(item.match_reasons[:2], "；"),
+                    self._join_or_todo(getattr(item, 'data_foundation', item.reference_points[:2]), "；"),
+                ]
+                for item in case_recommendation.top_cases
+            ],
+        )
+
         return ReportSectionData(
             key="cases",
             title="参考案例与启示",
             content=(
-                "以下内容均为匿名行业参考案例，仅用于帮助管理层理解类似场景的落地方式，"
+                "以下内容均为匿名行业参考案例，仅用于帮助管理层理解类似场景的落地方式与参考路径，"
                 "不代表真实客户名称，也不构成真实 ROI 承诺。"
             ),
+            table=cases_table,
             cards=[
                 ReportCardData(
-                    title=item.title,
-                    subtitle=item.industry,
+                    title=f"案例 {i+1}：{item.title}",
+                    subtitle=f"{item.industry} · 匹配度 {'★' * max(1, min(5, item.fit_score // 20))}",
                     content=item.summary,
-                    highlight=f"匹配分数：{item.fit_score}",
+                    highlight=f"匹配分数：{item.fit_score} 分 —— 与当前企业画像的相似度",
                     bullets=[
                         f"匹配理由：{self._join_or_todo(item.match_reasons)}",
                         f"参考做法：{self._join_or_todo(item.reference_points)}",
-                        f"数据基础：{self._join_or_todo(item.data_foundation)}",
-                        f"注意事项：{self._join_or_todo(item.cautions)}",
+                        f"注意要点：{self._join_or_todo(getattr(item, 'cautions', ['建议结合自身业务实际评估']))}",
                     ],
                 )
-                for item in case_recommendation.top_cases
+                for i, item in enumerate(case_recommendation.top_cases)
             ],
+            note="案例匹配基于行业、规模、痛点和 AI 方向四层匹配，分数越高代表与当前企业情境的相似度越高。建议优先研读高匹配度案例的落地路径和前置条件。",
         )
 
     def _build_roadmap_section(
@@ -358,23 +434,6 @@ class ReportBuilder:
                 )
                 for stage in roadmap
             ],
-        )
-
-    def _build_action_plan_section(
-        self,
-        action_plan: list[ReportActionItem],
-    ) -> ReportSectionData:
-        return ReportSectionData(
-            key="action_plan",
-            title="90 天行动计划",
-            content="建议把前 90 天定义为“试点验证期”，先把目标、数据、责任人和复盘机制建立起来。",
-            table=ReportTableData(
-                columns=["周期", "行动项", "建议负责人", "交付物"],
-                rows=[
-                    [item.period, item.action, item.owner_suggestion, item.deliverable]
-                    for item in action_plan
-                ],
-            ),
         )
 
     def _build_risk_section(
@@ -542,55 +601,6 @@ class ReportBuilder:
                     "形成年度 AI 创新项目池和预算讨论机制。",
                 ],
                 expected_outputs=["组织级 AI 能力框架", "标准化场景资产库", "持续扩展路线图"],
-            ),
-        ]
-
-    def _build_action_plan(
-        self,
-        canvas_diagnosis: CanvasDiagnosisResult,
-        scenario_recommendation: ScenarioRecommendationResult,
-    ) -> list[ReportActionItem]:
-        weakest_blocks = canvas_diagnosis.weakest_blocks or ["待补充"]
-        top_names = [item.name for item in scenario_recommendation.top_scenarios]
-        first = top_names[0] if top_names else "待补充"
-        second = top_names[1] if len(top_names) > 1 else first
-
-        return [
-            ReportActionItem(
-                period="第 1-15 天",
-                action="组织一次业务负责人访谈，明确试点目标、边界和成功标准。",
-                owner_suggestion="业务负责人 + 数字化负责人",
-                deliverable="试点目标说明、指标口径表",
-            ),
-            ReportActionItem(
-                period="第 16-30 天",
-                action=f"围绕 {first} 盘点数据源、接口方式和人工校验流程。",
-                owner_suggestion="IT / 数据负责人",
-                deliverable="最小可用数据清单、数据质量问题列表",
-            ),
-            ReportActionItem(
-                period="第 31-45 天",
-                action="完成试点流程梳理，明确人工介入节点和异常兜底规则。",
-                owner_suggestion="流程负责人 + 业务骨干",
-                deliverable="试点 SOP、异常升级机制",
-            ),
-            ReportActionItem(
-                period="第 46-60 天",
-                action=f"开始验证 {first} 业务效果，并同步设计 {second} 的联动方案。",
-                owner_suggestion="项目经理 + 业务负责人",
-                deliverable="阶段复盘纪要、第二场景方案草稿",
-            ),
-            ReportActionItem(
-                period="第 61-75 天",
-                action=f"围绕 {weakest_blocks[0]} 对应问题补齐经营监控指标与看板。",
-                owner_suggestion="经营分析负责人",
-                deliverable="经营监控看板、预警规则草案",
-            ),
-            ReportActionItem(
-                period="第 76-90 天",
-                action="复盘试点经验，决定是否进入跨部门复制与预算化推进。",
-                owner_suggestion="管理层 + 项目牵头人",
-                deliverable="90 天复盘报告、下一阶段立项建议",
             ),
         ]
 

@@ -3,13 +3,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname } from "next/navigation";
-import { getConversation, clearConversation } from "@/lib/api";
-import type { ChatMessageOut } from "@/lib/types";
+
 import { Button } from "@/components/ui/button";
+import { clearConversation, getConversation, postChatMessage } from "@/lib/api";
+import type { ChatMessageOut } from "@/lib/types";
+
+const ACCEPTED_CHAT_FILE_TYPES = ".pdf,.docx,.txt,.md,.markdown";
 
 function extractAssessmentId(pathname: string): string | null {
   const match = pathname.match(/\/assessment\/([a-zA-Z0-9_-]+)/);
   return match ? match[1] : null;
+}
+
+function fileKey(file: File): string {
+  return `${file.name}-${file.size}-${file.lastModified}`;
 }
 
 export function AIChatPanel() {
@@ -22,8 +29,8 @@ export function AIChatPanel() {
   const [streaming, setStreaming] = useState(false);
   const [streamText, setStreamText] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
 
-  // FAB drag state
   const [fabPos, setFabPos] = useState({ x: 24, y: 24 });
   const dragRef = useRef({
     dragging: false,
@@ -36,9 +43,9 @@ export function AIChatPanel() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // FAB drag handlers
   const onFabPointerDown = useCallback((e: React.PointerEvent) => {
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     dragRef.current = {
@@ -81,17 +88,14 @@ export function AIChatPanel() {
 
   const messages = convQuery.data?.messages ?? [];
 
-  // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamText]);
 
-  // Focus input when panel opens
   useEffect(() => {
     if (open) inputRef.current?.focus();
   }, [open]);
 
-  // Cross-tab context sync
   useEffect(() => {
     if (!assessmentId) return;
     const channel = new BroadcastChannel("ai-chat-context");
@@ -108,9 +112,11 @@ export function AIChatPanel() {
 
   const sendMessage = useCallback(async () => {
     const text = input.trim();
-    if (!text || !assessmentId || streaming) return;
+    if ((!text && files.length === 0) || !assessmentId || streaming) return;
 
+    const pendingFiles = files;
     setInput("");
+    setFiles([]);
     setError(null);
     setStreaming(true);
     setStreamText("");
@@ -118,20 +124,11 @@ export function AIChatPanel() {
     abortRef.current = new AbortController();
 
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
-      const response = await fetch(
-        `${apiBase}/api/assessments/${assessmentId}/chat`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: text }),
-          signal: abortRef.current.signal,
-        },
+      const response = await postChatMessage(
+        assessmentId,
+        { message: text, files: pendingFiles },
+        { signal: abortRef.current.signal },
       );
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
 
       const reader = response.body?.getReader();
       if (!reader) throw new Error("No response body");
@@ -159,23 +156,25 @@ export function AIChatPanel() {
             }
             if (data.done) {
               setStreamText("");
-              queryClient.invalidateQueries({
-                queryKey: ["chat", assessmentId],
-              });
+              queryClient.invalidateQueries({ queryKey: ["chat", assessmentId] });
             }
           } catch {
-            // skip unparseable lines
+            // ignore malformed SSE chunks
           }
         }
       }
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === "AbortError") return;
       setError(err instanceof Error ? err.message : "发送失败");
+      setFiles(pendingFiles);
     } finally {
       setStreaming(false);
       abortRef.current = null;
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
-  }, [input, assessmentId, streaming, queryClient]);
+  }, [assessmentId, files, input, queryClient, streaming]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -193,12 +192,31 @@ export function AIChatPanel() {
     queryClient.invalidateQueries({ queryKey: ["chat", assessmentId] });
   }, [assessmentId, queryClient]);
 
-  // Don't render on non-assessment pages
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const nextFiles = Array.from(e.target.files ?? []);
+    if (nextFiles.length === 0) return;
+
+    setFiles((current) => {
+      const merged = [...current];
+      for (const file of nextFiles) {
+        if (!merged.some((existing) => fileKey(existing) === fileKey(file))) {
+          merged.push(file);
+        }
+      }
+      return merged;
+    });
+
+    e.target.value = "";
+  }, []);
+
+  const handleRemoveFile = useCallback((targetFile: File) => {
+    setFiles((current) => current.filter((file) => fileKey(file) !== fileKey(targetFile)));
+  }, []);
+
   if (!assessmentId) return null;
 
   return (
     <>
-      {/* FAB Button — draggable */}
       <button
         type="button"
         onPointerDown={onFabPointerDown}
@@ -214,12 +232,11 @@ export function AIChatPanel() {
           </svg>
         ) : (
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
         )}
       </button>
 
-      {/* Overlay */}
       {open && (
         <div
           className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm transition-opacity"
@@ -227,17 +244,15 @@ export function AIChatPanel() {
         />
       )}
 
-      {/* Slide-out Drawer */}
       <div
         className={`fixed right-0 top-0 z-40 flex h-full w-full max-w-md flex-col border-l border-border bg-background shadow-2xl transition-transform duration-300 ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div>
             <p className="text-sm font-semibold text-warm-text">AI 商业顾问</p>
-            <p className="text-[11px] text-warm-muted">基于当前评估数据回答</p>
+            <p className="text-[11px] text-warm-muted">基于当前评估数据回答，也支持附带资料分析</p>
           </div>
           <div className="flex items-center gap-1">
             <button
@@ -260,19 +275,17 @@ export function AIChatPanel() {
           </div>
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
           {convQuery.isLoading ? (
             <div className="flex items-center justify-center py-20">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
           ) : messages.length === 0 && !streaming ? (
-            <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+            <div className="flex flex-col items-center justify-center px-4 py-20 text-center">
               <div className="mb-3 text-3xl">💬</div>
               <p className="text-sm font-medium text-warm-text">AI 商业创新顾问</p>
               <p className="mt-2 text-xs leading-5 text-warm-muted">
-                我可以基于当前企业的评估数据（画像、画布、方向延展、终局设计等），
-                回答你的商业创新问题。随着你生成更多评估结果，我的知识也会更新。
+                你可以直接提问，也可以附带 PDF、DOCX、TXT 或 Markdown 资料，让 AI 结合当前评估内容一起分析。
               </p>
             </div>
           ) : (
@@ -281,7 +294,6 @@ export function AIChatPanel() {
                 <MessageBubble key={msg.id} message={msg} />
               ))}
 
-              {/* Streaming message */}
               {streaming && streamText && (
                 <MessageBubble
                   message={{
@@ -321,15 +333,52 @@ export function AIChatPanel() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
         <div className="border-t border-border px-4 py-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept={ACCEPTED_CHAT_FILE_TYPES}
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          {files.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {files.map((file) => (
+                <div
+                  key={fileKey(file)}
+                  className="flex max-w-full items-center gap-2 rounded-full border border-border bg-secondary/60 px-3 py-1 text-xs text-warm-text"
+                >
+                  <span className="max-w-[190px] truncate">{file.name}</span>
+                  <button
+                    type="button"
+                    disabled={streaming}
+                    onClick={() => handleRemoveFile(file)}
+                    className="text-warm-muted hover:text-warm-text disabled:opacity-50"
+                    aria-label={`移除 ${file.name}`}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="flex items-end gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={streaming}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              上传文件
+            </Button>
             <textarea
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="输入问题..."
+              placeholder="输入问题，或只上传资料让 AI 帮你总结..."
               rows={2}
               disabled={streaming}
               className="flex-1 resize-none rounded-xl border border-border bg-secondary/50 px-3 py-2 text-sm text-warm-text placeholder:text-warm-muted focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
@@ -348,12 +397,15 @@ export function AIChatPanel() {
                 type="button"
                 size="sm"
                 onClick={sendMessage}
-                disabled={!input.trim()}
+                disabled={!input.trim() && files.length === 0}
               >
                 发送
               </Button>
             )}
           </div>
+          <p className="mt-2 text-[11px] leading-5 text-warm-muted">
+            支持 PDF、DOCX、TXT、Markdown。附件会先抽取文本，再和当前问题一起发送给 AI。
+          </p>
         </div>
       </div>
     </>
@@ -374,8 +426,8 @@ function MessageBubble({
       <div
         className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-6 ${
           isUser
-            ? "bg-primary text-primary-foreground rounded-br-md"
-            : "bg-secondary text-warm-text rounded-bl-md"
+            ? "rounded-br-md bg-primary text-primary-foreground"
+            : "rounded-bl-md bg-secondary text-warm-text"
         } ${isStreaming ? "animate-pulse" : ""}`}
       >
         <p className="whitespace-pre-wrap break-words">{message.content}</p>

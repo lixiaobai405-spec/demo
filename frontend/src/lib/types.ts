@@ -229,6 +229,8 @@ export type AssessmentDetailResponse = {
   company_profile: CompanyProfileResult | null;
   canvas_diagnosis: CanvasDiagnosisResult | null;
   breakthrough_selection: string[] | null;
+  direction_expansion: DirectionExpansionResult | null;
+  direction_selection: DirectionSelectionResponse | null;
   scenario_recommendation: ScenarioRecommendationResult | null;
   case_recommendation: CaseRecommendationResult | null;
   generated_report: ReportSummaryResponse | null;

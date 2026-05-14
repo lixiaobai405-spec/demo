@@ -3,17 +3,15 @@
 import type { AssessmentBreakthroughResponse, BreakthroughElement } from "@/lib/types";
 
 const scoreColor = (score: number): string => {
-  if (score <= 30) return "text-warm-danger bg-red-50";
-  if (score <= 55) return "text-warm-warning bg-amber-50";
-  if (score <= 70) return "text-warm-accent bg-amber-50/60";
-  return "text-warm-success bg-green-50";
+  if (score >= 70) return "text-green-700 bg-green-100";       // 🟢 绿色
+  if (score >= 50) return "text-yellow-700 bg-yellow-100";     // 🟡 黄色
+  return "text-red-700 bg-red-100";                              // 🔴 红色
 };
 
 const sourceLabel = (score: number): string => {
-  if (score <= 30) return "优先突破";
-  if (score <= 55) return "建议突破";
-  if (score <= 70) return "可考虑";
-  return "持续优化";
+  if (score >= 70) return "🚀 建议突破";
+  if (score >= 50) return "📋 可考虑";
+  return "⏸ 暂缓";
 };
 
 export function BreakthroughSelectionPanel({

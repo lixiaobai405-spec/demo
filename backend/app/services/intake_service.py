@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.models.assessment import Assessment
 from app.models.intake_session import AssessmentIntakeSession
+from app.models.user import User
 from app.services.intake_llm_extractor import IntakeLLMExtractor
 from app.schemas.assessment import AssessmentResponse
 from app.schemas.intake import (
@@ -35,8 +36,8 @@ FIELD_LABELS: dict[str, list[str]] = {
     "annual_revenue_range": ["年营收范围", "营收范围", "年度营收", "annual_revenue_range"],
     "core_products": ["核心产品/服务", "核心产品", "产品服务", "主营业务", "core_products"],
     "target_customers": ["目标客户", "客户群体", "目标用户", "target_customers"],
-    "current_challenges": ["当前经营/管理挑战", "当前挑战", "经营挑战", "管理挑战", "current_challenges"],
-    "ai_goals": ["希望通过 AI 达成的目标", "AI 目标", "智能化目标", "ai_goals"],
+    "current_challenges": ["当前经营/管理挑战", "当前挑战", "经营挑战", "管理挑战", "改进点", "当前问题", "current_challenges"],
+    "ai_goals": ["希望通过 AI 达成的目标", "AI 目标", "智能化目标", "AI 改进方向", "改进方向", "ai_goals"],
     "available_data": ["当前可用数据/系统基础", "可用数据", "系统基础", "available_data"],
     "notes": ["其他补充说明", "补充说明", "备注", "notes"],
 }
@@ -49,8 +50,8 @@ FIELD_KEYWORDS: dict[str, list[str]] = {
     "annual_revenue_range": ["营收", "收入", "年收", "营业额", "产值"],
     "core_products": ["产品", "服务", "业务"],
     "target_customers": ["客户", "用户", "消费者", "客群"],
-    "current_challenges": ["挑战", "问题", "痛点", "困难", "瓶颈", "不足", "障碍"],
-    "ai_goals": ["AI", "目标", "希望", "期望", "愿景", "想要", "打算", "降本", "增效", "提效", "自动化"],
+    "current_challenges": ["挑战", "问题", "痛点", "困难", "瓶颈", "不足", "障碍", "改进点", "改进"],
+    "ai_goals": ["AI", "目标", "希望", "期望", "愿景", "想要", "打算", "降本", "增效", "提效", "自动化", "改进方向"],
     "available_data": ["数据", "系统", "ERP", "CRM", "POS", "台账", "平台", "信息化", "数字化"],
     "notes": ["备注", "补充", "其他", "说明", "附注", "额外"],
 }
@@ -70,8 +71,8 @@ FIELD_DISPLAY_NAMES: dict[str, str] = {
 }
 
 INFERENCE_RULES: dict[str, list[str]] = {
-    "current_challenges": ["挑战", "瓶颈", "问题", "痛点", "困难", "不足", "障碍", "低效", "太慢", "滞后"],
-    "ai_goals": ["ai", "目标", "希望", "提升", "降本", "增效", "复购", "增长", "自动化", "智能"],
+    "current_challenges": ["挑战", "瓶颈", "问题", "痛点", "困难", "不足", "障碍", "低效", "太慢", "滞后", "改进"],
+    "ai_goals": ["ai", "目标", "希望", "提升", "降本", "增效", "复购", "增长", "自动化", "智能", "改进"],
     "available_data": ["数据", "系统", "pos", "erp", "crm", "会员", "订单", "台账", "excel"],
 }
 
@@ -98,13 +99,10 @@ class IntakeService:
         self,
         db: Session,
         import_session_id: str,
+        current_user: User,
     ) -> IntakeSessionDetailResponse:
-        session = db.get(AssessmentIntakeSession, import_session_id)
-        if session is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Intake import session not found.",
-            )
+        session = self._get_session_or_404(db, import_session_id)
+        session = self._ensure_session_access(db, session, current_user)
 
         parsed_payload = self._load_json_payload(session.parsed_payload)
         normalized_payload = self._load_json_payload(session.normalized_payload)
@@ -142,6 +140,7 @@ class IntakeService:
         self,
         db: Session,
         payload: IntakeImportRequest,
+        current_user: User,
         source_file: IntakeSourceFile | None = None,
         extra_warnings: list[str] | None = None,
     ) -> IntakeImportResponse:
@@ -177,6 +176,7 @@ class IntakeService:
 
         session = AssessmentIntakeSession(
             source_type=payload.source_type,
+            user_id=current_user.id,
             raw_content=payload.raw_content,
             structured_fields_payload=json.dumps(payload.structured_fields, ensure_ascii=False),
             parsed_payload=json.dumps(parsed_payload, ensure_ascii=False),
@@ -203,7 +203,29 @@ class IntakeService:
         self,
         db: Session,
         upload_file: UploadFile,
+        current_user: User,
     ) -> IntakeImportResponse:
+        source_file, raw_content, extraction_warnings = await self.extract_upload_file(
+            upload_file
+        )
+
+        import_result = self.import_content(
+            db,
+            IntakeImportRequest(source_type="file", raw_content=raw_content),
+            current_user=current_user,
+            source_file=source_file,
+            extra_warnings=extraction_warnings,
+        )
+
+        # Async: ingest to knowledge base (non-blocking)
+        self._ingest_to_knowledge_base(raw_content, source_file.name)
+
+        return import_result
+
+    async def extract_upload_file(
+        self,
+        upload_file: UploadFile,
+    ) -> tuple[IntakeSourceFile, str, list[str]]:
         file_name = (upload_file.filename or "").strip()
         if not file_name:
             raise HTTPException(
@@ -249,26 +271,21 @@ class IntakeService:
                 ),
             )
 
-        import_result = self.import_content(
-            db,
-            IntakeImportRequest(source_type="file", raw_content=raw_content),
-            source_file=IntakeSourceFile(
+        return (
+            IntakeSourceFile(
                 name=file_name,
                 kind=file_kind,
                 size_bytes=file_size,
             ),
-            extra_warnings=extraction_warnings,
+            raw_content,
+            extraction_warnings,
         )
-
-        # Async: ingest to knowledge base (non-blocking)
-        self._ingest_to_knowledge_base(raw_content, file_name)
-
-        return import_result
 
     def _auto_create_assessment(
         self,
         db: Session,
         import_result: IntakeImportResponse,
+        current_user: User,
     ) -> IntakeImportResponse:
         """Auto-create assessment from import prefill, set created_assessment_id on result."""
         try:
@@ -278,6 +295,7 @@ class IntakeService:
                 IntakeCreateAssessmentRequest(
                     confirmed_assessment_input=import_result.assessment_prefill,
                 ),
+                current_user=current_user,
             )
             import_result.created_assessment_id = created.assessment.id
             import_result.status = "confirmed"
@@ -291,20 +309,29 @@ class IntakeService:
         db: Session,
         import_session_id: str,
         payload: IntakeCreateAssessmentRequest,
+        current_user: User,
     ) -> IntakeCreateAssessmentResponse:
-        session = db.get(AssessmentIntakeSession, import_session_id)
-        if session is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Intake import session not found.",
-            )
+        session = self._get_session_or_404(db, import_session_id)
+        session = self._ensure_session_access(db, session, current_user)
         if session.created_assessment_id:
+            existing_assessment = db.get(Assessment, session.created_assessment_id)
+            if (
+                existing_assessment is not None
+                and existing_assessment.user_id is None
+                and session.user_id is not None
+            ):
+                existing_assessment.user_id = session.user_id
+                db.add(existing_assessment)
+                db.commit()
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="This intake import session has already created an assessment.",
             )
 
-        assessment = Assessment(**payload.confirmed_assessment_input.model_dump())
+        assessment = Assessment(
+            **payload.confirmed_assessment_input.model_dump(),
+            user_id=session.user_id or current_user.id,
+        )
         db.add(assessment)
         db.flush()
 
@@ -319,6 +346,40 @@ class IntakeService:
             status="confirmed",
             assessment=AssessmentResponse.model_validate(assessment, from_attributes=True),
         )
+
+    def _get_session_or_404(
+        self,
+        db: Session,
+        import_session_id: str,
+    ) -> AssessmentIntakeSession:
+        session = db.get(AssessmentIntakeSession, import_session_id)
+        if session is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Intake import session not found.",
+            )
+        return session
+
+    def _ensure_session_access(
+        self,
+        db: Session,
+        session: AssessmentIntakeSession,
+        current_user: User,
+    ) -> AssessmentIntakeSession:
+        if current_user.role == "instructor":
+            return session
+        if session.user_id is None:
+            session.user_id = current_user.id
+            db.add(session)
+            db.commit()
+            db.refresh(session)
+            return session
+        if session.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="无权访问此导入会话。",
+            )
+        return session
 
     def _build_field_candidates(
         self,

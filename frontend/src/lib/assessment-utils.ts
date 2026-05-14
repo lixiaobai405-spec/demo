@@ -1,12 +1,16 @@
 import type {
   AssessmentCreateRequest,
   AssessmentDetailResponse,
+  AssessmentDirectionResponse,
   AssessmentPrefillDraft,
   AssessmentProgress,
   AssessmentResponse,
   BreakthroughSelectionResponse,
   CanvasDiagnosisResult,
+  CaseRecommendationResult,
   CompanyProfileResult,
+  CompetitivenessResponse,
+  DirectionSelectionResponse,
   ScenarioRecommendationResult,
 } from "@/lib/types";
 
@@ -115,8 +119,14 @@ export function applyAssessmentDetailToStore(
     setCompanyProfile: (p: CompanyProfileResult | null) => void;
     setProfileMode: (m: "mock" | "live" | null) => void;
     setCanvasDiagnosis: (d: CanvasDiagnosisResult | null) => void;
+    setBreakthroughSelection: (s: BreakthroughSelectionResponse | null) => void;
     setSelectedBreakthroughKeys: (keys: string[]) => void;
     setScenarioRecommendation: (r: ScenarioRecommendationResult | null) => void;
+    setDirectionData: (d: AssessmentDirectionResponse | null) => void;
+    setDirectionSelection: (s: DirectionSelectionResponse | null) => void;
+    setSelectedDirectionIds: (ids: string[]) => void;
+    setCompetitivenessData: (d: CompetitivenessResponse | null) => void;
+    setCaseRecommendation: (r: CaseRecommendationResult | null) => void;
   },
 ) {
   store.setAssessment(detail.assessment);
@@ -128,10 +138,68 @@ export function applyAssessmentDetailToStore(
   );
   store.setCanvasDiagnosis(detail.canvas_diagnosis);
 
+  // Sync breakthrough selection if present
   if (detail.breakthrough_selection && detail.breakthrough_selection.length >= 2) {
     store.setSelectedBreakthroughKeys(detail.breakthrough_selection);
+    // Build minimal BreakthroughSelectionResponse so the UI shows "done"
+    store.setBreakthroughSelection({
+      assessment_id: detail.assessment.id,
+      selection_mode: "system_recommended",
+      recommended_elements: [],
+      selected_elements: detail.breakthrough_selection.map((key) => ({
+        key,
+        title: key,
+        score: 0,
+        reason: "",
+        ai_opportunity: "",
+      })),
+      created_at: null,
+      updated_at: null,
+    });
   } else {
     store.setSelectedBreakthroughKeys([]);
+    store.setBreakthroughSelection(null);
   }
+
+  // Sync direction expansion and selection if present
+  if (detail.direction_expansion) {
+    store.setDirectionData({
+      assessment_id: detail.assessment.id,
+      direction_expansion: detail.direction_expansion,
+      direction_selection: detail.direction_selection ?? null,
+    });
+  } else {
+    store.setDirectionData(null);
+  }
+
+  if (detail.direction_selection && detail.direction_selection.selected_directions.length > 0) {
+    store.setDirectionSelection(detail.direction_selection);
+    store.setSelectedDirectionIds(
+      detail.direction_selection.selected_directions.map((d) => d.direction_id),
+    );
+  } else {
+    store.setDirectionSelection(null);
+    store.setSelectedDirectionIds([]);
+  }
+
+  // Sync competitiveness if present
+  if (detail.progress.has_competitiveness) {
+    store.setCompetitivenessData({
+      assessment_id: detail.assessment.id,
+      result: null as any,
+      created_at: null,
+      updated_at: null,
+    });
+  } else {
+    store.setCompetitivenessData(null);
+  }
+
   store.setScenarioRecommendation(detail.scenario_recommendation);
+
+  // Sync case recommendation
+  if (detail.case_recommendation) {
+    store.setCaseRecommendation(detail.case_recommendation);
+  } else {
+    store.setCaseRecommendation(null);
+  }
 }

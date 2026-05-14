@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import DateTime, String, Text
+from sqlalchemy import DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.session import Base
@@ -16,6 +16,9 @@ class AssessmentIntakeSession(Base):
         default=lambda: str(uuid4()),
     )
     source_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=True, index=True
+    )
     raw_content: Mapped[str | None] = mapped_column(Text, nullable=True)
     structured_fields_payload: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
     parsed_payload: Mapped[str] = mapped_column(Text, nullable=False, default="{}")

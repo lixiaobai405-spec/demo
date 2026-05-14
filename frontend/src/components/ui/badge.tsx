@@ -18,6 +18,8 @@ const badgeVariants = cva(
           "border-[rgba(212,168,83,0.18)] bg-[rgba(212,168,83,0.10)] text-primary",
         success:
           "border-[rgba(107,154,74,0.18)] bg-[rgba(107,154,74,0.08)] text-[#6B9A4A]",
+        warning:
+          "border-[rgba(224,160,60,0.18)] bg-[rgba(224,160,60,0.08)] text-[#c07020]",
         muted:
           "border-[#F0EBE2] bg-[rgba(107,95,80,0.06)] text-muted-foreground",
       },
