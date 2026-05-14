@@ -1,22 +1,38 @@
 "use client";
 
-import type { EndgameResponse, StrategicPath } from "@/lib/types";
+import React from "react";
 
+import type {
+  EndgameResponse,
+  StrategicPath,
+  ThreeStageStrategyStage,
+} from "@/lib/types";
+
+/**
+ * 根据路径类型返回对应的视觉样式。
+ */
 const pathTypeColor = (type: string) => {
   if (type === "保守") return "border-green-200 bg-green-50/40";
   if (type === "均衡") return "border-amber-200 bg-amber-50/40";
   return "border-red-200 bg-red-50/40";
 };
 
+/**
+ * 根据推荐等级返回对应的标签样式。
+ */
 const recLevelColor = (level: string) => {
   if (level === "推荐") return "badge badge-success";
   if (level === "可选") return "badge badge-warning";
   return "badge badge-muted";
 };
 
+/**
+ * 展示商业终局结果，并承接三阶段推进策略的最终呈现。
+ */
 export function EndgamePanel({ data }: { data: EndgameResponse }) {
   const { result } = data;
-  const { private_domain, ecosystem, opc, strategic_paths, overall_narrative } = result;
+  const { private_domain, ecosystem, opc, three_stage_strategy, strategic_paths, overall_narrative } =
+    result;
 
   return (
     <div className="card">
@@ -38,7 +54,6 @@ export function EndgamePanel({ data }: { data: EndgameResponse }) {
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
-        {/* Private Domain */}
         <div className="rounded-xl border border-warm-accent/15 bg-warm-accent/5 p-6">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-warm-accent">私域</p>
           <p className="mt-3 text-xs font-medium text-warm-text">{private_domain.target_model}</p>
@@ -62,7 +77,6 @@ export function EndgamePanel({ data }: { data: EndgameResponse }) {
           <p className="mt-1 text-[11px] leading-4 text-warm-muted">{private_domain.current_state}</p>
         </div>
 
-        {/* Ecosystem */}
         <div className="rounded-xl border border-warm-warning/15 bg-warm-warning/5 p-6">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-warm-warning">生态</p>
           <p className="mt-3 text-xs font-medium text-warm-text">{ecosystem.ecosystem_positioning}</p>
@@ -84,7 +98,6 @@ export function EndgamePanel({ data }: { data: EndgameResponse }) {
           </div>
         </div>
 
-        {/* OPC */}
         <div className="rounded-xl border border-green-200 bg-green-50/30 p-6">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-warm-success">OPC</p>
           <div className="mt-3 space-y-3">
@@ -108,6 +121,28 @@ export function EndgamePanel({ data }: { data: EndgameResponse }) {
         </div>
       </div>
 
+      <div className="mt-6 rounded-xl border border-warm-border-light bg-warm-inset p-6">
+        <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">三阶段推进策略</p>
+        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+          <ThreeStageCard stage={three_stage_strategy.stage_1} />
+          <ThreeStageCard stage={three_stage_strategy.stage_2} />
+          <ThreeStageCard stage={three_stage_strategy.stage_3} />
+        </div>
+        {three_stage_strategy.key_risks.length > 0 && (
+          <div className="mt-4">
+            <p className="text-xs uppercase tracking-[0.14em] text-warm-danger">关键风险</p>
+            <ul className="mt-2 space-y-1.5">
+              {three_stage_strategy.key_risks.map((risk) => (
+                <li key={risk} className="flex items-start gap-2 text-xs leading-5 text-warm-muted">
+                  <span className="mt-0.5 flex-shrink-0 text-warm-danger">!</span>
+                  {risk}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
       <div className="mt-6">
         <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">多路径推演（{strategic_paths.length} 种策略）</p>
         <div className="mt-4 grid gap-4 lg:grid-cols-3">
@@ -118,15 +153,32 @@ export function EndgamePanel({ data }: { data: EndgameResponse }) {
   );
 }
 
+/**
+ * 展示三阶段推进策略中的单个阶段卡片。
+ */
+function ThreeStageCard({ stage }: { stage: ThreeStageStrategyStage }) {
+  return (
+    <div className="rounded-xl border border-warm-border-light bg-warm-surface p-4">
+      <p className="text-xs font-semibold text-warm-accent">{stage.title}</p>
+      <p className="mt-2 text-[11px] uppercase tracking-[0.12em] text-warm-muted">{stage.focus}</p>
+      <p className="mt-2 text-xs leading-5 text-warm-muted">{stage.objective}</p>
+    </div>
+  );
+}
+
+/**
+ * 展示单条终局路径的关键信息。
+ */
 function StrategicPathCard({ path }: { path: StrategicPath }) {
   return (
     <div className={`rounded-xl border p-6 ${pathTypeColor(path.path_type)}`}>
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-sm font-semibold text-warm-text">{path.path_name}</p>
-          <p className="mt-0.5 text-[11px] text-warm-muted">{path.timeline}</p>
-        </div>
+        <p className="text-sm font-semibold text-warm-text">{path.path_name}</p>
         <span className={recLevelColor(path.recommendation_level)}>{path.recommendation_level}</span>
+      </div>
+      <div className="mt-3">
+        <p className="text-[10px] uppercase text-warm-muted">推进节奏</p>
+        <p className="mt-1 text-[11px] leading-4 text-warm-secondary">{path.execution_rhythm}</p>
       </div>
       <div className="mt-3">
         <p className="text-[10px] uppercase text-warm-muted">里程碑</p>
@@ -135,8 +187,8 @@ function StrategicPathCard({ path }: { path: StrategicPath }) {
         </ul>
       </div>
       <div className="mt-3">
-        <p className="text-[10px] uppercase text-warm-muted">投资需求</p>
-        <p className="mt-1 text-[11px] leading-4 text-warm-secondary">{path.required_investments}</p>
+        <p className="text-[10px] uppercase text-warm-muted">能力前提</p>
+        <p className="mt-1 text-[11px] leading-4 text-warm-secondary">{path.capability_requirements}</p>
       </div>
       <div className="mt-3">
         <p className="text-[10px] uppercase text-warm-muted">预期成果</p>

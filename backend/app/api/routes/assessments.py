@@ -1525,6 +1525,7 @@ def _upsert_endgame_analysis(
             private_domain_json="{}",
             ecosystem_json="{}",
             opc_json="{}",
+            three_stage_strategy_json="{}",
             strategic_paths_json="[]",
         )
 
@@ -1532,6 +1533,9 @@ def _upsert_endgame_analysis(
     record.private_domain_json = json.dumps(result.private_domain.model_dump(), ensure_ascii=False)
     record.ecosystem_json = json.dumps(result.ecosystem.model_dump(), ensure_ascii=False)
     record.opc_json = json.dumps(result.opc.model_dump(), ensure_ascii=False)
+    record.three_stage_strategy_json = json.dumps(
+        result.three_stage_strategy.model_dump(), ensure_ascii=False
+    )
     record.strategic_paths_json = json.dumps(
         [p.model_dump() for p in result.strategic_paths], ensure_ascii=False
     )
@@ -1553,11 +1557,16 @@ def _build_endgame_result_from_record(
         EcosystemDesign,
         OPCDesign,
         StrategicPath,
+        ThreeStageStrategy,
     )
 
     pd_raw = _parse_json_raw(record.private_domain_json, "Failed to parse private domain.")
     eco_raw = _parse_json_raw(record.ecosystem_json, "Failed to parse ecosystem.")
     opc_raw = _parse_json_raw(record.opc_json, "Failed to parse OPC.")
+    three_stage_raw = _parse_json_raw(
+        getattr(record, "three_stage_strategy_json", "{}"),
+        "Failed to parse three-stage strategy.",
+    )
     paths_raw = _parse_json_raw(record.strategic_paths_json, "Failed to parse strategic paths.")
 
     return EndgameResult(
@@ -1565,9 +1574,23 @@ def _build_endgame_result_from_record(
         private_domain=PrivateDomainDesign.model_validate(pd_raw),
         ecosystem=EcosystemDesign.model_validate(eco_raw),
         opc=OPCDesign.model_validate(opc_raw),
-        strategic_paths=[StrategicPath.model_validate(item) for item in paths_raw],
+        three_stage_strategy=ThreeStageStrategy.model_validate(three_stage_raw),
+        strategic_paths=[
+            StrategicPath.model_validate(_normalize_endgame_strategic_path(item))
+            for item in paths_raw
+        ],
         overall_narrative=record.overall_narrative or "",
     )
+
+
+def _normalize_endgame_strategic_path(item: dict) -> dict:
+    """兼容历史终局路径结构，统一还原为当前定性字段。"""
+    normalized = dict(item)
+    if "execution_rhythm" not in normalized and "timeline" in normalized:
+        normalized["execution_rhythm"] = normalized["timeline"]
+    if "capability_requirements" not in normalized and "required_investments" in normalized:
+        normalized["capability_requirements"] = normalized["required_investments"]
+    return normalized
 
 
 def _require_scenarios(
@@ -1681,8 +1704,6 @@ def _calculate_canvas_metadata(
     for title, _, _, diagnosis in weakest:
         # Extract the core diagnostic insight and make it actionable
         short_diag = diagnosis.split("。")[0] if "。" in diagnosis else diagnosis
-        if len(short_diag) > 60:
-            short_diag = short_diag[:57] + "..."
         abbr = _block_title_to_abbr(title)
         recommended_focus.append(f"{title}（{abbr}）：{short_diag}。—— 建议优先完善该模块数据基础并启动 AI 试点。")
 
@@ -1868,9 +1889,12 @@ def _build_progress(
     has_profile = profile is not None
     has_canvas = canvas is not None
     has_breakthrough = breakthrough_keys is not None and len(breakthrough_keys) >= 2
-    has_directions = direction_selection is not None and bool(
-        getattr(direction_selection, "directions_json", None)
-    )
+    has_directions = False
+    if direction_selection is not None:
+        has_directions = bool(
+            getattr(direction_selection, "selected_directions", None)
+            or getattr(direction_selection, "directions_json", None)
+        )
     has_competitiveness = competitiveness is not None
     has_scenarios = scenarios is not None
     has_cases = cases is not None

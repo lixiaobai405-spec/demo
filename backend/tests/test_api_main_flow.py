@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import sys
@@ -328,6 +329,73 @@ def test_assessment_detail_serializes_direction_selection(
         item["direction_id"]
         for item in detail_body["direction_selection"]["selected_directions"]
     } == set(selected_direction_ids)
+
+
+def test_main_flow_generates_competitiveness_endgame_and_report_without_old_labels(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+) -> None:
+    """确认主流程可生成点线面结果，并且报告中不再混入旧省略号与终局量化标签。"""
+    assessment_id = _create_assessment(client, assessment_payload)
+
+    assert client.post(f"/api/assessments/{assessment_id}/profile").status_code == 200
+    assert client.post(f"/api/assessments/{assessment_id}/canvas").status_code == 200
+
+    breakthrough_response = client.post(
+        f"/api/assessments/{assessment_id}/breakthrough/recommend"
+    )
+    recommended_keys = breakthrough_response.json()["breakthrough_recommendation"][
+        "recommended_keys"
+    ]
+    assert client.post(
+        f"/api/assessments/{assessment_id}/breakthrough/select",
+        json={
+            "selected_keys": recommended_keys[:2],
+            "selection_mode": "system_recommended",
+        },
+    ).status_code == 200
+
+    expand_response = client.post(f"/api/assessments/{assessment_id}/directions/expand")
+    assert expand_response.status_code == 200
+    expanded = expand_response.json()["direction_expansion"]["elements"]
+    selected_direction_ids = [
+        expanded[0]["suggestions"][0]["direction_id"],
+        expanded[1]["suggestions"][0]["direction_id"],
+    ]
+    assert client.post(
+        f"/api/assessments/{assessment_id}/directions/select",
+        json={"selected_direction_ids": selected_direction_ids},
+    ).status_code == 200
+
+    competitiveness_response = client.post(
+        f"/api/assessments/{assessment_id}/competitiveness/generate"
+    )
+    assert competitiveness_response.status_code == 200
+    competitiveness_payload = json.dumps(
+        competitiveness_response.json(), ensure_ascii=False
+    )
+    assert "..." not in competitiveness_payload
+    assert "…" not in competitiveness_payload
+
+    endgame_response = client.post(f"/api/assessments/{assessment_id}/endgame/generate")
+    assert endgame_response.status_code == 200
+    endgame_body = endgame_response.json()["result"]
+    assert endgame_body["three_stage_strategy"]["stage_1"]["focus"] == "快速验证"
+    assert "execution_rhythm" in endgame_body["strategic_paths"][0]
+    assert "timeline" not in endgame_body["strategic_paths"][0]
+
+    assert client.post(f"/api/assessments/{assessment_id}/scenarios").status_code == 200
+    report_response = client.post(f"/api/assessments/{assessment_id}/report?mode=template")
+    assert report_response.status_code == 200
+    report_payload = json.dumps(report_response.json(), ensure_ascii=False)
+    assert "投资需求" not in report_payload
+    assert "时间范围" not in report_payload
+
+    detail_response = client.get(f"/api/assessments/{assessment_id}")
+    assert detail_response.status_code == 200
+    detail_body = detail_response.json()
+    assert detail_body["progress"]["has_directions"] is True
+    assert detail_body["progress"]["has_competitiveness"] is True
 
 
 def test_scenario_recommendations_alias_is_backward_compatible(

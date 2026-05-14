@@ -26,6 +26,7 @@ class EndgameAnalysis(Base):
     private_domain_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
     ecosystem_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
     opc_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    three_stage_strategy_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
     strategic_paths_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
     overall_narrative: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
