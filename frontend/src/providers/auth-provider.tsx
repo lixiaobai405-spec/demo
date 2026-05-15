@@ -8,7 +8,7 @@ import {
   useMemo,
 } from "react";
 import { useRouter } from "next/navigation";
-import { loginUser, registerUser, getCurrentUser } from "@/lib/api";
+import { loginUser, registerUser, getCurrentUser, ApiError } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 import type { UserResponse } from "@/lib/types";
 
@@ -41,7 +41,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (token) {
       getCurrentUser()
         .then((user) => store.setAuth(user, token))
-        .catch(() => store.clearAuth());
+        .catch((err) => {
+          // Only clear auth on 401 (token invalid/expired).
+          // Network errors should not force logout.
+          if (err instanceof ApiError && err.status === 401) {
+            store.clearAuth();
+          } else {
+            // Token is still valid but server unreachable — keep session
+            const raw = localStorage.getItem("auth_user");
+            if (raw) {
+              try {
+                const user = JSON.parse(raw) as UserResponse;
+                store.setAuth(user, token);
+              } catch { store.clearAuth(); }
+            } else {
+              store.clearAuth();
+            }
+          }
+        });
     } else {
       store.setInitialized(true);
     }

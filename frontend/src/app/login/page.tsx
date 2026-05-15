@@ -35,7 +35,7 @@ export default function LoginPage() {
       const loginEmail = role === "teacher" ? "teacher" : email.trim();
       if (role === "student" && !loginEmail) return;
       await login(loginEmail, password);
-      router.replace(redirect);
+      // useEffect above handles redirect when isAuthenticated becomes true
     } catch (err) {
       toast({ title: "登录失败", description: err instanceof Error ? err.message : "请检查账户和密码", variant: "destructive" });
     } finally {
