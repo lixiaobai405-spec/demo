@@ -30,6 +30,7 @@ export function HealthStatusCard() {
     errorDetails: null,
     loading: true,
   });
+  const [devToolsOpen, setDevToolsOpen] = useState(false);
 
   const [debugResult, setDebugResult] = useState<string | null>(null);
 
@@ -223,7 +224,7 @@ export function HealthStatusCard() {
         </div>
       ) : null}
 
-      <details className="mt-4 group">
+      <details className="mt-4 group" open={devToolsOpen} onToggle={(e) => setDevToolsOpen(e.currentTarget.open)}>
         <summary className="cursor-pointer list-none text-xs text-warm-muted hover:text-warm-text transition-colors">
           ▶ 开发者工具
         </summary>
