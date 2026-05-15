@@ -1,6 +1,6 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -8,6 +8,9 @@ import { useAssessmentDetail } from "@/hooks";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BusinessCanvasGrid } from "@/components/business-canvas-grid";
+import { CanvasEditor } from "@/components/canvas-editor";
+import { SyncFeedbackPanel } from "@/components/sync-feedback-panel";
+import type { CanvasDiagnosisResult } from "@/lib/types";
 
 export default function CanvasPage({
   params,
@@ -17,6 +20,8 @@ export default function CanvasPage({
   const { assessmentId } = use(params);
   const router = useRouter();
   const detailQuery = useAssessmentDetail(assessmentId);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedCanvas, setEditedCanvas] = useState<CanvasDiagnosisResult | null>(null);
 
   // Loading
   if (detailQuery.isLoading) {
@@ -56,9 +61,10 @@ export default function CanvasPage({
   }
 
   const detail = detailQuery.data;
-  const canvasDiagnosis = detail.canvas_diagnosis;
+  const canvasDiagnosis = editedCanvas || detail.canvas_diagnosis;
   const companyName = detail.assessment.company_name;
   const industry = detail.assessment.industry;
+
   return (
     <main className="min-h-screen px-6 py-10">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-8">
@@ -90,7 +96,37 @@ export default function CanvasPage({
 
         {/* Canvas */}
         {canvasDiagnosis ? (
-          <BusinessCanvasGrid canvasDiagnosis={canvasDiagnosis} />
+          <>
+            {/* Edit toggle */}
+            <div className="flex items-center gap-3">
+              <Button
+                variant={isEditing ? "default" : "outline"}
+                size="sm"
+                onClick={() => setIsEditing(!isEditing)}
+              >
+                {isEditing ? "退出编辑" : "✏️ 手动编辑画布"}
+              </Button>
+              {isEditing && (
+                <span className="text-xs text-warm-accent">
+                  编辑模式下可直接修改每个模块的诊断内容
+                </span>
+              )}
+            </div>
+
+            {isEditing ? (
+              <CanvasEditor
+                assessmentId={assessmentId}
+                canvasDiagnosis={canvasDiagnosis}
+                onSaved={(updated) => {
+                  setEditedCanvas(updated);
+                  setIsEditing(false);
+                  detailQuery.refetch();
+                }}
+              />
+            ) : (
+              <BusinessCanvasGrid canvasDiagnosis={canvasDiagnosis} />
+            )}
+          </>
         ) : (
           <div className="card-inset">
             <p className="section-label">画布诊断</p>
@@ -127,6 +163,9 @@ export default function CanvasPage({
           </div>
         </section>
       </div>
+
+      {/* Sync feedback panel — always visible */}
+      <SyncFeedbackPanel assessmentId={assessmentId} />
     </main>
   );
 }

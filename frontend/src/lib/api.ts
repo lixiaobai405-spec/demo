@@ -259,6 +259,27 @@ export function generateAssessmentCanvas(
   );
 }
 
+export type UpdateCanvasPayload = {
+  overall_summary: string;
+  blocks: {
+    key: string;
+    title: string;
+    current_state: string;
+    diagnosis: string;
+    ai_opportunity: string;
+  }[];
+};
+
+export function updateAssessmentCanvas(
+  assessmentId: string,
+  payload: UpdateCanvasPayload,
+): Promise<AssessmentCanvasResponse> {
+  return request<AssessmentCanvasResponse>(
+    `/api/assessments/${assessmentId}/canvas`,
+    { method: "PUT", body: JSON.stringify(payload) },
+  );
+}
+
 export function generateScenarioRecommendations(
   assessmentId: string,
 ): Promise<AssessmentScenarioRecommendationResponse> {

@@ -4,7 +4,7 @@ import threading
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -314,6 +314,75 @@ def generate_canvas(
         canvas_result=canvas_result,
         generation_mode=generation_mode,
     )
+
+    return AssessmentCanvasResponse(
+        assessment=AssessmentResponse.model_validate(assessment, from_attributes=True),
+        canvas_diagnosis=stored_canvas,
+    )
+
+
+class UpdateCanvasBlockRequest(BaseModel):
+    key: str
+    title: str
+    current_state: str
+    diagnosis: str
+    ai_opportunity: str
+
+
+class UpdateCanvasRequest(BaseModel):
+    overall_summary: str
+    blocks: list[UpdateCanvasBlockRequest]
+
+
+@router.put(
+    "/{assessment_id}/canvas",
+    response_model=AssessmentCanvasResponse,
+    status_code=status.HTTP_200_OK,
+)
+def update_canvas(
+    assessment_id: str,
+    payload: UpdateCanvasRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> AssessmentCanvasResponse:
+    """手动更新画布诊断内容，并清除下游数据以便基于新画布重新生成。"""
+    from app.models.breakthrough_selection import BreakthroughSelection
+    from app.models.direction_expansion import DirectionExpansion
+    from app.models.scenario_recommendation import ScenarioRecommendation
+
+    assessment = _get_assessment_or_404(db, assessment_id)
+
+    # Build updated canvas result from payload
+    canvas_blocks = [
+        CanvasBlockResult(
+            key=b.key,
+            title=b.title,
+            current_state=b.current_state,
+            diagnosis=b.diagnosis,
+            ai_opportunity=b.ai_opportunity,
+            missing_information="",
+        )
+        for b in payload.blocks
+    ]
+    canvas_result = BusinessModelCanvasResult(
+        overall_summary=payload.overall_summary,
+        blocks=canvas_blocks,
+    )
+    stored_canvas = _upsert_canvas_diagnosis(
+        db=db,
+        assessment_id=assessment.id,
+        canvas_result=canvas_result,
+        generation_mode="manual_edit",
+    )
+
+    # Clear downstream — breakthrough, directions, scenarios
+    for model_cls in [BreakthroughSelection, DirectionExpansion, ScenarioRecommendation]:
+        record = db.scalar(
+            select(model_cls).where(model_cls.assessment_id == assessment_id)
+        )
+        if record is not None:
+            db.delete(record)
+    db.commit()
 
     return AssessmentCanvasResponse(
         assessment=AssessmentResponse.model_validate(assessment, from_attributes=True),
