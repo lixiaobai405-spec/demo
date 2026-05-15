@@ -9,6 +9,18 @@ const nextConfig = {
         source: "/api/:path*",
         destination: "http://localhost:8000/api/:path*",
       },
+      {
+        source: "/health",
+        destination: "http://localhost:8000/health",
+      },
+      {
+        source: "/docs",
+        destination: "http://localhost:8000/docs",
+      },
+      {
+        source: "/openapi.json",
+        destination: "http://localhost:8000/openapi.json",
+      },
     ];
   },
 };
