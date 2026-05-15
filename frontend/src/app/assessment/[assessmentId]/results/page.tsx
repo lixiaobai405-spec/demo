@@ -5,6 +5,7 @@ import {
   getCompetitiveness,
   getEndgame,
 } from "@/lib/api";
+import { BusinessCanvasGrid } from "@/components/business-canvas-grid";
 import { CompetitivenessPanel } from "@/components/competitiveness-panel";
 import { EndgamePanel } from "@/components/endgame-panel";
 import { ScenarioRecommendationsPanel } from "@/components/scenario-recommendations-panel";
@@ -107,32 +108,14 @@ export default async function ResultsPage({
           <>
             {/* 1. 点：商业画布 */}
             {detailData?.canvas_diagnosis && (
-              <section className="card">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <p className="section-label">点 · 商业画布</p>
-                    <h2 className="section-heading">商业画布 9 格诊断</h2>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="badge badge-success">
-                      评分 {detailData.canvas_diagnosis.overall_score}
-                    </span>
-                    <Link
-                      href={`/assessment/${assessmentId}/canvas`}
-                      className="btn-secondary text-xs"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      查看完整画布 →
-                    </Link>
-                  </div>
+              <section>
+                <div className="mb-2">
+                  <p className="section-label">点 · 商业画布</p>
                 </div>
-                <p className="mt-4 text-sm leading-7 text-warm-secondary">
-                  {detailData.canvas_diagnosis.canvas.overall_summary}
-                </p>
+                <BusinessCanvasGrid canvasDiagnosis={detailData.canvas_diagnosis} />
                 {/* Scene recommendations embedded within canvas context */}
                 {scenarioRecommendation && detailData?.assessment && (
-                  <div className="mt-6 border-t border-warm-border-light pt-6">
+                  <div className="mt-6 card">
                     <ScenarioRecommendationsPanel
                       assessmentId={assessmentId}
                       readyForReport={readyForReport}
