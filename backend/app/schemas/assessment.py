@@ -112,7 +112,7 @@ class BusinessModelCanvasResult(BaseModel):
 
 
 class CanvasDiagnosisResult(BaseModel):
-    generation_mode: Literal["mock", "live"]
+    generation_mode: Literal["mock", "live", "manual_edit"]
     overall_score: int
     weakest_blocks: list[str] = Field(default_factory=list)
     recommended_focus: list[str] = Field(default_factory=list)

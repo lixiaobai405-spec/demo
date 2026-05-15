@@ -81,7 +81,7 @@ export type BusinessModelCanvasResult = {
 };
 
 export type CanvasDiagnosisResult = {
-  generation_mode: "mock" | "live";
+  generation_mode: "mock" | "live" | "manual_edit";
   overall_score: number;
   weakest_blocks: string[];
   recommended_focus: string[];

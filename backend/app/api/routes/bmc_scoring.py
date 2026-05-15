@@ -160,12 +160,15 @@ def save_bmc_scoring(
         selection_mode=payload.selection_mode,
     )
 
-    # 清除下游方向延展，确保基于新突破要素重新生成
-    dir_record = db.scalar(
-        select(DirectionExpansion).where(DirectionExpansion.assessment_id == assessment_id)
-    )
-    if dir_record is not None:
-        db.delete(dir_record)
+    # 清除下游：方向延展 + 方向选择 + 场景推荐
+    from app.models.direction_selection import DirectionSelection
+    from app.models.scenario_recommendation import ScenarioRecommendation
+    for model_cls in [DirectionExpansion, DirectionSelection, ScenarioRecommendation]:
+        downstream = db.scalar(
+            select(model_cls).where(model_cls.assessment_id == assessment_id)
+        )
+        if downstream is not None:
+            db.delete(downstream)
 
     db.commit()
     db.refresh(record)

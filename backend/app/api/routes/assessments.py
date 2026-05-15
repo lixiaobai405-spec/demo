@@ -31,6 +31,7 @@ from app.schemas.assessment import (
     AssessmentResponse,
     AssessmentScenarioRecommendationResponse,
     BusinessModelCanvasResult,
+    CanvasBlockResult,
     CanvasDiagnosisResult,
     CaseMatchItem,
     CaseRecommendationResult,
@@ -375,8 +376,9 @@ def update_canvas(
         generation_mode="manual_edit",
     )
 
-    # Clear downstream — breakthrough, directions, scenarios
-    for model_cls in [BreakthroughSelection, DirectionExpansion, ScenarioRecommendation]:
+    # Clear downstream — breakthrough, directions, direction selection, scenarios
+    from app.models.direction_selection import DirectionSelection as _DS
+    for model_cls in [BreakthroughSelection, DirectionExpansion, _DS, ScenarioRecommendation]:
         record = db.scalar(
             select(model_cls).where(model_cls.assessment_id == assessment_id)
         )
@@ -450,8 +452,9 @@ def select_breakthrough(
 
     # 清除下游：突破要素是分支结点，改变后方向、场景等需重新生成
     from app.models.direction_expansion import DirectionExpansion
+    from app.models.direction_selection import DirectionSelection
     from app.models.scenario_recommendation import ScenarioRecommendation
-    for model_cls in [DirectionExpansion, ScenarioRecommendation]:
+    for model_cls in [DirectionExpansion, DirectionSelection, ScenarioRecommendation]:
         downstream = db.scalar(
             select(model_cls).where(model_cls.assessment_id == assessment_id)
         )
