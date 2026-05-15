@@ -24,9 +24,23 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
+vi.mock("@/hooks/use-toast", () => ({
+  toast: vi.fn(),
+}));
+
+vi.mock("@/hooks/use-competitiveness", () => ({
+  useCompetitiveness: (...args: unknown[]) => useCompetitivenessMock(...args),
+  useGenerateCompetitiveness: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
 vi.mock("@/hooks", () => ({
   useAssessmentDetail: (...args: unknown[]) => useAssessmentDetailMock(...args),
   useCompetitiveness: (...args: unknown[]) => useCompetitivenessMock(...args),
+  useGenerateCompetitiveness: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 /**

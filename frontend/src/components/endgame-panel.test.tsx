@@ -15,6 +15,7 @@ describe("EndgamePanel", () => {
         data={{
           assessment_id: "assessment-1",
           result: {
+            industry_essence: "行业的本质是核心业务流程的效率与客户价值创造。",
             generation_mode: "rule_based",
             private_domain: {
               current_state: "私域基础薄弱",
@@ -120,6 +121,8 @@ describe("EndgamePanel", () => {
                 strategic_narrative: "围绕客户关系深化形成系统性能力。",
                 competitive_impact: "提高复购与留存",
                 key_metrics: ["复购率"],
+                linkage_logic: "通过AI将客户分层的数据和流程打通。",
+                competitive_moat: "构建基于数据的系统性优势。",
               },
             ],
             advantages: [

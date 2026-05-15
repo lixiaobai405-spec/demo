@@ -1,9 +1,14 @@
 "use client";
 
 import React from "react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { ScenarioRecommendationResult } from "@/lib/types";
+import { useGenerateCompetitiveness } from "@/hooks/use-competitiveness";
+import { toast } from "@/hooks/use-toast";
+import { formatMutationError } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 
 /**
  * 渲染 AI 场景推荐列表，以关键字段卡片形式展示。
@@ -14,6 +19,22 @@ export function ScenarioRecommendationsPanel({
   assessmentId: string; readyForReport: boolean; scenarioRecommendation: ScenarioRecommendationResult;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const router = useRouter();
+  const generateCompetitiveness = useGenerateCompetitiveness();
+
+  const handleGenerateCompetitiveness = useCallback(async () => {
+    try {
+      await generateCompetitiveness.mutateAsync(assessmentId);
+      toast({ title: "差异化竞争力分析已生成" });
+      router.push(`/assessment/${assessmentId}/competitiveness`);
+    } catch (e) {
+      toast({
+        title: "生成失败",
+        description: formatMutationError(e, "差异化竞争力分析"),
+        variant: "destructive",
+      });
+    }
+  }, [assessmentId, generateCompetitiveness, router]);
 
   return (
     <div className="card-inset">
@@ -31,7 +52,13 @@ export function ScenarioRecommendationsPanel({
 
       {readyForReport ? (
         <div className="mt-6 flex flex-wrap gap-3">
-          <Link href={`/report/${assessmentId}`} className="btn-primary" target="_blank" rel="noopener noreferrer">进入报告生成</Link>
+          <Button
+            onClick={handleGenerateCompetitiveness}
+            disabled={generateCompetitiveness.isPending}
+            loading={generateCompetitiveness.isPending}
+          >
+            {generateCompetitiveness.isPending ? "正在生成..." : "生成差异化竞争力 →"}
+          </Button>
         </div>
       ) : null}
 

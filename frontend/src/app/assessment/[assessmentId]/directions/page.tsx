@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 
-import { useAssessmentDetail } from "@/hooks";
+import { useAssessmentDetail, useGenerateScenarios } from "@/hooks";
 import { getDirections, expandDirections, formatMutationError } from "@/lib/api";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -225,32 +225,53 @@ export default function DirectionsPage({
         )}
 
         {/* Next step */}
-        {directionData && (
-          <section className="card">
-            <p className="section-label">下一步</p>
-            <h2 className="section-heading">Top 3 AI 场景推荐</h2>
-            <p className="mt-2 text-sm leading-7 text-muted-foreground">
-              基于创新方向延展结果，系统自动推荐 Top 3 AI 应用场景，
-              评估落地可行性和业务价值。
-            </p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <Button
-                onClick={() =>
-                  router.push(`/assessment/${assessmentId}`)
-                }
-              >
-                返回工作台继续 →
-              </Button>
-              <Link
-                href={`/assessment/${assessmentId}/results`}
-                className={buttonVariants({ variant: "outline" })}
-              >
-                查看结果仪表盘
-              </Link>
-            </div>
-          </section>
-        )}
+        {directionData && <DirectionsNextStep assessmentId={assessmentId} />}
       </div>
     </main>
+  );
+}
+
+function DirectionsNextStep({ assessmentId }: { assessmentId: string }) {
+  const router = useRouter();
+  const generateScenarios = useGenerateScenarios();
+
+  const handleGenerateScenarios = useCallback(async () => {
+    try {
+      await generateScenarios.mutateAsync(assessmentId);
+      toast({ title: "AI 场景推荐已生成" });
+      router.push(`/assessment/${assessmentId}/results`);
+    } catch (e) {
+      toast({
+        title: "生成失败",
+        description: formatMutationError(e, "AI 场景推荐生成"),
+        variant: "destructive",
+      });
+    }
+  }, [assessmentId, generateScenarios, router]);
+
+  return (
+    <section className="card">
+      <p className="section-label">下一步</p>
+      <h2 className="section-heading">Top 3 AI 场景推荐</h2>
+      <p className="mt-2 text-sm leading-7 text-muted-foreground">
+        基于创新方向延展结果，系统自动推荐 Top 3 AI 应用场景，
+        评估落地可行性和业务价值。
+      </p>
+      <div className="mt-4 flex flex-wrap gap-3">
+        <Button
+          onClick={handleGenerateScenarios}
+          disabled={generateScenarios.isPending}
+          loading={generateScenarios.isPending}
+        >
+          {generateScenarios.isPending ? "正在生成..." : "生成 Top 3 AI 场景推荐 →"}
+        </Button>
+        <Link
+          href={`/assessment/${assessmentId}/results`}
+          className={buttonVariants({ variant: "outline" })}
+        >
+          查看结果仪表盘
+        </Link>
+      </div>
+    </section>
   );
 }

@@ -414,6 +414,8 @@ export type PointToLineConnection = {
   strategic_narrative: string;
   competitive_impact: string;
   key_metrics: string[];
+  linkage_logic: string;
+  competitive_moat: string;
 };
 
 export type CoreAdvantage = {
@@ -539,6 +541,7 @@ export type StrategicPath = {
 
 export type EndgameResult = {
   generation_mode: "rule_based" | "llm";
+  industry_essence: string;
   private_domain: PrivateDomainDesign;
   ecosystem: EcosystemDesign;
   opc: OPCDesign;

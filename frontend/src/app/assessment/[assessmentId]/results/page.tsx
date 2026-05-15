@@ -9,6 +9,7 @@ import { BusinessCanvasGrid } from "@/components/business-canvas-grid";
 import { CompetitivenessPanel } from "@/components/competitiveness-panel";
 import { EndgamePanel } from "@/components/endgame-panel";
 import { ScenarioRecommendationsPanel } from "@/components/scenario-recommendations-panel";
+import { ReportExportActions } from "./report-export-actions";
 
 export default async function ResultsPage({
   params,
@@ -77,14 +78,7 @@ export default async function ResultsPage({
             ) : null}
             {readyForReport && detailData ? (
               <div className="mt-4 flex flex-wrap gap-3">
-                <Link
-                  href={`/report/${assessmentId}`}
-                  className="btn-primary"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  进入报告生成
-                </Link>
+                <ReportExportActions assessmentId={assessmentId} />
               </div>
             ) : null}
           </div>

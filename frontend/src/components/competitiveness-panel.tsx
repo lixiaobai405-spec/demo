@@ -69,7 +69,18 @@ export function CompetitivenessPanel({ data }: { data: CompetitivenessResponse }
                 <span className="badge badge-muted text-xs">{conn.point_titles.length} 个方向</span>
               </div>
               <p className="mt-3 text-sm leading-7 text-warm-secondary">{conn.strategic_narrative}</p>
-              <p className="mt-2 text-xs text-warm-accent">竞争影响：{conn.competitive_impact}</p>
+              {conn.linkage_logic && (
+                <div className="mt-3 rounded-lg bg-warm-accent/5 p-3">
+                  <p className="text-[10px] uppercase text-warm-accent">联动逻辑</p>
+                  <p className="mt-1 text-xs leading-5 text-warm-secondary">{conn.linkage_logic}</p>
+                </div>
+              )}
+              {conn.competitive_moat && (
+                <div className="mt-2 rounded-lg bg-warm-success/5 p-3">
+                  <p className="text-[10px] uppercase text-warm-success">竞争壁垒</p>
+                  <p className="mt-1 text-xs leading-5 text-warm-secondary">{conn.competitive_moat}</p>
+                </div>
+              )}
               {conn.point_titles.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {conn.point_titles.map((title) => <span key={title} className="badge badge-muted text-xs">{title}</span>)}

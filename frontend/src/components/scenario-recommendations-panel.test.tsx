@@ -1,8 +1,20 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { ScenarioRecommendationsPanel } from "@/components/scenario-recommendations-panel";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
+vi.mock("@/hooks/use-competitiveness", () => ({
+  useGenerateCompetitiveness: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
+vi.mock("@/hooks/use-toast", () => ({
+  toast: vi.fn(),
+}));
 
 describe("ScenarioRecommendationsPanel", () => {
   /**

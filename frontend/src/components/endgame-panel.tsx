@@ -31,7 +31,7 @@ const recLevelColor = (level: string) => {
  */
 export function EndgamePanel({ data }: { data: EndgameResponse }) {
   const { result } = data;
-  const { private_domain, ecosystem, opc, three_stage_strategy, strategic_paths, overall_narrative } =
+  const { industry_essence, private_domain, ecosystem, opc, three_stage_strategy, strategic_paths, overall_narrative } =
     result;
 
   return (
@@ -43,6 +43,13 @@ export function EndgamePanel({ data }: { data: EndgameResponse }) {
         </div>
         <span className="badge badge-accent">私域 + 生态 + 数据</span>
       </div>
+
+      {industry_essence ? (
+        <div className="mt-6 rounded-xl border-l-4 border-warm-accent bg-warm-accent/5 p-5">
+          <p className="text-xs tracking-[0.14em] text-warm-accent">第一性原理</p>
+          <p className="mt-2 text-sm leading-6 text-warm-text">{industry_essence}</p>
+        </div>
+      ) : null}
 
       <div className="mt-6 rounded-xl border border-warm-accent/15 bg-warm-accent/5 p-6">
         <p className="text-xs tracking-[0.14em] text-warm-muted">总体判断</p>
