@@ -717,12 +717,10 @@ class LLMReportWriter:
             {
                 "name": item.name,
                 "category": item.category,
-                "score": item.score,
                 "summary": item.summary,
-                "reasons": list(item.reasons) if item.reasons else [],
-                "data_requirements": list(item.data_requirements)
-                if item.data_requirements
-                else [],
+                "canvas_elements": item.canvas_elements,
+                "expected_effects": item.expected_effects,
+                "core_data_requirements": item.core_data_requirements,
             }
             for item in scenarios.top_scenarios
         ]

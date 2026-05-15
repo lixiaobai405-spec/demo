@@ -189,10 +189,13 @@ class TestFullChainE2E:
         assert sc_body["scoring_method"] == "rule_based_v1"
         assert len(sc_body["top_scenarios"]) == 3
         print(f"✅ Step 10 场景推荐 → Top 3: {[s['name'] for s in sc_body['top_scenarios']]}")
-        # verify direction category matching appears in reasons
-        has_direction_reason = any("创新方向" in r for s in sc_body["top_scenarios"] for r in s.get("reasons", []))
-        if has_direction_reason:
-            print("   → 方向加权生效：推荐理由包含创新方向匹配")
+        # verify new-style scenario fields are present
+        has_expected = all(
+            all(k in s for k in ("canvas_elements", "expected_effects", "core_data_requirements"))
+            for s in sc_body["top_scenarios"]
+        )
+        if has_expected:
+            print("   → 新格式生效：场景包含画布要素/预期效果/核心数据需求")
 
         # ── Step 11: 商业终局分析 ──
         resp = client.post(f"/api/assessments/{assessment_id}/endgame/generate")

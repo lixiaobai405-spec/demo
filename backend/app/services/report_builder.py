@@ -241,14 +241,14 @@ class ReportBuilder:
         scenario_recommendation: ScenarioRecommendationResult,
     ) -> ReportSectionData:
         table = ReportTableData(
-            columns=["推荐场景", "类别", "评分", "推荐理由", "数据需求"],
+            columns=["推荐场景", "类别", "对应画布要素", "预期效果", "核心数据需求"],
             rows=[
                 [
                     item.name,
                     item.category,
-                    str(item.score),
-                    self._join_or_todo(item.reasons),
-                    self._join_or_todo(item.data_requirements),
+                    item.canvas_elements,
+                    item.expected_effects,
+                    item.core_data_requirements,
                 ]
                 for item in scenario_recommendation.top_scenarios
             ],
@@ -279,10 +279,10 @@ class ReportBuilder:
                     title=item.name,
                     subtitle=item.category,
                     content=item.summary,
-                    highlight=f"优先级评分：{item.score}",
+                    highlight=f"对应画布要素：{item.canvas_elements}" if item.canvas_elements else None,
                     bullets=[
-                        f"推荐理由：{self._join_or_todo(item.reasons)}",
-                        f"数据需求：{self._join_or_todo(item.data_requirements)}",
+                        f"预期效果：{item.expected_effects}" if item.expected_effects else None,
+                        f"核心数据需求：{item.core_data_requirements}" if item.core_data_requirements else None,
                         "试点建议：先定义成功标准、责任人、验收频次和异常兜底机制。",
                     ],
                 )
@@ -463,7 +463,7 @@ class ReportBuilder:
         if scenario_recommendation.top_scenarios:
             top_scenario = scenario_recommendation.top_scenarios[0]
             bullets.append(
-                f"首选场景“{top_scenario.name}”依赖的数据基础包括 {self._join_or_todo(top_scenario.data_requirements)}。"
+                "首选场景「" + top_scenario.name + "」核心数据需求：" + (top_scenario.core_data_requirements or "待补充") + "。"
             )
 
         return ReportSectionData(

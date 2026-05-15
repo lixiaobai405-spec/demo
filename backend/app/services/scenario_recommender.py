@@ -42,20 +42,49 @@ class ScenarioRecommender:
         direction_categories: list[str] | None = None,
     ) -> tuple[list[ScenarioRecommendationItem], int]:
         library = load_scenario_library()
-        recommendations = [
-            self._score_scenario(definition, assessment, profile, direction_categories)
+        scored = [
+            (self._calc_score(definition, assessment, profile, direction_categories), definition)
             for definition in library.scenarios
         ]
-        recommendations.sort(key=lambda item: (-item.score, item.name))
-        return recommendations[:3], len(recommendations)
+        scored.sort(key=lambda x: (-x[0], x[1].name))
+        top_items = [
+            self._build_item(definition, assessment, profile, direction_categories)
+            for _, definition in scored[:3]
+        ]
+        return top_items, len(scored)
 
-    def _score_scenario(
+    def _build_item(
         self,
         definition: ScenarioDefinition,
         assessment: Assessment,
         profile: CompanyProfileResult | None,
         direction_categories: list[str] | None = None,
     ) -> ScenarioRecommendationItem:
+        return ScenarioRecommendationItem(
+            scenario_id=definition.id,
+            name=definition.name,
+            category=definition.category,
+            summary=definition.summary,
+            canvas_elements="、".join(definition.canvas_keywords[:3]) if definition.canvas_keywords else "",
+            expected_effects=(
+                f"通过{definition.name}，预期可{'、'.join(definition.goal_keywords[:3])}"
+                if definition.goal_keywords
+                else f"通过{definition.name}提升业务效率与竞争力"
+            ),
+            core_data_requirements=(
+                definition.data_requirements[0]
+                if definition.data_requirements
+                else ""
+            ),
+        )
+
+    def _calc_score(
+        self,
+        definition: ScenarioDefinition,
+        assessment: Assessment,
+        profile: CompanyProfileResult | None,
+        direction_categories: list[str] | None = None,
+    ) -> int:
         industry_text = self._normalize_text(assessment.industry)
         challenge_text = self._normalize_text(
             " ".join(
@@ -137,33 +166,7 @@ class ScenarioRecommender:
                     break
 
         final_score = max(0, min(100, score))
-
-        reasons = []
-        if industry_matches:
-            reasons.append(f"适配当前行业特征：{'、'.join(industry_matches[:3])}")
-        if challenge_matches:
-            reasons.append(f"直接响应当前挑战：{'、'.join(challenge_matches[:3])}")
-        if goal_matches:
-            reasons.append(f"与当前 AI 目标一致：{'、'.join(goal_matches[:3])}")
-        if data_matches:
-            reasons.append(f"现有数据基础可支持试点：{'、'.join(data_matches[:3])}")
-        if direction_categories:
-            matched_categories = [c for c in direction_categories if c in definition.category or definition.category in c]
-            if matched_categories:
-                reasons.append(f"与选定创新方向高度匹配：{'、'.join(matched_categories[:2])}")
-
-        if not reasons:
-            reasons.append("该场景具备一定通用价值，但仍需补充更多业务上下文后再优先推进。")
-
-        return ScenarioRecommendationItem(
-            scenario_id=definition.id,
-            name=definition.name,
-            category=definition.category,
-            summary=definition.summary,
-            score=final_score,
-            reasons=reasons[:4],
-            data_requirements=definition.data_requirements,
-        )
+        return final_score
 
     def _find_matches(self, source_text: str, keywords: list[str]) -> list[str]:
         matches: list[str] = []

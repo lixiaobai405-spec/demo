@@ -115,6 +115,9 @@ def test_endgame_analyzer_moves_three_stage_strategy_into_endgame_result() -> No
     assert result.three_stage_strategy.stage_1.title == "阶段 1"
     assert result.three_stage_strategy.stage_1.focus == "快速验证"
     assert result.three_stage_strategy.stage_1.objective == "先用单一门店试点验证客户分层与触达闭环。"
+    assert len(result.three_stage_strategy.stage_1.key_actions) > 0
+    assert len(result.three_stage_strategy.stage_1.key_risks) > 0
+    assert len(result.three_stage_strategy.stage_1.strategy) > 0
     assert result.three_stage_strategy.stage_2.objective == "将试点扩展到区域门店，并建立统一运营机制。"
     assert result.three_stage_strategy.stage_3.objective == "把沉淀下来的运营机制平台化为长期壁垒。"
     assert result.three_stage_strategy.key_risks == ["跨团队协同不足"]

@@ -131,9 +131,9 @@ class ScenarioRecommendationItem(BaseModel):
     name: str
     category: str
     summary: str
-    score: int = Field(ge=0, le=100)
-    reasons: list[str] = Field(default_factory=list)
-    data_requirements: list[str] = Field(default_factory=list)
+    canvas_elements: str = ""
+    expected_effects: str = ""
+    core_data_requirements: str = ""
 
 
 class ScenarioRecommendationResult(BaseModel):

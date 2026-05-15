@@ -28,7 +28,10 @@ class OPCDesign(BaseModel):
 class ThreeStageStrategyStage(BaseModel):
     title: str
     focus: str
+    strategy: str = ""
     objective: str
+    key_actions: list[str] = Field(default_factory=list)
+    key_risks: list[str] = Field(default_factory=list)
 
 
 class ThreeStageStrategy(BaseModel):

@@ -160,7 +160,7 @@ class ReportEnrichmentService:
         parts.append(f"薄弱模块: {', '.join(canvas.weakest_blocks)}")
         parts.append("")
         for s in scenarios.top_scenarios:
-            parts.append(f"推荐场景: {s.name}（{s.category}, 评分{s.score}）- {s.summary[:100]}")
+            parts.append(f"推荐场景: {s.name}（{s.category}）- {s.summary[:100]}")
         parts.append("")
         if breakthrough_keys:
             from app.schemas.breakthrough import ELEMENT_KEY_TO_TITLE
