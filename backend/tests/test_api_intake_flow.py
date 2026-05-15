@@ -466,3 +466,101 @@ def test_assessment_detail_claims_legacy_ownerless_intake_assessment(
         assert session is not None
         assert assessment.user_id is not None
         assert session.user_id == assessment.user_id
+
+
+class TestIntakeFieldMatching:
+    """Unit tests for field extraction matching logic."""
+
+    @staticmethod
+    def _svc() -> IntakeService:
+        return IntakeService()
+
+    @pytest.mark.parametrize(
+        "label_variant",
+        [
+            "希望通过AI达成的目标",          # no space — the reported bug
+            "希望通过 AI 达成的目标",         # with space
+            "希望通过  AI  达成的  目标",     # extra spaces
+            "希望通过AI达成的目标：",         # trailing colon
+        ],
+    )
+    def test_ai_goals_label_matches_regardless_of_whitespace(self, label_variant: str) -> None:
+        """FIELD_LABELS whitespace should not affect matching."""
+        svc = self._svc()
+        from app.services.intake_service import FIELD_LABELS
+        labels = FIELD_LABELS["ai_goals"]
+        assert svc._looks_like_field_header(label_variant, labels), (
+            f"'{label_variant}' should be recognised as ai_goals header"
+        )
+
+    def test_ai_goals_markdown_heading_block_without_label_spaces(self) -> None:
+        """https://github.com/... — '希望通过AI达成的目标' in a markdown block
+        should still be matched even when the label definition uses spaces."""
+        svc = self._svc()
+        md = """## 希望通过AI达成的目标
+
+我们希望通过AI实现以下目标：
+1. 降低运营成本30%
+2. 提高产品质量合格率
+3. 实现智能排产和供应链优化
+
+## 当前经营/管理挑战
+
+生产计划依赖人工经验，经常出现排产不合理的情况。"""
+        result = svc._extract_direct_field_value(md, "ai_goals")
+        assert result is not None, "ai_goals should be extracted"
+        assert "降低运营成本" in result
+        assert "供应链优化" in result
+
+    def test_infer_from_raw_content_collects_multi_paragraph_block(self) -> None:
+        """_infer_from_raw_content should return a multi-line block, not just one line."""
+        svc = self._svc()
+        text = """我们面临很多挑战，希望通过AI来提升效率。
+
+具体来说，我们希望AI能帮我们实现降本增效的目标，包括自动化客服、
+智能推荐、以及数据分析。这些是我们未来三年的核心战略方向。
+
+另外还需要考虑数据安全。"""
+        result = svc._infer_from_raw_content(text, "ai_goals")
+        assert result is not None
+        lines = result.split("\n")
+        assert len(lines) >= 3, f"Expected multi-line block, got {len(lines)} line(s): {result!r}"
+
+    def test_inline_field_value_without_label_spaces(self) -> None:
+        """Inline '希望通过AI达成的目标：xxx' (no label spaces) should extract value."""
+        svc = self._svc()
+        from app.services.intake_service import FIELD_LABELS
+        labels = FIELD_LABELS["ai_goals"]
+        value = svc._extract_inline_field_value(
+            "希望通过AI达成的目标：降本增效，提升运营效率",
+            labels,
+        )
+        assert value == "降本增效，提升运营效率"
+
+    def test_docx_upload_with_no_space_ai_goals_label(self, client: TestClient) -> None:
+        """File upload where the docx has '希望通过AI达成的目标' (no spaces)."""
+        buffer = BytesIO()
+        document = Document()
+        document.add_paragraph("企业名称：上传测试企业")
+        document.add_paragraph("所属行业：制造")
+        document.add_paragraph("希望通过AI达成的目标：提升设备维护效率，降低停机时间")
+        document.save(buffer)
+        buffer.seek(0)
+
+        response = client.post(
+            "/api/intake/import/file",
+            files={
+                "file": (
+                    "intake.docx",
+                    buffer.getvalue(),
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            },
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        ai_goals_value = body["assessment_prefill"]["ai_goals"]
+        assert ai_goals_value is not None, f"ai_goals should be extracted, got: {body['assessment_prefill']}"
+        assert "设备维护" in ai_goals_value
+        assert "停机" in ai_goals_value

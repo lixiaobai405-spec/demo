@@ -428,8 +428,14 @@ class IntakeService:
         # Step 4: LLM extraction — only if regex coverage is insufficient
         #  Skips the expensive LLM call when the document is already
         #  well-structured (e.g. markdown with explicit field labels).
+        #  Also fires when key narrative fields (ai_goals, current_challenges)
+        #  are still missing — regex alone often misses prose descriptions.
         regex_count = len(candidates)
-        if regex_count < 6 and raw_content.strip():
+        key_fields_missing = any(
+            field_name not in candidates
+            for field_name in ("ai_goals", "current_challenges", "available_data")
+        )
+        if (regex_count < 6 or key_fields_missing) and raw_content.strip():
             llm_extracted = self._try_llm_extraction(raw_content)
             for field_name in ASSESSMENT_FIELD_NAMES:
                 if field_name in candidates:
@@ -537,8 +543,8 @@ class IntakeService:
         for index, cleaned in enumerate(lines):
             if not cleaned:
                 continue
-            lowered = cleaned.lower()
-            hits = sum(1 for label in labels if label.lower() in lowered)
+            collapsed_cleaned = self._collapse_ws(cleaned)
+            hits = sum(1 for label in labels if self._collapse_ws(label) in collapsed_cleaned)
             if hits == 0:
                 continue
 
@@ -567,14 +573,42 @@ class IntakeService:
 
         lines = [self._normalize_intake_line(line) for line in raw_content.splitlines()]
         keywords = INFERENCE_RULES[field_name]
-        for line in lines:
+        collapsed_keywords = [self._collapse_ws(kw) for kw in keywords]
+
+        # Find the first line that matches any keyword
+        start_idx = None
+        for idx, line in enumerate(lines):
             normalized_line = line.strip()
             if not normalized_line:
                 continue
-            lowered = normalized_line.lower()
-            if any(keyword in lowered for keyword in keywords):
-                return normalized_line
-        return None
+            collapsed_line = self._collapse_ws(normalized_line)
+            if any(kw in collapsed_line for kw in collapsed_keywords):
+                start_idx = idx
+                break
+
+        if start_idx is None:
+            return None
+
+        # Collect a block: the matching line plus following lines until
+        # a field header — so multi-paragraph goals/challenges
+        # are captured in full.
+        collected: list[str] = [lines[start_idx]]
+        blank_run = 0
+        for line in lines[start_idx + 1:]:
+            if not line:
+                blank_run += 1
+                # Allow up to 1 blank line between paragraphs; more than
+                # that likely signals a topic change.
+                if blank_run > 1:
+                    break
+                continue
+            blank_run = 0
+            if self._looks_like_any_field_header(line):
+                break
+            collected.append(line)
+
+        value = "\n".join(collected).strip()
+        return value or None
 
     def _collect_unmapped_notes(
         self,
@@ -603,6 +637,15 @@ class IntakeService:
 
         return unmapped_notes[:10]
 
+    @staticmethod
+    def _collapse_ws(text: str) -> str:
+        """Collapse all whitespace for fuzzy comparison.
+
+        "希望通过 AI 达成的目标" and "希望通过AI达成的目标" both become
+        "希望通过ai达成的目标" after lower + whitespace strip.
+        """
+        return re.sub(r"\s+", "", text).lower()
+
     def _normalize_intake_line(self, line: str) -> str:
         return re.sub(r"^\s*(?:[-*+•]\s+|\d+[.)]\s+|#{1,6}\s+|>\s*)", "", line).strip()
 
@@ -612,8 +655,8 @@ class IntakeService:
             return None
 
         prefix, suffix = parts
-        normalized_prefix = prefix.strip().lower()
-        if not any(label.lower() in normalized_prefix for label in labels):
+        collapsed_prefix = self._collapse_ws(prefix)
+        if not any(self._collapse_ws(label) in collapsed_prefix for label in labels):
             return None
 
         value = suffix.strip()
@@ -624,8 +667,8 @@ class IntakeService:
         if not normalized_line:
             return False
 
-        lowered = normalized_line.lower()
-        if not any(label.lower() in lowered for label in labels):
+        collapsed_line = self._collapse_ws(normalized_line)
+        if not any(self._collapse_ws(label) in collapsed_line for label in labels):
             return False
 
         if re.search(r"[，。；;,.!?？]", normalized_line):
