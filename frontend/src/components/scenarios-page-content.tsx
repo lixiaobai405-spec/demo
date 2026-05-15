@@ -21,6 +21,22 @@ export function ScenariosPageContent({
   assessmentId: string;
 }) {
   const detailQuery = useAssessmentDetail(assessmentId);
+  const router = useRouter();
+  const generateCompetitiveness = useGenerateCompetitiveness();
+
+  const handleGenerateCompetitiveness = useCallback(async () => {
+    try {
+      await generateCompetitiveness.mutateAsync(assessmentId);
+      toast({ title: "差异化竞争力分析已生成" });
+      router.push(`/assessment/${assessmentId}/competitiveness`);
+    } catch (e) {
+      toast({
+        title: "生成失败",
+        description: formatMutationError(e, "差异化竞争力分析"),
+        variant: "destructive",
+      });
+    }
+  }, [assessmentId, generateCompetitiveness, router]);
 
   if (detailQuery.isLoading) {
     return (
@@ -56,23 +72,6 @@ export function ScenariosPageContent({
       </main>
     );
   }
-
-  const router = useRouter();
-  const generateCompetitiveness = useGenerateCompetitiveness();
-
-  const handleGenerateCompetitiveness = useCallback(async () => {
-    try {
-      await generateCompetitiveness.mutateAsync(assessmentId);
-      toast({ title: "差异化竞争力分析已生成" });
-      router.push(`/assessment/${assessmentId}/competitiveness`);
-    } catch (e) {
-      toast({
-        title: "生成失败",
-        description: formatMutationError(e, "差异化竞争力分析"),
-        variant: "destructive",
-      });
-    }
-  }, [assessmentId, generateCompetitiveness, router]);
 
   const detail = detailQuery.data;
   const companyName = detail.assessment.company_name;

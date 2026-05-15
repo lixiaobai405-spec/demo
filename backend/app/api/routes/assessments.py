@@ -448,6 +448,17 @@ def select_breakthrough(
         selected_elements=selected_elements,
     )
 
+    # 清除下游：突破要素是分支结点，改变后方向、场景等需重新生成
+    from app.models.direction_expansion import DirectionExpansion
+    from app.models.scenario_recommendation import ScenarioRecommendation
+    for model_cls in [DirectionExpansion, ScenarioRecommendation]:
+        downstream = db.scalar(
+            select(model_cls).where(model_cls.assessment_id == assessment_id)
+        )
+        if downstream is not None:
+            db.delete(downstream)
+    db.commit()
+
     return _build_breakthrough_selection_response(record)
 
 

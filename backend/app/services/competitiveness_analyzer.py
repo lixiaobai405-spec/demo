@@ -117,6 +117,7 @@ class CompetitivenessAnalyzer:
                 f"这不仅是单点提效，而是通过流程串联实现{template.get('impact', '整体能力升级')}。"
             )
             first_two = [d.title for d in line_directions[:2]]
+            pts_joined = "、".join(point_titles[:3])
             connections.append(
                 PointToLineConnection(
                     line_name=line_name,
@@ -126,12 +127,18 @@ class CompetitivenessAnalyzer:
                     competitive_impact=template.get("impact", "提升整体竞争优势"),
                     key_metrics=list(template.get("metrics", [])),
                     linkage_logic=(
-                        f"通过AI将{'、'.join(point_titles[:3])}等环节的数据和流程打通，"
-                        f"形成端到端的自动化决策闭环。"
+                        f"AI不再只是辅助工具，而是连接{pts_joined}的'神经中枢'——"
+                        f"实时汇聚各环节数据，驱动从感知、决策到执行的闭环。"
+                        f"例如，当{point_titles[0] if point_titles else '前端'}的异常信号被捕捉后，"
+                        f"系统自动联动{'、'.join(point_titles[1:3]) if len(point_titles) > 1 else '后端'}"
+                        f"进行调整，人工只需审核关键节点。"
                     ),
                     competitive_moat=(
-                        f"这种串联构建了基于数据和算法的系统性优势，"
-                        f"竞争对手难以通过单点模仿实现超越。"
+                        f"「{line_name}」不是单点工具的堆砌，而是将{pts_joined}"
+                        f"编织为一条AI驱动的智能流水线。这种串联一旦跑通，"
+                        f"数据和算法的飞轮效应会持续拉大与跟随者的差距——"
+                        f"每多跑一轮，模型就更精准、响应就更快、成本就更低，"
+                        f"形成'越用越强、越强越难追'的结构性壁垒。"
                     ),
                 )
             )
@@ -163,27 +170,33 @@ class CompetitivenessAnalyzer:
             title = ELEMENT_KEY_TO_TITLE.get(key, key)
             matching_dirs = [d for d in directions if d.element_key == key]
             if matching_dirs:
+                dir_titles = [d.title for d in matching_dirs[:3]]
+                joined = "、".join(dir_titles)
                 advantages.append(
                     CoreAdvantage(
                         advantage_name=f"差异化{title}优势",
                         source_elements=[title],
                         description=(
-                            f"围绕「{title}」这一突破要素，"
-                            f"通过{'、'.join([d.title for d in matching_dirs[:2]])}"
-                            f"等方向构建独特能力体系，在当前行业竞争格局中形成差异化壁垒。"
+                            f"以「{title}」为支点，通过AI将{joined}"
+                            f"等方向的数据采集、分析决策和执行反馈连为一体，"
+                            f"形成'数据驱动感知—算法辅助决策—自动化执行—效果回流优化'的闭环。"
+                            f"竞争对手若仅模仿其中单一环节，无法复制端到端的系统性效率提升。"
                         ),
                         barrier_level="高" if len(matching_dirs) >= 2 else "中",
                     )
                 )
 
         if directions:
+            breakthrough_titles = [ELEMENT_KEY_TO_TITLE.get(k, k) for k in breakthrough_keys]
             advantages.append(
                 CoreAdvantage(
                     advantage_name="系统性创新组合优势",
-                    source_elements=[ELEMENT_KEY_TO_TITLE.get(k, k) for k in breakthrough_keys],
+                    source_elements=breakthrough_titles,
                     description=(
-                        f"将{len(breakthrough_keys)}个突破要素与{len(directions)}个创新方向"
-                        f"组合为系统性竞争力方案，竞争对手难以单点复制。"
+                        f"将{'、'.join(breakthrough_titles[:3])}等突破要素通过"
+                        f"{len(directions)}个AI创新方向有机串联，构成'要素×方向'的矩阵化能力体系。"
+                        f"每一对组合都形成数据和算法的交叉强化，使护城河不是单点优势的叠加，"
+                        f"而是多维能力的乘数效应——竞争对手即使突破1-2个点，也难以同步攻克整个系统。"
                     ),
                     barrier_level="高",
                 )

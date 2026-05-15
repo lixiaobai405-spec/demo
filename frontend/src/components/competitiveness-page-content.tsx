@@ -25,6 +25,20 @@ export function CompetitivenessPageContent({
   const generateEndgame = useGenerateEndgame();
   const isLoading = detailQuery.isLoading || competitivenessQuery.isLoading;
 
+  const handleGenerateEndgame = useCallback(async () => {
+    try {
+      await generateEndgame.mutateAsync(assessmentId);
+      toast({ title: "商业终局设计已生成" });
+      router.push(`/assessment/${assessmentId}/endgame`);
+    } catch (e) {
+      toast({
+        title: "生成失败",
+        description: formatMutationError(e, "商业终局设计"),
+        variant: "destructive",
+      });
+    }
+  }, [assessmentId, generateEndgame, router]);
+
   if (isLoading) {
     return (
       <main className="min-h-screen px-6 py-10">
@@ -88,20 +102,6 @@ export function CompetitivenessPageContent({
   const companyName = detail.assessment.company_name;
   const industry = detail.assessment.industry;
   const competitiveness = competitivenessQuery.data;
-
-  const handleGenerateEndgame = useCallback(async () => {
-    try {
-      await generateEndgame.mutateAsync(assessmentId);
-      toast({ title: "商业终局设计已生成" });
-      router.push(`/assessment/${assessmentId}/endgame`);
-    } catch (e) {
-      toast({
-        title: "生成失败",
-        description: formatMutationError(e, "商业终局设计"),
-        variant: "destructive",
-      });
-    }
-  }, [assessmentId, generateEndgame, router]);
 
   return (
     <main className="min-h-screen px-6 py-10">
