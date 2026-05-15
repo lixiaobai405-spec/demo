@@ -25,12 +25,25 @@ class OPCDesign(BaseModel):
     data_flywheel_effect: str
 
 
+class ThreeStageStrategyStage(BaseModel):
+    title: str
+    focus: str
+    objective: str
+
+
+class ThreeStageStrategy(BaseModel):
+    stage_1: ThreeStageStrategyStage
+    stage_2: ThreeStageStrategyStage
+    stage_3: ThreeStageStrategyStage
+    key_risks: list[str] = Field(default_factory=list)
+
+
 class StrategicPath(BaseModel):
     path_name: str
     path_type: Literal["保守", "均衡", "激进"]
-    timeline: str
+    execution_rhythm: str
     key_milestones: list[str] = Field(default_factory=list)
-    required_investments: str
+    capability_requirements: str
     expected_outcomes: str
     major_risks: list[str] = Field(default_factory=list)
     recommendation_level: Literal["推荐", "可选", "不推荐"]
@@ -41,6 +54,7 @@ class EndgameResult(BaseModel):
     private_domain: PrivateDomainDesign
     ecosystem: EcosystemDesign
     opc: OPCDesign
+    three_stage_strategy: ThreeStageStrategy
     strategic_paths: list[StrategicPath] = Field(default_factory=list)
     overall_narrative: str
 

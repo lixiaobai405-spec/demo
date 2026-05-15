@@ -1,16 +1,24 @@
 "use client";
 
+import React from "react";
+
 import type { CompetitivenessResponse } from "@/lib/types";
 
+/**
+ * 根据壁垒等级返回对应的标签样式。
+ */
 const barrierColor = (level: string): string => {
   if (level === "高") return "badge badge-success";
   if (level === "中") return "badge badge-warning";
   return "badge badge-muted";
 };
 
+/**
+ * 展示差异化竞争力分析，并将三阶段推进策略的展示职责移交给商业终局页。
+ */
 export function CompetitivenessPanel({ data }: { data: CompetitivenessResponse }) {
   const { result } = data;
-  const { vp_reconstruction, connections, advantages, delivery_strategy, overall_narrative } = result;
+  const { vp_reconstruction, connections, advantages, overall_narrative } = result;
 
   return (
     <div className="card">
@@ -99,36 +107,6 @@ export function CompetitivenessPanel({ data }: { data: CompetitivenessResponse }
           ))}
         </div>
       </div>
-
-      <div className="mt-6 rounded-xl border border-warm-border-light bg-warm-inset p-6">
-        <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">三阶段推进策略</p>
-        <div className="mt-4 grid gap-4 lg:grid-cols-3">
-          <PhaseCard title="Phase 1 — 快速验证" content={delivery_strategy.phase_1_quick_win} />
-          <PhaseCard title="Phase 2 — 规模扩展" content={delivery_strategy.phase_2_scale} />
-          <PhaseCard title="Phase 3 — 壁垒构建" content={delivery_strategy.phase_3_moat} />
-        </div>
-        {delivery_strategy.key_risks.length > 0 && (
-          <div className="mt-4">
-            <p className="text-xs uppercase tracking-[0.14em] text-warm-danger">关键风险</p>
-            <ul className="mt-2 space-y-1.5">
-              {delivery_strategy.key_risks.map((risk) => (
-                <li key={risk} className="flex items-start gap-2 text-xs leading-5 text-warm-muted">
-                  <span className="mt-0.5 flex-shrink-0 text-warm-danger">⚠</span>{risk}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function PhaseCard({ title, content }: { title: string; content: string }) {
-  return (
-    <div className="rounded-xl border border-warm-border-light bg-warm-surface p-4">
-      <p className="text-xs font-semibold text-warm-accent">{title}</p>
-      <p className="mt-2 text-xs leading-5 text-warm-muted">{content}</p>
     </div>
   );
 }

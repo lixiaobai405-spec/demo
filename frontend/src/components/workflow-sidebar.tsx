@@ -1,26 +1,25 @@
 "use client";
 
+import React from "react";
+
 import { Button } from "@/components/ui/button";
+import type { AssessmentWorkflowKey, WorkflowDisplayState } from "@/lib/assessment-workflow-state";
 import type { AssessmentProgress, AssessmentResponse } from "@/lib/types";
 
 export type WorkflowModule = {
-  key:
-    | "profile"
-    | "canvas"
-    | "breakthrough"
-    | "directions"
-    | "scenarios"
-    | "competitiveness"
-    | "endgame"
-    | "cases";
+  key: AssessmentWorkflowKey;
   label: string;
   color: "accent" | "success" | "warn";
+  state: WorkflowDisplayState;
   disabled: boolean;
   loading: boolean;
   hasResult: boolean;
   onClick: () => void;
 };
 
+/**
+ * 渲染工作流状态与主要操作按钮，统一隐藏总分文案。
+ */
 export function WorkflowSidebar({
   assessment,
   progress,
@@ -69,7 +68,7 @@ export function WorkflowSidebar({
             status={progress.has_canvas ? "done" : progress.has_profile ? "current" : "pending"}
             description={
               canvasDiagnosis
-                ? `已生成画布诊断，总分：${canvasDiagnosis.overall_score ?? "-"}`
+                ? "已生成画布诊断，可查看薄弱模块与建议优先动作"
                 : "尚未生成商业画布。"
             }
           />
@@ -105,7 +104,7 @@ export function WorkflowSidebar({
 
       <div className="card">
         <p className="section-label">操作</p>
-        <h2 className="section-heading">生成与回看</h2>
+        <h2 className="section-heading">逐步生成</h2>
         <div className="mt-6 grid gap-3">
           {modules.map((module) => {
             const { key, ...actionProps } = module;
@@ -121,6 +120,9 @@ export function WorkflowSidebar({
   );
 }
 
+/**
+ * 渲染工作流中的单个状态步骤。
+ */
 function StepItem({
   title,
   description,
@@ -145,6 +147,9 @@ function StepItem({
   );
 }
 
+/**
+ * 渲染工作流操作按钮。
+ */
 function ActionBtn({
   onClick,
   disabled,
@@ -152,9 +157,18 @@ function ActionBtn({
   hasResult,
   label,
   color,
+  state,
 }: WorkflowModule) {
   const variant =
     color === "success" ? "success" : color === "warn" ? "default" : "default";
+  const actionLabel =
+    state === "pending-review"
+      ? `继续确认${label}`
+      : loading
+        ? `${label}生成中...`
+        : hasResult
+          ? `重新生成${label}`
+          : `生成${label}`;
 
   return (
     <Button
@@ -166,7 +180,7 @@ function ActionBtn({
       size="sm"
       className="w-full justify-start"
     >
-      {loading ? `${label}生成中...` : hasResult ? `重新生成${label}` : `生成${label}`}
+      {actionLabel}
     </Button>
   );
 }

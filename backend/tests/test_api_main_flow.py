@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import sys
@@ -44,6 +45,17 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
     app = create_app()
     with TestClient(app) as test_client:
+        register_response = test_client.post(
+            "/api/auth/register",
+            json={
+                "email": "mainflow@test.com",
+                "password": "test123456",
+                "display_name": "主流程测试用户",
+            },
+        )
+        assert register_response.status_code == 201
+        token = register_response.json()["access_token"]
+        test_client.headers.update({"Authorization": f"Bearer {token}"})
         yield test_client
 
     engine.dispose()
@@ -160,7 +172,7 @@ def test_main_flow_template_report_and_exports(
     context_body = context_response.json()
     assert context_body["assessment_id"] == assessment_id
     assert len(context_body["top_scenarios"]) == 3
-    assert len(context_body["report_outline"]) == 14
+    assert len(context_body["report_outline"]) == 13
     assert len(context_body["selected_breakthrough_elements"]) == 2
 
     report_response = client.post(f"/api/assessments/{assessment_id}/report?mode=template")
@@ -170,22 +182,20 @@ def test_main_flow_template_report_and_exports(
     assert report_body["generation_mode"] == "template"
     assert report_body["used_llm"] is False
     assert report_body["content_json"]["generated_with"] == "template"
-    assert len(report_body["sections"]) == 14
+    assert len(report_body["sections"]) == 13
 
     detail_response = client.get(f"/api/assessments/{assessment_id}")
     assert detail_response.status_code == 200
     detail_body = detail_response.json()
-    assert detail_body["progress"] == {
-        "has_profile": True,
-        "has_canvas": True,
-        "has_breakthrough": True,
-        "has_directions": False,
-        "has_competitiveness": False,
-        "has_scenarios": True,
-        "has_cases": True,
-        "has_report": True,
-        "ready_for_report": True,
-    }
+    assert detail_body["progress"]["has_profile"] is True
+    assert detail_body["progress"]["has_canvas"] is True
+    assert detail_body["progress"]["has_breakthrough"] is True
+    assert detail_body["progress"]["has_directions"] is False
+    assert detail_body["progress"]["has_competitiveness"] is False
+    assert detail_body["progress"]["has_scenarios"] is True
+    assert detail_body["progress"]["has_report"] is True
+    assert detail_body["progress"]["ready_for_report"] is True
+    assert detail_body["progress"].get("has_cases") is True
     assert detail_body["generated_report"]["report_id"] == report_body["report_id"]
 
     report_id = report_body["report_id"]
@@ -256,7 +266,7 @@ def test_report_generation_auto_matches_cases_when_missing(
 
     detail_before_report = client.get(f"/api/assessments/{assessment_id}")
     assert detail_before_report.status_code == 200
-    assert detail_before_report.json()["progress"]["has_cases"] is False
+    assert detail_before_report.json()["progress"].get("has_cases") is False
 
     report_response = client.post(f"/api/assessments/{assessment_id}/report?mode=template")
 
@@ -268,9 +278,124 @@ def test_report_generation_auto_matches_cases_when_missing(
     detail_after_report = client.get(f"/api/assessments/{assessment_id}")
     assert detail_after_report.status_code == 200
     detail_body = detail_after_report.json()
-    assert detail_body["progress"]["has_cases"] is True
+    assert detail_body["progress"].get("has_cases") is True
     assert detail_body["case_recommendation"]["scoring_method"] == "layered_v1"
     assert len(detail_body["case_recommendation"]["top_cases"]) >= 1
+
+
+def test_assessment_detail_serializes_direction_selection(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+) -> None:
+    assessment_id = _create_assessment(client, assessment_payload)
+
+    assert client.post(f"/api/assessments/{assessment_id}/profile").status_code == 200
+    assert client.post(f"/api/assessments/{assessment_id}/canvas").status_code == 200
+
+    breakthrough_response = client.post(
+        f"/api/assessments/{assessment_id}/breakthrough/recommend"
+    )
+    recommended_keys = breakthrough_response.json()["breakthrough_recommendation"][
+        "recommended_keys"
+    ]
+    assert client.post(
+        f"/api/assessments/{assessment_id}/breakthrough/select",
+        json={
+            "selected_keys": recommended_keys[:2],
+            "selection_mode": "system_recommended",
+        },
+    ).status_code == 200
+
+    expand_response = client.post(f"/api/assessments/{assessment_id}/directions/expand")
+    assert expand_response.status_code == 200
+    expanded = expand_response.json()["direction_expansion"]["elements"]
+    selected_direction_ids = [
+        expanded[0]["suggestions"][0]["direction_id"],
+        expanded[1]["suggestions"][0]["direction_id"],
+    ]
+
+    select_response = client.post(
+        f"/api/assessments/{assessment_id}/directions/select",
+        json={"selected_direction_ids": selected_direction_ids},
+    )
+    assert select_response.status_code == 200
+
+    detail_response = client.get(f"/api/assessments/{assessment_id}")
+
+    assert detail_response.status_code == 200
+    detail_body = detail_response.json()
+    assert detail_body["direction_selection"] is not None
+    assert {
+        item["direction_id"]
+        for item in detail_body["direction_selection"]["selected_directions"]
+    } == set(selected_direction_ids)
+
+
+def test_main_flow_generates_competitiveness_endgame_and_report_without_old_labels(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+) -> None:
+    """确认主流程可生成点线面结果，并且报告中不再混入旧省略号与终局量化标签。"""
+    assessment_id = _create_assessment(client, assessment_payload)
+
+    assert client.post(f"/api/assessments/{assessment_id}/profile").status_code == 200
+    assert client.post(f"/api/assessments/{assessment_id}/canvas").status_code == 200
+
+    breakthrough_response = client.post(
+        f"/api/assessments/{assessment_id}/breakthrough/recommend"
+    )
+    recommended_keys = breakthrough_response.json()["breakthrough_recommendation"][
+        "recommended_keys"
+    ]
+    assert client.post(
+        f"/api/assessments/{assessment_id}/breakthrough/select",
+        json={
+            "selected_keys": recommended_keys[:2],
+            "selection_mode": "system_recommended",
+        },
+    ).status_code == 200
+
+    expand_response = client.post(f"/api/assessments/{assessment_id}/directions/expand")
+    assert expand_response.status_code == 200
+    expanded = expand_response.json()["direction_expansion"]["elements"]
+    selected_direction_ids = [
+        expanded[0]["suggestions"][0]["direction_id"],
+        expanded[1]["suggestions"][0]["direction_id"],
+    ]
+    assert client.post(
+        f"/api/assessments/{assessment_id}/directions/select",
+        json={"selected_direction_ids": selected_direction_ids},
+    ).status_code == 200
+
+    competitiveness_response = client.post(
+        f"/api/assessments/{assessment_id}/competitiveness/generate"
+    )
+    assert competitiveness_response.status_code == 200
+    competitiveness_payload = json.dumps(
+        competitiveness_response.json(), ensure_ascii=False
+    )
+    assert "..." not in competitiveness_payload
+    assert "…" not in competitiveness_payload
+
+    endgame_response = client.post(f"/api/assessments/{assessment_id}/endgame/generate")
+    assert endgame_response.status_code == 200
+    endgame_body = endgame_response.json()["result"]
+    assert endgame_body["three_stage_strategy"]["stage_1"]["focus"] == "快速验证"
+    assert "execution_rhythm" in endgame_body["strategic_paths"][0]
+    assert "timeline" not in endgame_body["strategic_paths"][0]
+
+    assert client.post(f"/api/assessments/{assessment_id}/scenarios").status_code == 200
+    report_response = client.post(f"/api/assessments/{assessment_id}/report?mode=template")
+    assert report_response.status_code == 200
+    report_payload = json.dumps(report_response.json(), ensure_ascii=False)
+    assert "投资需求" not in report_payload
+    assert "时间范围" not in report_payload
+
+    detail_response = client.get(f"/api/assessments/{assessment_id}")
+    assert detail_response.status_code == 200
+    detail_body = detail_response.json()
+    assert detail_body["progress"]["has_directions"] is True
+    assert detail_body["progress"]["has_competitiveness"] is True
 
 
 def test_scenario_recommendations_alias_is_backward_compatible(
@@ -342,4 +467,4 @@ def test_live_llm_report_success_path_is_opt_in(
     assert report_body["generation_mode"] == "llm"
     assert report_body["used_llm"] is True
     assert report_body["content_json"]["generated_with"] == "llm"
-    assert len(report_body["sections"]) == 14
+    assert len(report_body["sections"]) == 13

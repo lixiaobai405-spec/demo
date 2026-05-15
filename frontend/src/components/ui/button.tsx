@@ -3,7 +3,7 @@ import { type VariantProps, cva } from "class-variance-authority";
 import * as React from "react";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-full text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 font-body shadow-sm",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-full text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none font-body shadow-sm",
   {
     variants: {
       variant: {
@@ -42,13 +42,24 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  /**
+   * 渲染统一按钮，并在 loading 态下保持视觉高亮而不是降灰。
+   */
   ({ className, variant, size, loading, children, disabled, ...props }, ref) => {
+    const isSemanticallyDisabled = disabled || loading;
+
     return (
       <button
-        className={cn(buttonVariants({ variant, size, className }))}
+        className={cn(
+          buttonVariants({ variant, size }),
+          disabled && !loading ? "opacity-50" : "",
+          isSemanticallyDisabled ? "pointer-events-none" : "",
+          className,
+        )}
         ref={ref}
-        disabled={disabled || loading}
+        disabled={disabled}
         aria-busy={loading || undefined}
+        aria-disabled={isSemanticallyDisabled || undefined}
         {...props}
       >
         {loading ? (

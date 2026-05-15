@@ -7,8 +7,11 @@ from app.schemas.endgame import (
     OPCDesign,
     PrivateDomainDesign,
     StrategicPath,
+    ThreeStageStrategy,
+    ThreeStageStrategyStage,
 )
 from app.schemas.direction import DirectionSuggestion
+from app.schemas.breakthrough import ELEMENT_KEY_TO_TITLE
 
 
 class EndgameAnalyzer:
@@ -41,11 +44,14 @@ class EndgameAnalyzer:
         private_domain = self._build_private_domain(industry_type, canvas_diagnosis)
         ecosystem = self._build_ecosystem(industry_type, canvas_diagnosis)
         opc = self._build_opc(industry_type, canvas_diagnosis, breakthrough_keys)
+        three_stage_strategy = self._build_three_stage_strategy(
+            canvas_diagnosis, breakthrough_keys, competitiveness_result
+        )
         paths = self._build_strategic_paths(
             industry_type, canvas_diagnosis, breakthrough_keys, competitiveness_result
         )
         narrative = self._build_narrative(
-            private_domain, ecosystem, opc, paths, competitiveness_result
+            private_domain, ecosystem, opc, three_stage_strategy, paths, competitiveness_result
         )
 
         return EndgameResult(
@@ -53,6 +59,7 @@ class EndgameAnalyzer:
             private_domain=private_domain,
             ecosystem=ecosystem,
             opc=opc,
+            three_stage_strategy=three_stage_strategy,
             strategic_paths=paths,
             overall_narrative=narrative,
         )
@@ -131,6 +138,59 @@ class EndgameAnalyzer:
             data_flywheel_effect=template["data_flywheel"],
         )
 
+    def _build_three_stage_strategy(
+        self,
+        canvas: CanvasDiagnosisResult,
+        breakthrough_keys: list[str],
+        competitiveness_result: CompetitivenessResult | None,
+    ) -> ThreeStageStrategy:
+        """将三阶段推进策略统一收口到商业终局结果。"""
+        if competitiveness_result is not None:
+            strategy = competitiveness_result.delivery_strategy
+            return ThreeStageStrategy(
+                stage_1=ThreeStageStrategyStage(
+                    title="阶段 1",
+                    focus="快速验证",
+                    objective=strategy.phase_1_quick_win,
+                ),
+                stage_2=ThreeStageStrategyStage(
+                    title="阶段 2",
+                    focus="规模扩展",
+                    objective=strategy.phase_2_scale,
+                ),
+                stage_3=ThreeStageStrategyStage(
+                    title="阶段 3",
+                    focus="壁垒构建",
+                    objective=strategy.phase_3_moat,
+                ),
+                key_risks=list(strategy.key_risks),
+            )
+
+        breakthrough_labels = [ELEMENT_KEY_TO_TITLE.get(key, key) for key in breakthrough_keys[:2]]
+        joined = "、".join(breakthrough_labels) if breakthrough_labels else "关键能力"
+        weakest = "、".join(canvas.weakest_blocks[:2]) if canvas.weakest_blocks else "关键薄弱环节"
+        return ThreeStageStrategy(
+            stage_1=ThreeStageStrategyStage(
+                title="阶段 1",
+                focus="快速验证",
+                objective=f"围绕{joined}先完成最小试点闭环，验证业务价值与组织协同方式。",
+            ),
+            stage_2=ThreeStageStrategyStage(
+                title="阶段 2",
+                focus="规模扩展",
+                objective=f"把试点经验扩展到相邻流程与团队，并同步修补{weakest}等关键短板。",
+            ),
+            stage_3=ThreeStageStrategyStage(
+                title="阶段 3",
+                focus="壁垒构建",
+                objective="将已验证能力沉淀为组织标准、平台能力与经营机制，形成长期竞争壁垒。",
+            ),
+            key_risks=[
+                "若试点阶段缺少明确负责人，推进节奏容易失焦。",
+                "跨部门协同若缺少统一目标，会削弱规模扩展效果。",
+            ],
+        )
+
     def _build_strategic_paths(
         self,
         industry_type: str,
@@ -144,17 +204,16 @@ class EndgameAnalyzer:
         conservative = StrategicPath(
             path_name="稳健试点路径",
             path_type="保守",
-            timeline="9-12 个月",
+            execution_rhythm="先完成单点试点验证，再根据反馈逐步复制到相邻业务单元。",
             key_milestones=[
-                "Month 1-2: 完成数据盘点，确定 1 个高价值私域试点场景",
-                "Month 3-4: 私域试点上线，验证客户留资和复购改善效果",
-                "Month 5-8: 基于试点数据迭代，将私域能力扩展至第 2 个业务单元",
-                "Month 9-12: 形成可复制的私域运营标准，评估生态合作可行性",
+                "完成数据盘点并明确首批高价值试点场景。",
+                "上线试点闭环，验证客户经营与组织协同方式。",
+                "将已验证做法复制到相邻业务单元并固化方法模板。",
+                "形成可复用的私域运营标准，并评估是否进入生态协同阶段。",
             ],
-            required_investments="投入 2-3 名运营人员 + 轻量 CRM/CDP 工具，首年预算控制在 80-150 万。",
+            capability_requirements="适合优先复用现有业务负责人、轻量工具能力和基础数据治理机制。",
             expected_outcomes=(
-                f"私域留资率提升 20-30%，复购率提升 10-15%，"
-                f"为后续生态扩展积累核心客户数据资产。"
+                "形成可复制的客户经营样板，为后续生态扩展沉淀稳定的数据和方法资产。"
             ),
             major_risks=[
                 f"如果{weakest}等环节数据基础薄弱，私域效果可能在早期不达预期。",
@@ -166,16 +225,16 @@ class EndgameAnalyzer:
         balanced = StrategicPath(
             path_name="均衡推进路径",
             path_type="均衡",
-            timeline="6-9 个月",
+            execution_rhythm="试点验证与生态协同并行推进，边验证边扩展，逐步形成联动闭环。",
             key_milestones=[
-                "Month 1-2: 同步启动私域试点和 1 个关键生态伙伴的合作谈判",
-                "Month 3-4: 私域 MVP + 生态连接器上线，打通数据流",
-                "Month 5-6: 验证公私域联动效果，扩展至 3-5 个生态合作方",
-                "Month 7-9: 构建平台化能力雏形，形成数据飞轮初步闭环",
+                "同步启动私域试点与关键生态伙伴协同方案设计。",
+                "打通基础数据流与协作接口，形成最小联动闭环。",
+                "在验证有效后逐步扩展合作范围与业务触点。",
+                "沉淀平台化能力雏形，形成可持续的数据协同机制。",
             ],
-            required_investments="组建 3-5 人增长 + 平台团队，技术投资约 200-400 万，生态合作投入视行业而定。",
+            capability_requirements="需要业务、运营、数据与外部伙伴形成稳定协同，并具备跨流程推进能力。",
             expected_outcomes=(
-                "同时推进私域留资和生态流量，预期 6 个月内形成公私域联动的初步增长引擎。"
+                "同时推进私域沉淀与生态协同，逐步形成可放大的增长引擎与协作网络。"
             ),
             major_risks=[
                 "资源同步投入私域和生态可能导致资源不足，优先级需要动态调整。",
@@ -187,16 +246,16 @@ class EndgameAnalyzer:
         aggressive = StrategicPath(
             path_name="平台化突破路径",
             path_type="激进",
-            timeline="4-6 个月",
+            execution_rhythm="以平台化重构为主线快速推进，集中资源同步拉通能力、伙伴与运营机制。",
             key_milestones=[
-                "Month 1: 完成私域基础架构搭建和首批种子用户导入",
-                "Month 2-3: 私域规模化运营 + 开放平台 MVP 上线",
-                "Month 4-5: 引入 10+ 生态合作伙伴，启动多边网络效应",
-                "Month 6: 完成平台化升级，构建数据飞轮和商业终局雏形",
+                "快速搭建私域基础能力并完成首批种子用户与伙伴接入。",
+                "同步推进规模化运营和开放能力的最小版本落地。",
+                "扩大生态参与范围，验证多边协同的正向反馈。",
+                "完成平台化升级，形成商业终局雏形与数据飞轮。", 
             ],
-            required_investments="组建 8-12 人专项团队，技术+运营总投入约 500-1000 万，需要较强组织执行力支撑。",
+            capability_requirements="需要强执行团队、跨部门授权机制以及稳定的平台建设和运营承接能力。",
             expected_outcomes=(
-                "快速建立平台差异化壁垒，在 6 个月内形成网络效应和多边协同的商业终局架构。"
+                "快速建立平台化差异化壁垒，推动多边协同与网络效应进入正循环。"
             ),
             major_risks=[
                 "推进速度过快可能导致组织能力、技术架构和数据质量方面的隐患。",
@@ -213,6 +272,7 @@ class EndgameAnalyzer:
         private_domain: PrivateDomainDesign,
         ecosystem: EcosystemDesign,
         opc: OPCDesign,
+        three_stage_strategy: ThreeStageStrategy,
         paths: list[StrategicPath],
         competitiveness_result: CompetitivenessResult | None,
     ) -> str:
@@ -227,9 +287,17 @@ class EndgameAnalyzer:
             f"【生态】{ecosystem.ecosystem_positioning}",
             f"关键合作伙伴：{'、'.join(ecosystem.key_partners_to_engage[:3])}",
             "",
-            f"【OPC 运营平台能力】{opc.data_flywheel_effect[:120]}...",
+            f"【OPC 运营平台能力】{opc.data_flywheel_effect}",
             "",
-            f"【推荐路径】{recommended_path.path_name}（{recommended_path.path_type}策略，{recommended_path.timeline}）",
+            (
+                f"【三阶段推进】先{three_stage_strategy.stage_1.focus}，"
+                f"再{three_stage_strategy.stage_2.focus}，最终{three_stage_strategy.stage_3.focus}。"
+            ),
+            "",
+            (
+                f"【推荐路径】{recommended_path.path_name}（{recommended_path.path_type}策略，"
+                f"{recommended_path.execution_rhythm}）"
+            ),
         ]
 
         if competitiveness_result is not None:

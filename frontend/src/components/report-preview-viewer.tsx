@@ -65,8 +65,6 @@ export function ReportPreviewViewer({ assessmentId }: { assessmentId: string }) 
   const canvas = detail.canvas_diagnosis;
   const scenarios = detail.scenario_recommendation;
   const existingReport = detail.generated_report;
-  const caseStateText = detail.progress.has_cases
-    ? "案例参考已准备，可直接回看或重生成。" : "案例参考尚未单独生成；点击生成报告时会自动匹配并保存匿名行业案例。";
 
   return (
     <div className="flex flex-col gap-6">
@@ -94,7 +92,6 @@ export function ReportPreviewViewer({ assessmentId }: { assessmentId: string }) 
             <StatusRow label="企业画像" ready={detail.progress.has_profile} text={profile ? "已生成，可直接纳入报告。" : "尚未生成，当前无法进入报告。"} />
             <StatusRow label="商业画布诊断" ready={detail.progress.has_canvas} text={canvas ? `已生成，整体评分 ${canvas.overall_score}。` : "尚未生成，当前无法进入报告。"} />
             <StatusRow label="AI 场景推荐" ready={detail.progress.has_scenarios} text={scenarios ? `已生成 Top ${scenarios.top_scenarios.length} 推荐。` : "尚未生成，当前无法进入报告。"} />
-            <StatusRow label="案例参考" ready={detail.progress.has_cases} text={caseStateText} />
             <StatusRow label="已有报告" ready={detail.progress.has_report} text={existingReport ? `已存在报告：${existingReport.title}` : "尚未生成报告。"} />
           </div>
           {!detail.progress.ready_for_report ? (
@@ -132,7 +129,6 @@ export function ReportPreviewViewer({ assessmentId }: { assessmentId: string }) 
             {existingReport ? (
               <Link href={`/reports/${existingReport.report_id}`} className="btn-secondary" target="_blank" rel="noopener noreferrer">查看已有报告</Link>
             ) : null}
-            <Link href={`/report-context/${assessmentId}`} className="btn-secondary" target="_blank" rel="noopener noreferrer">查看报告上下文</Link>
             <Link href={`/assessment/${assessmentId}`} className="btn-secondary">返回 Assessment 工作台</Link>
           </div>
 

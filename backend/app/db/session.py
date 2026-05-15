@@ -31,6 +31,7 @@ SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 
 def init_db() -> None:
+    """Create tables and apply lightweight SQLite compatibility migrations."""
     from app.models.assessment import Assessment  # noqa: F401
     from app.models.bmc_scoring import BMCScoring  # noqa: F401
     from app.models.breakthrough_selection import BreakthroughSelection  # noqa: F401
@@ -49,9 +50,82 @@ def init_db() -> None:
     from app.models.user import User  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+    _migrate_bmc_scorings_table()
     _migrate_generated_reports_table()
+    _migrate_competitiveness_analyses_table()
+    _migrate_endgame_analyses_table()
     _migrate_assessments_add_user_id()
     _migrate_assessment_intake_sessions_add_user_id()
+
+
+def _migrate_bmc_scorings_table() -> None:
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    if "bmc_scorings" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("bmc_scorings")}
+    needs_rebuild = (
+        "selection_mode" in existing_columns
+        or "all_module_scores_json" in existing_columns
+        or "module_scores_json" not in existing_columns
+    )
+    if not needs_rebuild:
+        return
+
+    module_scores_source = (
+        "module_scores_json"
+        if "module_scores_json" in existing_columns
+        else "all_module_scores_json"
+    )
+
+    with engine.begin() as connection:
+        connection.execute(text("PRAGMA foreign_keys=OFF"))
+        connection.execute(text("DROP TABLE IF EXISTS bmc_scorings_new"))
+        connection.execute(
+            text(
+                """
+                CREATE TABLE bmc_scorings_new (
+                    id VARCHAR(36) PRIMARY KEY,
+                    assessment_id VARCHAR(36) NOT NULL UNIQUE,
+                    module_scores_json TEXT NOT NULL DEFAULT '[]',
+                    scoring_result_json TEXT NOT NULL DEFAULT '{}',
+                    selected_keys_json TEXT NOT NULL DEFAULT '[]',
+                    created_at DATETIME,
+                    updated_at DATETIME,
+                    FOREIGN KEY(assessment_id) REFERENCES assessments(id)
+                )
+                """
+            )
+        )
+        connection.execute(
+            text(
+                f"""
+                INSERT OR REPLACE INTO bmc_scorings_new
+                (id, assessment_id, module_scores_json, scoring_result_json, selected_keys_json, created_at, updated_at)
+                SELECT
+                    id,
+                    assessment_id,
+                    COALESCE({module_scores_source}, '[]'),
+                    COALESCE(scoring_result_json, '{{}}'),
+                    COALESCE(selected_keys_json, '[]'),
+                    created_at,
+                    updated_at
+                FROM bmc_scorings
+                """
+            )
+        )
+        connection.execute(text("DROP TABLE bmc_scorings"))
+        connection.execute(text("ALTER TABLE bmc_scorings_new RENAME TO bmc_scorings"))
+        connection.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_bmc_scorings_assessment_id "
+                "ON bmc_scorings (assessment_id)"
+            )
+        )
+        connection.execute(text("PRAGMA foreign_keys=ON"))
 
 
 def _migrate_generated_reports_table() -> None:
@@ -79,6 +153,52 @@ def _migrate_generated_reports_table() -> None:
         for column_name, ddl in required_columns.items():
             if column_name not in existing_columns:
                 connection.execute(text(ddl))
+
+
+def _migrate_competitiveness_analyses_table() -> None:
+    """Add newly required competitiveness columns for existing SQLite databases."""
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    if "competitiveness_analyses" not in inspector.get_table_names():
+        return
+
+    existing_columns = {
+        column["name"] for column in inspector.get_columns("competitiveness_analyses")
+    }
+    if "overall_narrative" in existing_columns:
+        return
+
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "ALTER TABLE competitiveness_analyses "
+                "ADD COLUMN overall_narrative TEXT"
+            )
+        )
+
+
+def _migrate_endgame_analyses_table() -> None:
+    """Add newly required endgame columns for existing SQLite databases."""
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    if "endgame_analyses" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("endgame_analyses")}
+    if "three_stage_strategy_json" in existing_columns:
+        return
+
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "ALTER TABLE endgame_analyses "
+                "ADD COLUMN three_stage_strategy_json TEXT NOT NULL DEFAULT '{}'"
+            )
+        )
 
 
 def _migrate_assessments_add_user_id() -> None:

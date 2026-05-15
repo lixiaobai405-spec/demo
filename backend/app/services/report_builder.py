@@ -129,7 +129,6 @@ class ReportBuilder:
             bullets=[
                 f"关键挑战：{self._join_or_todo(profile.key_challenges)}",
                 f"优先 AI 方向：{self._join_or_todo(profile.priority_ai_directions)}",
-                f"待补充信息：{self._join_or_todo(profile.missing_information)}",
             ],
         )
 
@@ -167,7 +166,6 @@ class ReportBuilder:
                     highlight=f"🤖 AI 机会：{block.ai_opportunity}",
                     bullets=[
                         f"🔍 诊断：{block.diagnosis}",
-                        f"📝 待补充：{block.missing_information}",
                     ],
                 )
             )
@@ -177,7 +175,6 @@ class ReportBuilder:
             title="当前商业模式画布诊断",
             content=canvas_diagnosis.canvas.overall_summary,
             bullets=[
-                f"整体评分：{canvas_diagnosis.overall_score} 分（基于 9 格信息完整度评估）",
                 f"薄弱模块：{self._join_or_todo(canvas_diagnosis.weakest_blocks)}",
             ],
             table=overview_table,
@@ -187,9 +184,7 @@ class ReportBuilder:
 
     @staticmethod
     def _truncate_text(text: str, max_len: int) -> str:
-        if len(text) <= max_len:
-            return text
-        return text[:max_len] + "..."
+        return text
 
     def _build_ai_readiness_section(
         self,
@@ -222,16 +217,16 @@ class ReportBuilder:
             ),
             ReportCardData(
                 title="综合就绪度",
-                subtitle="Overall Score",
+                subtitle="Readiness Summary",
                 content=self._build_ai_readiness_summary(score, profile, canvas_diagnosis),
-                highlight=f"综合评分：{score} 分",
+                highlight="综合判断：当前可进入试点验证与组织准备并行推进阶段。",
             ),
         ]
 
         return ReportSectionData(
             key="ai_readiness",
             title="AI 成熟度评估",
-            content=f"综合评估得分 {score} 分。{self._build_ai_readiness_summary(score, profile, canvas_diagnosis)}",
+            content=self._build_ai_readiness_summary(score, profile, canvas_diagnosis),
             cards=dim_cards,
             bullets=[
                 f"数字化与 AI 准备度判断：{profile.digital_and_ai_readiness}",
@@ -311,6 +306,17 @@ class ReportBuilder:
             advantages_text = "；".join(
                 [f"{a.advantage_name}（壁垒{a.barrier_level}）" for a in cr.advantages[:3]]
             ) if cr.advantages else ""
+            competitiveness_content = (
+                cr.overall_narrative.strip()
+                if getattr(cr, "overall_narrative", None)
+                else ""
+            )
+            if not competitiveness_content:
+                competitiveness_content = (
+                    f"建议围绕“{vp.enhanced_vp}”组织差异化竞争力建设，优先把 "
+                    f"{connections_text or '关键竞争力线'} 转化为可被客户感知的业务优势，"
+                    f"并沉淀为 {advantages_text or '核心能力壁垒'}。"
+                )
 
             cards = []
             for conn in cr.connections[:3]:
@@ -327,18 +333,15 @@ class ReportBuilder:
             return ReportSectionData(
                 key="competitiveness",
                 title="差异化竞争力设计",
-                content=cr.overall_narrative,
+                content=competitiveness_content,
                 bullets=[
-                    f"增强型价值主张：{vp.enhanced_vp[:100]}...",
-                    f"客户价值转移：{vp.customer_value_shift[:100]}...",
+                    f"增强型价值主张：{vp.enhanced_vp}",
+                    f"客户价值转移：{vp.customer_value_shift}",
                     f"串联竞争力线：{connections_text or '待补充'}",
                     f"核心优势：{advantages_text or '待补充'}",
                 ],
                 cards=cards if cards else None,
-                note=(
-                    cr.delivery_strategy.phase_1_quick_win[:120] + "..."
-                    if cr.delivery_strategy else None
-                ),
+                note=cr.delivery_strategy.phase_1_quick_win if cr.delivery_strategy else None,
             )
 
         top_scenarios = [item.name for item in scenario_recommendation.top_scenarios[:2]]
@@ -449,7 +452,7 @@ class ReportBuilder:
         ]
 
         for item in profile.missing_information[:2]:
-            bullets.append(f"待补充信息风险：{item}")
+            bullets.append(f"信息缺口风险：{item}")
 
         if canvas_diagnosis.weakest_blocks:
             bullets.append(
@@ -532,10 +535,10 @@ class ReportBuilder:
             path_cards.append(
                 ReportCardData(
                     title=f"{path.path_name}（{path.path_type}·{path.recommendation_level}）",
-                    subtitle=f"时间范围：{path.timeline}",
+                    subtitle=f"推进节奏：{path.execution_rhythm}",
                     content=path.expected_outcomes,
                     bullets=[
-                        f"投资需求：{path.required_investments}",
+                        f"能力前提：{path.capability_requirements}",
                         f"里程碑：{'；'.join(path.key_milestones[:2])}",
                         f"风险提示：{'；'.join(path.major_risks[:2])}",
                     ],
@@ -547,14 +550,14 @@ class ReportBuilder:
             title="商业终局设计",
             content=er.overall_narrative,
             bullets=[
-                f"私域目标模型：{pd.target_model[:80]}...",
+                f"私域目标模型：{pd.target_model}",
                 f"客户留存飞轮：{pd.customer_retention_loop}",
                 f"生态定位：{eco.ecosystem_positioning}",
-                f"OPC运营平台：{opc.data_flywheel_effect[:80]}...",
+                f"OPC运营平台：{opc.data_flywheel_effect}",
                 f"推荐路径含有 {len(er.strategic_paths)} 种策略可选",
             ],
             cards=path_cards if path_cards else None,
-            note=pd.revenue_impact[:120] + "..." if pd.revenue_impact else None,
+            note=pd.revenue_impact if pd.revenue_impact else None,
         )
 
     def _build_roadmap(
@@ -632,7 +635,7 @@ class ReportBuilder:
                                 highlight=f"AI 机会：{block.ai_opportunity}",
                                 bullets=[
                                     f"诊断发现：{block.diagnosis}",
-                                    f"待补充信息：{block.missing_information}",
+                                    f"信息缺口提示：{block.missing_information}",
                                 ],
                             )
                         )

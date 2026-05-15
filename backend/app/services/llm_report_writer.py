@@ -337,21 +337,11 @@ class LLMReportWriter:
 
             # Any group failure → fall back to template for missing sections
             if group_failures:
-                template_report = self.report_builder.build(
-                    assessment=assessment,
-                    profile=profile,
-                    canvas_diagnosis=canvas_diagnosis,
-                    scenario_recommendation=scenario_recommendation,
-                    case_recommendation=case_recommendation,
-                    breakthrough_keys=breakthrough_keys,
-                    direction_labels=direction_labels,
-                    competitiveness_result=competitiveness_result,
-                    enrichment_result=enrichment_result,
-                    endgame_result=endgame_result,
+                metadata["warnings"].append(
+                    "LLM report generation partially failed; the final report fell back to template mode."
                 )
-                for ts in template_report.sections:
-                    if ts.key not in all_parsed:
-                        all_parsed[ts.key] = ts
+                metadata["warnings"] = self._deduplicate_warnings(metadata["warnings"])
+                return None, metadata
 
             # Order by REQUIRED_SECTIONS
             ordered_sections: list[ReportSectionData] = []

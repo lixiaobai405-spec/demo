@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useIntakeStore } from "@/stores/intake-store";
 import { useIntakeSession, useCreateAssessmentFromIntake } from "@/hooks";
@@ -17,8 +17,13 @@ import {
   countConfirmedFields,
   countModifiedFields,
   emptyConfirmedForm,
+  getIntakeFieldNote,
+  isIntakeFieldMissing,
 } from "@/lib/intake-utils";
 
+/**
+ * 渲染导入确认表单，并将原步骤三收口为新的步骤二。
+ */
 export function IntakeConfirmationForm() {
   const router = useRouter();
   const store = useIntakeStore();
@@ -92,7 +97,7 @@ export function IntakeConfirmationForm() {
     <div className="card-inset">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="section-label">步骤三</p>
+          <p className="section-label">步骤二</p>
           <h2 className="section-heading">确认并创建问卷</h2>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
             你可以在这里修改系统预填建议。所有字段都允许手动覆盖；
@@ -125,12 +130,8 @@ export function IntakeConfirmationForm() {
               const meta = sessionDetail.field_meta[key];
               const originalValue = buildConfirmedForm(sessionDetail)[key];
               const isModified = normalizeFieldValue(value) !== normalizeFieldValue(originalValue);
-              const fieldNote =
-                meta?.status === "needs_user_confirmation"
-                  ? "系统推断，请重点确认"
-                  : meta?.status === "needs_user_input"
-                    ? "系统未识别，请手动补充"
-                    : "已从原文识别";
+              const fieldNote = getIntakeFieldNote(meta?.status);
+              const needsUserInput = isIntakeFieldMissing(meta?.status);
 
               return (
                 <label key={key} className="flex flex-col gap-3 text-sm">
@@ -144,7 +145,13 @@ export function IntakeConfirmationForm() {
                         {isModified ? "已修改" : "沿用建议"}
                       </Badge>
                     </div>
-                    <span className="text-xs text-muted-foreground">{fieldNote}</span>
+                    <span
+                      className={`text-xs ${
+                        needsUserInput ? "text-destructive font-medium" : "text-muted-foreground"
+                      }`}
+                    >
+                      {fieldNote}
+                    </span>
                   </div>
                   {inputType === "textarea" ? (
                     <Textarea
@@ -152,12 +159,22 @@ export function IntakeConfirmationForm() {
                       onChange={(e) =>
                         setConfirmedForm((prev) => ({ ...prev, [key]: e.target.value }))
                       }
+                      className={
+                        needsUserInput
+                          ? "border-destructive focus-visible:border-destructive focus-visible:ring-[rgba(220,38,38,0.12)]"
+                          : undefined
+                      }
                     />
                   ) : (
                     <Input
                       value={value}
                       onChange={(e) =>
                         setConfirmedForm((prev) => ({ ...prev, [key]: e.target.value }))
+                      }
+                      className={
+                        needsUserInput
+                          ? "border-destructive focus-visible:border-destructive focus-visible:ring-[rgba(220,38,38,0.12)]"
+                          : undefined
                       }
                     />
                   )}

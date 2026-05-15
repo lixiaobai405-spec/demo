@@ -76,7 +76,7 @@ class CompetitivenessAnalyzer:
         ]
 
         customer_value_shift = (
-            f"从'{current_vp[:40]}...'的价值叙事，升级为以"
+            f"从'{current_vp}'的价值叙事，升级为以"
             f"'{enhancement_parts[0] if enhancement_parts else '客户价值'}'"
             f"为核心的差异化定位，通过修补'{'、'.join(weakest_titles or ['关键薄弱环节'])}'"
             f"等薄弱环节，建立不可替代的客户价值感知。"
@@ -234,7 +234,7 @@ class CompetitivenessAnalyzer:
         joined_advantages = "、".join(high_barrier_advantages[:3]) if high_barrier_advantages else "核心优势"
 
         return (
-            f"本评估的核心结论是：企业应围绕「{vp.enhanced_vp[:50]}...」这一增强型价值主张，"
+            f"本评估的核心结论是：企业应围绕「{vp.enhanced_vp}」这一增强型价值主张，"
             f"通过构建「{joined_lines}」等系统性竞争力线路，"
             f"重点培育「{joined_advantages}」。"
             f"这些能力组合不是单点技术工具的叠加，而是从客户价值感知、"

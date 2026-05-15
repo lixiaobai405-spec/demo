@@ -82,14 +82,6 @@ export default async function ResultsPage({
                 >
                   进入报告生成
                 </Link>
-                <Link
-                  href={`/report-context/${assessmentId}`}
-                  className="btn-secondary"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  查看报告上下文
-                </Link>
               </div>
             ) : null}
           </div>

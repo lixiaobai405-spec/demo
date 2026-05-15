@@ -5,7 +5,7 @@ export { useGenerateCanvas } from "./use-canvas";
 export { useRecommendBreakthrough, useSelectBreakthrough } from "./use-breakthrough";
 export { useDirectionPolling, useExpandDirections, useSelectDirections } from "./use-directions";
 export { useGenerateScenarios } from "./use-scenarios";
-export { useGenerateCompetitiveness } from "./use-competitiveness";
+export { useCompetitiveness, useGenerateCompetitiveness } from "./use-competitiveness";
 export { useEndgame, useGenerateEndgame } from "./use-endgame";
 export { useCalculateBMCScoring, useSaveBMCScoring, useGetBMCScoring, useAutoDeriveBMCScoring, bmcScoringKeys } from "./use-bmc-scoring";
 export { useFollowUpPlan, useUpdateFollowUpTask, useRecalibrateFollowUp } from "./use-follow-up";

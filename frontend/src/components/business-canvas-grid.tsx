@@ -1,5 +1,9 @@
+import React from "react";
 import type { CanvasDiagnosisResult } from "@/lib/types";
 
+/**
+ * 渲染商业画布诊断结果，对外隐藏总分与待补充信息展示。
+ */
 export function BusinessCanvasGrid({ canvasDiagnosis }: { canvasDiagnosis: CanvasDiagnosisResult }) {
   return (
     <div className="card">
@@ -20,8 +24,7 @@ export function BusinessCanvasGrid({ canvasDiagnosis }: { canvasDiagnosis: Canva
         </div>
         <div className="rounded-xl border border-warm-border-light bg-warm-inset p-6">
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-warm-muted">诊断概览</p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <Metric label="Overall Score" value={`${canvasDiagnosis.overall_score}`} />
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <Metric label="Weakest Blocks" value={`${canvasDiagnosis.weakest_blocks.length}`} />
             <Metric label="Focus Areas" value={`${canvasDiagnosis.recommended_focus.length}`} />
           </div>
@@ -38,7 +41,6 @@ export function BusinessCanvasGrid({ canvasDiagnosis }: { canvasDiagnosis: Canva
               <CanvasDetail label="📊 当前状态" content={block.current_state} />
               <CanvasDetail label="🔍 诊断" content={block.diagnosis} />
               <CanvasDetail label="🤖 AI 机会" content={block.ai_opportunity} />
-              <CanvasDetail label="📝 待补充" content={block.missing_information} />
             </div>
           </div>
         ))}
@@ -47,6 +49,9 @@ export function BusinessCanvasGrid({ canvasDiagnosis }: { canvasDiagnosis: Canva
   );
 }
 
+/**
+ * 渲染画布模块中的单项文本信息。
+ */
 function CanvasDetail({ label, content }: { label: string; content: string }) {
   return (
     <div>
@@ -56,6 +61,9 @@ function CanvasDetail({ label, content }: { label: string; content: string }) {
   );
 }
 
+/**
+ * 渲染诊断概览中的指标卡片。
+ */
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl bg-warm-surface px-4 py-3">
@@ -65,6 +73,9 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
+/**
+ * 渲染画布概览中的列表分组。
+ */
 function ListSection({ title, items, className }: { title: string; items: string[]; className?: string }) {
   return (
     <div className={className}>
