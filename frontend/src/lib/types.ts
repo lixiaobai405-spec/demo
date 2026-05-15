@@ -100,9 +100,9 @@ export type ScenarioRecommendationItem = {
   name: string;
   category: string;
   summary: string;
-  score: number;
-  reasons: string[];
-  data_requirements: string[];
+  canvas_elements: string;
+  expected_effects: string;
+  core_data_requirements: string;
 };
 
 export type ScenarioRecommendationResult = {
@@ -513,7 +513,10 @@ export type OPCDesign = {
 export type ThreeStageStrategyStage = {
   title: string;
   focus: string;
+  strategy: string;
   objective: string;
+  key_actions: string[];
+  key_risks: string[];
 };
 
 export type ThreeStageStrategy = {

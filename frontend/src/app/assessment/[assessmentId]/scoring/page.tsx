@@ -3,7 +3,7 @@
 import { use, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAssessmentDetail, useGenerateScenarios } from "@/hooks";
+import { useAssessmentDetail, useExpandDirections } from "@/hooks";
 import { useGetBMCScoring } from "@/hooks/use-bmc-scoring";
 import { toast } from "@/hooks/use-toast";
 import { formatMutationError } from "@/lib/api";
@@ -20,25 +20,25 @@ export default function ScoringPage({
   const router = useRouter();
   const detailQuery = useAssessmentDetail(assessmentId);
   const savedScoringQuery = useGetBMCScoring(assessmentId);
-  const generateScenarios = useGenerateScenarios();
+  const expandDirections = useExpandDirections();
 
   const hasBreakthrough =
     !!detailQuery.data?.breakthrough_selection &&
     detailQuery.data.breakthrough_selection.length >= 2;
 
-  const handleGenerateScenarios = useCallback(async () => {
+  const handleGenerateDirections = useCallback(async () => {
     try {
-      await generateScenarios.mutateAsync(assessmentId);
-      toast({ title: "AI 场景推荐已生成" });
-      router.push(`/assessment/${assessmentId}/results`);
+      await expandDirections.mutateAsync(assessmentId);
+      toast({ title: "创新方向延展已生成" });
+      router.push(`/assessment/${assessmentId}/directions`);
     } catch (e) {
       toast({
         title: "生成失败",
-        description: formatMutationError(e, "AI 场景推荐生成"),
+        description: formatMutationError(e, "创新方向延展"),
         variant: "destructive",
       });
     }
-  }, [assessmentId, generateScenarios, router]);
+  }, [assessmentId, expandDirections, router]);
 
   // Loading
   if (detailQuery.isLoading) {
@@ -125,30 +125,30 @@ export default function ScoringPage({
           />
         )}
 
-        {/* Next step: 生成 AI 场景推荐 */}
+        {/* Next step: 创新方向延展 */}
         <section className="card">
           <p className="section-label">下一步</p>
-          <h2 className="section-heading">AI 场景推荐</h2>
+          <h2 className="section-heading">创新方向延展</h2>
           <p className="mt-2 text-sm leading-7 text-muted-foreground">
             {hasBreakthrough
-              ? "突破要素已锁定，点击下方按钮直接生成 AI 场景推荐并跳转结果仪表盘。"
-              : "请先在上方保存 BMC 突破要素评分（选择 2-3 个模块并点击保存），再生成 AI 场景推荐。"}
+              ? "突破要素已锁定，点击下方按钮生成创新方向延展并跳转方向分析页面。"
+              : "请先在上方保存 BMC 突破要素评分（选择 2-3 个模块并点击保存），再生成创新方向延展。"}
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Button
-              onClick={handleGenerateScenarios}
-              disabled={!hasBreakthrough || generateScenarios.isPending}
-              loading={generateScenarios.isPending}
+              onClick={handleGenerateDirections}
+              disabled={!hasBreakthrough || expandDirections.isPending}
+              loading={expandDirections.isPending}
             >
-              {generateScenarios.isPending
-                ? "正在生成 AI 场景推荐..."
-                : "生成 AI 场景推荐 →"}
+              {expandDirections.isPending
+                ? "正在生成创新方向延展..."
+                : "生成创新方向延展 →"}
             </Button>
             <Link
-              href={`/assessment/${assessmentId}/results`}
+              href={`/assessment/${assessmentId}/directions`}
               className={buttonVariants({ variant: "outline" })}
             >
-              查看结果仪表盘
+              查看创新方向延展
             </Link>
           </div>
         </section>

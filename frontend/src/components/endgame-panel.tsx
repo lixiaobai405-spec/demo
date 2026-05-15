@@ -41,7 +41,7 @@ export function EndgamePanel({ data }: { data: EndgameResponse }) {
           <p className="section-label">商业终局</p>
           <h2 className="section-heading">商业终局设计</h2>
         </div>
-        <span className="badge badge-accent">私域 + 生态 + OPC</span>
+        <span className="badge badge-accent">私域 + 生态 + 数据</span>
       </div>
 
       <div className="mt-6 rounded-xl border border-warm-accent/15 bg-warm-accent/5 p-6">
@@ -99,18 +99,18 @@ export function EndgamePanel({ data }: { data: EndgameResponse }) {
         </div>
 
         <div className="rounded-xl border border-green-200 bg-green-50/30 p-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-warm-success">OPC</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-warm-success">数据</p>
           <div className="mt-3 space-y-3">
             <div>
-              <p className="text-[10px] uppercase text-warm-muted">O 卓越运营</p>
+              <p className="text-[10px] uppercase text-warm-muted">卓越运营</p>
               <p className="mt-1 text-[11px] leading-4 text-warm-secondary">{opc.operations_excellence}</p>
             </div>
             <div>
-              <p className="text-[10px] uppercase text-warm-muted">P 平台能力</p>
+              <p className="text-[10px] uppercase text-warm-muted">平台能力</p>
               <p className="mt-1 text-[11px] leading-4 text-warm-secondary">{opc.platform_capability}</p>
             </div>
             <div>
-              <p className="text-[10px] uppercase text-warm-muted">C 内容与社群</p>
+              <p className="text-[10px] uppercase text-warm-muted">内容与社群</p>
               <p className="mt-1 text-[11px] leading-4 text-warm-secondary">{opc.content_and_community}</p>
             </div>
           </div>
@@ -159,9 +159,37 @@ export function EndgamePanel({ data }: { data: EndgameResponse }) {
 function ThreeStageCard({ stage }: { stage: ThreeStageStrategyStage }) {
   return (
     <div className="rounded-xl border border-warm-border-light bg-warm-surface p-4">
-      <p className="text-xs font-semibold text-warm-accent">{stage.title}</p>
-      <p className="mt-2 text-[11px] uppercase tracking-[0.12em] text-warm-muted">{stage.focus}</p>
-      <p className="mt-2 text-xs leading-5 text-warm-muted">{stage.objective}</p>
+      <p className="text-xs font-semibold text-warm-accent">{stage.title} · {stage.focus}</p>
+      <div className="mt-3 space-y-2">
+        <div>
+          <p className="text-[10px] uppercase text-warm-muted">策略</p>
+          <p className="mt-0.5 text-[11px] leading-4 text-warm-secondary">{stage.strategy}</p>
+        </div>
+        <div>
+          <p className="text-[10px] uppercase text-warm-muted">目标</p>
+          <p className="mt-0.5 text-[11px] leading-4 text-warm-secondary">{stage.objective}</p>
+        </div>
+        {stage.key_actions.length > 0 && (
+          <div>
+            <p className="text-[10px] uppercase text-warm-muted">关键动作</p>
+            <ul className="mt-1 space-y-0.5">
+              {stage.key_actions.map((action, i) => (
+                <li key={i} className="text-[11px] leading-4 text-warm-muted">{i + 1}. {action}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {stage.key_risks.length > 0 && (
+          <div>
+            <p className="text-[10px] uppercase text-warm-danger">关键风险</p>
+            <ul className="mt-1 space-y-0.5">
+              {stage.key_risks.map((risk, i) => (
+                <li key={i} className="text-[11px] leading-4 text-warm-muted">! {risk}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

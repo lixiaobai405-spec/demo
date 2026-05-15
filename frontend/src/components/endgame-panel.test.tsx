@@ -39,17 +39,26 @@ describe("EndgamePanel", () => {
               stage_1: {
                 title: "阶段 1",
                 focus: "快速验证",
+                strategy: "选择单一场景试点，集中资源跑通最小闭环。",
                 objective: "先在单一门店验证客户分层与触达闭环。",
+                key_actions: ["明确试点边界与成功标准", "组建专职小组"],
+                key_risks: ["试点范围过大"],
               },
               stage_2: {
                 title: "阶段 2",
                 focus: "规模扩展",
+                strategy: "将试点验证有效的模式复制到相邻业务单元。",
                 objective: "复制到区域门店并统一运营方法。",
+                key_actions: ["方法论模板化", "建立统一数据底座"],
+                key_risks: ["跨部门协同不足"],
               },
               stage_3: {
                 title: "阶段 3",
                 focus: "壁垒构建",
+                strategy: "将已验证能力沉淀为组织标准与平台能力。",
                 objective: "沉淀为长期平台能力和组织标准。",
+                key_actions: ["核心能力API化", "建立人才梯队"],
+                key_risks: ["组织惯性导致创新衰减"],
               },
               key_risks: ["跨团队协同不足"],
             },
@@ -74,10 +83,14 @@ describe("EndgamePanel", () => {
     );
 
     expect(screen.getByText("三阶段推进策略")).toBeInTheDocument();
-    expect(screen.getByText("阶段 1")).toBeInTheDocument();
-    expect(screen.getByText("快速验证")).toBeInTheDocument();
+    expect(screen.getByText("阶段 1 · 快速验证")).toBeInTheDocument();
     expect(screen.getByText("先在单一门店验证客户分层与触达闭环。")).toBeInTheDocument();
     expect(screen.getByText("跨团队协同不足")).toBeInTheDocument();
+    // New fields: 策略/目标/关键动作/关键风险 per stage (3 stage cards)
+    expect(screen.getAllByText("策略").length).toBeGreaterThanOrEqual(3);
+    expect(screen.getAllByText("目标").length).toBeGreaterThanOrEqual(3);
+    expect(screen.getAllByText("关键动作").length).toBeGreaterThanOrEqual(3);
+    expect(screen.getAllByText("关键风险").length).toBeGreaterThanOrEqual(3);
     expect(screen.getByText("推进节奏")).toBeInTheDocument();
     expect(screen.getByText("能力前提")).toBeInTheDocument();
     expect(screen.queryByText("投资需求")).not.toBeInTheDocument();

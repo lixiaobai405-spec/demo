@@ -3,9 +3,10 @@ import Link from "next/link";
 import {
   getAssessmentDetail,
   getCompetitiveness,
+  getEndgame,
 } from "@/lib/api";
-import { ProfileResultsSection } from "@/components/profile-results-section";
 import { CompetitivenessPanel } from "@/components/competitiveness-panel";
+import { EndgamePanel } from "@/components/endgame-panel";
 import { ScenarioRecommendationsPanel } from "@/components/scenario-recommendations-panel";
 
 export default async function ResultsPage({
@@ -15,28 +16,29 @@ export default async function ResultsPage({
 }) {
   const { assessmentId } = await params;
 
-  // Fetch all data in parallel (endgame excluded — requires all prior steps complete)
-  const [detail, competitiveness] = await Promise.allSettled([
+  const [detail, competitiveness, endgame] = await Promise.allSettled([
     getAssessmentDetail(assessmentId),
     getCompetitiveness(assessmentId),
+    getEndgame(assessmentId),
   ]);
 
   const detailData = detail.status === "fulfilled" ? detail.value : null;
   const compData =
     competitiveness.status === "fulfilled" ? competitiveness.value : null;
+  const endgameData =
+    endgame.status === "fulfilled" ? endgame.value : null;
 
   const assessment = detailData?.assessment;
   const companyName = assessment?.company_name || "企业";
   const industry = assessment?.industry || "";
-  const companyProfile = detailData?.company_profile;
   const scenarioRecommendation = detailData?.scenario_recommendation;
   const readyForReport = detailData?.progress.ready_for_report || false;
 
   const hasAny =
-    companyProfile ||
     detailData?.canvas_diagnosis ||
     scenarioRecommendation ||
-    compData;
+    compData ||
+    endgameData;
 
   return (
     <main className="min-h-screen px-6 py-10">
@@ -103,21 +105,13 @@ export default async function ResultsPage({
           </div>
         ) : (
           <>
-            {/* Profile */}
-            {companyProfile && (
-              <ProfileResultsSection
-                companyProfile={companyProfile}
-                profileMode={null}
-              />
-            )}
-
-            {/* Canvas summary — link to full page */}
+            {/* 1. 点：商业画布 */}
             {detailData?.canvas_diagnosis && (
-              <div className="card">
+              <section className="card">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <p className="section-label">画布诊断</p>
-                    <h2 className="section-heading">商业画布 9 格</h2>
+                    <p className="section-label">点 · 商业画布</p>
+                    <h2 className="section-heading">商业画布 9 格诊断</h2>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="badge badge-success">
@@ -136,21 +130,38 @@ export default async function ResultsPage({
                 <p className="mt-4 text-sm leading-7 text-warm-secondary">
                   {detailData.canvas_diagnosis.canvas.overall_summary}
                 </p>
-              </div>
+                {/* Scene recommendations embedded within canvas context */}
+                {scenarioRecommendation && detailData?.assessment && (
+                  <div className="mt-6 border-t border-warm-border-light pt-6">
+                    <ScenarioRecommendationsPanel
+                      assessmentId={assessmentId}
+                      readyForReport={readyForReport}
+                      scenarioRecommendation={scenarioRecommendation}
+                    />
+                  </div>
+                )}
+              </section>
             )}
 
-            {/* Scenarios */}
-            {scenarioRecommendation && detailData?.assessment && (
-              <ScenarioRecommendationsPanel
-                assessmentId={assessmentId}
-                readyForReport={readyForReport}
-                scenarioRecommendation={scenarioRecommendation}
-              />
+            {/* 2. 线：差异化竞争力 */}
+            {compData && (
+              <section>
+                <div className="mb-2">
+                  <p className="section-label">线 · 差异化竞争力</p>
+                </div>
+                <CompetitivenessPanel data={compData} />
+              </section>
             )}
 
-            {/* Competitiveness */}
-            {compData && <CompetitivenessPanel data={compData} />}
-
+            {/* 3. 面：商业终局 */}
+            {endgameData && (
+              <section>
+                <div className="mb-2">
+                  <p className="section-label">面 · 商业终局</p>
+                </div>
+                <EndgamePanel data={endgameData} />
+              </section>
+            )}
           </>
         )}
       </div>

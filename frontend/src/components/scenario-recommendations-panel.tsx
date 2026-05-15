@@ -6,7 +6,7 @@ import Link from "next/link";
 import type { ScenarioRecommendationResult } from "@/lib/types";
 
 /**
- * 渲染 AI 场景推荐列表与展开详情。
+ * 渲染 AI 场景推荐列表，以关键字段卡片形式展示。
  */
 export function ScenarioRecommendationsPanel({
   assessmentId, readyForReport, scenarioRecommendation,
@@ -26,7 +26,7 @@ export function ScenarioRecommendationsPanel({
       </div>
 
       <p className="mt-3 text-sm leading-7 text-warm-secondary">
-        已按规则评分评估 {scenarioRecommendation.evaluated_count} 个候选场景，以下展示 Top 3。点击卡片展开查看详情。
+        已评估 {scenarioRecommendation.evaluated_count} 个候选场景，以下展示 Top 3。点击卡片展开查看详情。
       </p>
 
       {readyForReport ? (
@@ -49,40 +49,40 @@ export function ScenarioRecommendationsPanel({
               {/* Always visible header */}
               <div className="p-6">
                 <div className="flex items-start justify-between gap-4">
-                  <div>
+                  <div className="flex-1">
                     <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">Rank {index + 1}</p>
                     <h3 className="mt-2 font-heading text-xl font-bold text-warm-text">{item.name}</h3>
                     <p className="mt-2 text-sm text-warm-accent">{item.category}</p>
                   </div>
-                  <div className="rounded-xl bg-warm-success/10 px-4 py-2 text-center">
-                    <p className="text-xs uppercase tracking-[0.14em] text-warm-success">Score</p>
-                    <p className="mt-1 text-2xl font-semibold text-warm-text">{item.score}</p>
-                  </div>
                 </div>
                 <p className="mt-4 text-sm leading-7 text-warm-secondary">{item.summary}</p>
                 <div className="mt-3 flex items-center gap-1 text-xs text-warm-accent">
-                  <span>{isExpanded ? "▲ 收起" : "▼ 展开查看推荐理由与数据需求"}</span>
+                  <span>{isExpanded ? "收起" : "展开查看关键字段"}</span>
                 </div>
               </div>
 
               {/* Expandable detail */}
               {isExpanded && (
                 <div className="border-t border-warm-border-light px-6 pb-6 animate-in fade-in">
-                  <div className="mt-4">
-                    <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">推荐理由</p>
-                    <ul className="mt-3 space-y-2">
-                      {item.reasons.map((r, i) => (
-                        <li key={`reason-${i}`} className="rounded-xl bg-warm-inset px-4 py-3 text-sm text-warm-secondary">{r}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="mt-4">
-                    <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">数据需求</p>
-                    <ul className="mt-3 space-y-2">
-                      {item.data_requirements.map((d, i) => (
-                        <li key={`data-${i}`} className="rounded-xl bg-warm-inset px-4 py-3 text-sm text-warm-secondary">{d}</li>
-                      ))}
-                    </ul>
+                  <div className="mt-4 space-y-3">
+                    {item.canvas_elements ? (
+                      <div className="rounded-xl bg-warm-inset px-4 py-3">
+                        <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">对应画布要素</p>
+                        <p className="mt-1 text-sm text-warm-secondary">{item.canvas_elements}</p>
+                      </div>
+                    ) : null}
+                    {item.expected_effects ? (
+                      <div className="rounded-xl bg-warm-inset px-4 py-3">
+                        <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">预期效果</p>
+                        <p className="mt-1 text-sm text-warm-secondary">{item.expected_effects}</p>
+                      </div>
+                    ) : null}
+                    {item.core_data_requirements ? (
+                      <div className="rounded-xl bg-warm-inset px-4 py-3">
+                        <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">所需核心数据</p>
+                        <p className="mt-1 text-sm text-warm-secondary">{item.core_data_requirements}</p>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               )}
