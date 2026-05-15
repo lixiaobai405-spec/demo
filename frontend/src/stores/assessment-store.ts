@@ -126,6 +126,7 @@ export const useAssessmentStore = create<AssessmentState>((set, get) => ({
           reset.selectedBreakthroughKeys = [];
           break;
         case "directions":
+          reset.directionData = null;
           reset.directionSelection = null;
           reset.selectedDirectionIds = [];
           break;

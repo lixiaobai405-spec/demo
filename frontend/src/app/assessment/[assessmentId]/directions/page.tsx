@@ -63,6 +63,11 @@ export default function DirectionsPage({
 
   // Trigger generation if no directions exist
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const hasConfirmedSelection =
+    store.directionSelection !== null &&
+    store.directionSelection.selected_directions.length > 0;
+
   const handleGenerate = useCallback(async () => {
     setIsGenerating(true);
     try {
@@ -175,11 +180,12 @@ export default function DirectionsPage({
           <DirectionExpansionPanel
             data={directionData}
             selectedIds={store.selectedDirectionIds}
-            isSelecting={false}
+            isSelecting={isSelecting}
             isLLMPending={isLLMPending}
             onToggleDirection={store.toggleDirectionId}
             onConfirmSelection={async () => {
               if (!store.assessment || store.selectedDirectionIds.length < 1) return;
+              setIsSelecting(true);
               try {
                 const { selectDirections: selectDirs } = await import("@/lib/api");
                 const result = await selectDirs(
@@ -194,6 +200,8 @@ export default function DirectionsPage({
                   description: formatMutationError(error, "创新方向保存"),
                   variant: "destructive",
                 });
+              } finally {
+                setIsSelecting(false);
               }
             }}
           />
@@ -224,8 +232,10 @@ export default function DirectionsPage({
           </div>
         )}
 
-        {/* Next step */}
-        {directionData && <DirectionsNextStep assessmentId={assessmentId} />}
+        {/* Next step — only show when directions are confirmed */}
+        {directionData && hasConfirmedSelection && (
+          <DirectionsNextStep assessmentId={assessmentId} />
+        )}
       </div>
     </main>
   );
@@ -239,7 +249,7 @@ function DirectionsNextStep({ assessmentId }: { assessmentId: string }) {
     try {
       await generateScenarios.mutateAsync(assessmentId);
       toast({ title: "AI 场景推荐已生成" });
-      router.push(`/assessment/${assessmentId}/results`);
+      router.push(`/assessment/${assessmentId}/scenarios`);
     } catch (e) {
       toast({
         title: "生成失败",

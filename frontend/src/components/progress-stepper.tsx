@@ -11,6 +11,7 @@ const stepLabels = [
   "方向延展",
   "场景推荐",
   "竞争力",
+  "商业终局",
   "报告预览",
 ];
 
@@ -22,6 +23,7 @@ const stepSectionIds = [
   "section-directions",
   "section-scenarios",
   "section-competitiveness",
+  "section-endgame",
   "section-report",
 ];
 
@@ -43,6 +45,7 @@ export function ProgressStepper({
     progress.has_directions ? "completed" : progress.has_breakthrough ? "active" : "pending",
     progress.has_scenarios ? "completed" : progress.has_directions ? "active" : "pending",
     progress.has_competitiveness ? "completed" : progress.has_scenarios ? "active" : "pending",
+    (progress as any).has_endgame ? "completed" : progress.has_competitiveness ? "active" : "pending",
     progress.has_report ? "completed" : progress.ready_for_report ? "active" : "pending",
   ];
 

@@ -32,6 +32,10 @@ vi.mock("@/hooks/use-toast", () => ({
   toast: vi.fn(),
 }));
 
+vi.mock("@/hooks/use-endgame", () => ({
+  useGenerateEndgame: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
 vi.mock("@/hooks/use-competitiveness", () => ({
   useCompetitiveness: (...args: unknown[]) => useCompetitivenessMock(...args),
   useGenerateCompetitiveness: () => ({ mutateAsync: vi.fn(), isPending: false }),
@@ -41,6 +45,7 @@ vi.mock("@/hooks", () => ({
   useAssessmentDetail: (...args: unknown[]) => useAssessmentDetailMock(...args),
   useCompetitiveness: (...args: unknown[]) => useCompetitivenessMock(...args),
   useGenerateCompetitiveness: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useGenerateEndgame: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 /**

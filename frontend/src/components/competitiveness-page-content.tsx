@@ -1,12 +1,15 @@
 "use client";
 
-import React from "react";
+import React, { useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-import { useAssessmentDetail, useCompetitiveness } from "@/hooks";
+import { useAssessmentDetail, useCompetitiveness, useGenerateEndgame } from "@/hooks";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CompetitivenessPanel } from "@/components/competitiveness-panel";
+import { toast } from "@/hooks/use-toast";
+import { formatMutationError } from "@/lib/api";
 
 /**
  * 在客户端加载差异化竞争力详情，避免服务端请求拿不到本地登录态。
@@ -16,8 +19,10 @@ export function CompetitivenessPageContent({
 }: {
   assessmentId: string;
 }) {
+  const router = useRouter();
   const detailQuery = useAssessmentDetail(assessmentId);
   const competitivenessQuery = useCompetitiveness(assessmentId);
+  const generateEndgame = useGenerateEndgame();
   const isLoading = detailQuery.isLoading || competitivenessQuery.isLoading;
 
   if (isLoading) {
@@ -84,6 +89,20 @@ export function CompetitivenessPageContent({
   const industry = detail.assessment.industry;
   const competitiveness = competitivenessQuery.data;
 
+  const handleGenerateEndgame = useCallback(async () => {
+    try {
+      await generateEndgame.mutateAsync(assessmentId);
+      toast({ title: "商业终局设计已生成" });
+      router.push(`/assessment/${assessmentId}/endgame`);
+    } catch (e) {
+      toast({
+        title: "生成失败",
+        description: formatMutationError(e, "商业终局设计"),
+        variant: "destructive",
+      });
+    }
+  }, [assessmentId, generateEndgame, router]);
+
   return (
     <main className="min-h-screen px-6 py-10">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-8">
@@ -119,7 +138,33 @@ export function CompetitivenessPageContent({
         </section>
 
         {competitiveness ? (
-          <CompetitivenessPanel data={competitiveness} />
+          <>
+            <CompetitivenessPanel data={competitiveness} />
+            {/* Next step */}
+            <section className="card">
+              <p className="section-label">下一步</p>
+              <h2 className="section-heading">商业终局设计</h2>
+              <p className="mt-2 text-sm leading-7 text-muted-foreground">
+                基于差异化竞争力分析，生成商业终局设计，包括私域、生态、数据能力体系
+                和三阶段推进策略。
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Button
+                  onClick={handleGenerateEndgame}
+                  disabled={generateEndgame.isPending}
+                  loading={generateEndgame.isPending}
+                >
+                  {generateEndgame.isPending ? "正在生成..." : "生成商业终局设计 →"}
+                </Button>
+                <Link
+                  href={`/assessment/${assessmentId}/results`}
+                  className="btn-secondary text-xs"
+                >
+                  查看结果仪表盘
+                </Link>
+              </div>
+            </section>
+          </>
         ) : (
           <div className="card-inset">
             <p className="section-label">差异化竞争力</p>

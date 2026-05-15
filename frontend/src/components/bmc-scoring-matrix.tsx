@@ -154,7 +154,10 @@ export function BmcScoringMatrix({
       });
       return snap;
     }
-    return null;
+    // Default scores (3,3,3) are the "clean" initial state — not a change
+    const defaults: Record<string, DimScores> = {};
+    BMC_MODULES.forEach((m) => { defaults[m.key] = { p: 3, d: 3, f: 3 }; });
+    return defaults;
   });
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
