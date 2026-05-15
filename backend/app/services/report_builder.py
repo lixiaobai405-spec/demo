@@ -45,7 +45,6 @@ class ReportBuilder:
             self._build_direction_section(direction_labels),
             self._build_ai_readiness_section(ai_readiness_score, profile, canvas_diagnosis),
             self._build_priority_scenarios_section(scenario_recommendation),
-            self._build_scenario_planning_section(scenario_recommendation),
             self._build_competitiveness_section(profile, canvas_diagnosis, scenario_recommendation, competitiveness_result),
             self._build_cases_section(case_recommendation),
             self._build_roadmap_section(roadmap),
@@ -150,26 +149,6 @@ class ReportBuilder:
             ],
         )
 
-        # Detailed cards for the 3 weakest blocks
-        weakest_titles = set(canvas_diagnosis.weakest_blocks)
-        weakest_blocks = [b for b in canvas_diagnosis.canvas.blocks if b.title in weakest_titles]
-        other_blocks = [b for b in canvas_diagnosis.canvas.blocks if b.title not in weakest_titles]
-
-        detail_cards = []
-        for block in weakest_blocks + other_blocks:
-            is_weak = block.title in weakest_titles
-            detail_cards.append(
-                ReportCardData(
-                    title=f"{'⚠️ ' if is_weak else ''}{block.title}",
-                    subtitle="薄弱环节 · 重点关注" if is_weak else "Business Model Canvas",
-                    content=block.current_state,
-                    highlight=f"🤖 AI 机会：{block.ai_opportunity}",
-                    bullets=[
-                        f"🔍 诊断：{block.diagnosis}",
-                    ],
-                )
-            )
-
         return ReportSectionData(
             key="canvas_diagnosis",
             title="当前商业模式画布诊断",
@@ -178,7 +157,6 @@ class ReportBuilder:
                 f"薄弱模块：{self._join_or_todo(canvas_diagnosis.weakest_blocks)}",
             ],
             table=overview_table,
-            cards=detail_cards,
             note=f"建议优先动作：{'；'.join(canvas_diagnosis.recommended_focus[:3])}" if canvas_diagnosis.recommended_focus else None,
         )
 

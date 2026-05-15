@@ -50,12 +50,14 @@ class EndgameAnalyzer:
         paths = self._build_strategic_paths(
             industry_type, canvas_diagnosis, breakthrough_keys, competitiveness_result
         )
+        essence = self._build_industry_essence(industry_type)
         narrative = self._build_narrative(
             private_domain, ecosystem, opc, three_stage_strategy, paths, competitiveness_result
         )
 
         return EndgameResult(
             generation_mode="rule_based",
+            industry_essence=essence,
             private_domain=private_domain,
             ecosystem=ecosystem,
             opc=opc,
@@ -69,6 +71,16 @@ class EndgameAnalyzer:
             if keyword in str(industry or ""):
                 return mapped
         return "通用"
+
+    @staticmethod
+    def _build_industry_essence(industry_type: str) -> str:
+        essences = {
+            "制造": "制造业的本质是供需匹配效率，终局是数据驱动的柔性生产网络。",
+            "零售": "零售业的本质是低成本获客与高复购留存，终局是算法驱动的个性化服务生态。",
+            "科技": "科技行业的本质是研发效能与生态锁定，终局是平台化的能力输出体系。",
+            "通用": "行业的本质是核心业务流程的效率与客户价值创造，终局是数据驱动的智能化运营体系。",
+        }
+        return essences.get(industry_type, essences["通用"])
 
     def _build_private_domain(
         self,
@@ -353,7 +365,7 @@ class EndgameAnalyzer:
             f"【生态】{ecosystem.ecosystem_positioning}",
             f"关键合作伙伴：{'、'.join(ecosystem.key_partners_to_engage[:3])}",
             "",
-            f"【OPC 运营平台能力】{opc.data_flywheel_effect}",
+            f"【数据】{opc.data_flywheel_effect}",
             "",
             (
                 f"【三阶段推进】先{three_stage_strategy.stage_1.focus}，"

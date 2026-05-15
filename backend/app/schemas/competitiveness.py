@@ -18,6 +18,8 @@ class PointToLineConnection(BaseModel):
     strategic_narrative: str
     competitive_impact: str
     key_metrics: list[str] = Field(default_factory=list)
+    linkage_logic: str = ""
+    competitive_moat: str = ""
 
 
 class CoreAdvantage(BaseModel):

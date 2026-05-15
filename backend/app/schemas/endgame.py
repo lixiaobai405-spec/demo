@@ -54,6 +54,7 @@ class StrategicPath(BaseModel):
 
 class EndgameResult(BaseModel):
     generation_mode: Literal["rule_based", "llm"]
+    industry_essence: str = ""
     private_domain: PrivateDomainDesign
     ecosystem: EcosystemDesign
     opc: OPCDesign

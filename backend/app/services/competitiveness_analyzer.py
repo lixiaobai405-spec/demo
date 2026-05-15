@@ -116,6 +116,7 @@ class CompetitivenessAnalyzer:
                 f"「{line_name}」，{template.get('description', '形成系统性竞争优势')}。"
                 f"这不仅是单点提效，而是通过流程串联实现{template.get('impact', '整体能力升级')}。"
             )
+            first_two = [d.title for d in line_directions[:2]]
             connections.append(
                 PointToLineConnection(
                     line_name=line_name,
@@ -124,6 +125,14 @@ class CompetitivenessAnalyzer:
                     strategic_narrative=narrative,
                     competitive_impact=template.get("impact", "提升整体竞争优势"),
                     key_metrics=list(template.get("metrics", [])),
+                    linkage_logic=(
+                        f"通过AI将{'、'.join(point_titles[:3])}等环节的数据和流程打通，"
+                        f"形成端到端的自动化决策闭环。"
+                    ),
+                    competitive_moat=(
+                        f"这种串联构建了基于数据和算法的系统性优势，"
+                        f"竞争对手难以通过单点模仿实现超越。"
+                    ),
                 )
             )
 
@@ -136,6 +145,8 @@ class CompetitivenessAnalyzer:
                     strategic_narrative="当前方向尚未形成明确的线级竞争力，建议进一步聚焦方向选择。",
                     competitive_impact="待方向聚焦后评估",
                     key_metrics=["待补充"],
+                    linkage_logic="",
+                    competitive_moat="",
                 )
             )
 
@@ -204,18 +215,18 @@ class CompetitivenessAnalyzer:
         return DeliveryStrategy(
             phase_1_quick_win=(
                 f"优先围绕「{joined}」实施 1-2 个可快速验证的方向，"
-                f"在 30 天内产出可量化的业务改进数据，建立组织信心。"
+                f"产出可量化的业务改进数据，建立组织信心。"
             ),
             phase_2_scale=(
                 f"将试点经验扩展至相邻流程和团队，重点修补「{weakest_str}」"
-                f"等薄弱环节，在 60 天内形成可复制的竞争力模板。"
+                f"等薄弱环节，形成可复制的竞争力模板。"
             ),
             phase_3_moat=(
                 f"将已验证的差异化能力沉淀为组织标准和系统能力，"
-                f"在 90-120 天内形成竞争对手难以短期复制的系统性优势。"
+                f"形成竞争对手难以短期复制的系统性优势。"
             ),
             key_risks=[
-                f"如果「{joined}」方向的数据基础不足，试点周期可能延长 2-4 周。",
+                f"如果「{joined}」方向的数据基础不足，试点周期可能延长。",
                 f"跨部门协同机制不完善会直接影响「{weakest_str}」的改进速度。",
                 "组织惯性可能导致新方法被旧流程稀释，需要明确负责人和决策权限。",
             ],
