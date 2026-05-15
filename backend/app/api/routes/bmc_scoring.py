@@ -11,6 +11,7 @@ from app.db.session import get_db
 from app.models.assessment import Assessment
 from app.models.bmc_scoring import BMCScoring
 from app.models.breakthrough_selection import BreakthroughSelection
+from app.models.direction_expansion import DirectionExpansion
 from app.schemas.assessment import CanvasDiagnosisResult, BusinessModelCanvasResult
 from app.schemas.bmc_scoring import (
     AutoDeriveResponse,
@@ -158,6 +159,13 @@ def save_bmc_scoring(
         top3_results=result.top_3_results,
         selection_mode=payload.selection_mode,
     )
+
+    # 清除下游方向延展，确保基于新突破要素重新生成
+    dir_record = db.scalar(
+        select(DirectionExpansion).where(DirectionExpansion.assessment_id == assessment_id)
+    )
+    if dir_record is not None:
+        db.delete(dir_record)
 
     db.commit()
     db.refresh(record)

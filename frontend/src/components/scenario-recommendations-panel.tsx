@@ -14,9 +14,10 @@ import { Button } from "@/components/ui/button";
  * 渲染 AI 场景推荐列表，以关键字段卡片形式展示。
  */
 export function ScenarioRecommendationsPanel({
-  assessmentId, readyForReport, scenarioRecommendation,
+  assessmentId, readyForReport, scenarioRecommendation, hideNextAction,
 }: {
   assessmentId: string; readyForReport: boolean; scenarioRecommendation: ScenarioRecommendationResult;
+  hideNextAction?: boolean;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const router = useRouter();
@@ -50,7 +51,7 @@ export function ScenarioRecommendationsPanel({
         已评估 {scenarioRecommendation.evaluated_count} 个候选场景，以下展示 Top 3。点击卡片展开查看详情。
       </p>
 
-      {readyForReport ? (
+      {!hideNextAction && readyForReport ? (
         <div className="mt-6 flex flex-wrap gap-3">
           <Button
             onClick={handleGenerateCompetitiveness}
