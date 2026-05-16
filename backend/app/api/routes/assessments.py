@@ -56,6 +56,7 @@ from app.schemas.direction import (
     DirectionSelectionResponse,
 )
 from app.schemas.competitiveness import (
+    build_line_summary,
     CompetitivenessResponse,
     CompetitivenessResult,
 )
@@ -1573,15 +1574,26 @@ def _build_competitiveness_result_from_record(
     connections_raw = _parse_json_raw(record.connections_json, "Failed to parse connections.")
     advantages_raw = _parse_json_raw(record.advantages_json, "Failed to parse advantages.")
     strategy_raw = _parse_json_raw(record.strategy_json, "Failed to parse delivery strategy.")
+    normalized_connections = [_normalize_connection_summary(item) for item in connections_raw]
 
     return CompetitivenessResult(
         generation_mode=record.generation_mode,
         vp_reconstruction=VPReconstruction.model_validate(vp_raw),
-        connections=[PointToLineConnection.model_validate(item) for item in connections_raw],
+        connections=[PointToLineConnection.model_validate(item) for item in normalized_connections],
         advantages=[CoreAdvantage.model_validate(item) for item in advantages_raw],
         delivery_strategy=DeliveryStrategy.model_validate(strategy_raw),
         overall_narrative=record.overall_narrative or "",
     )
+
+
+def _normalize_connection_summary(item: dict) -> dict:
+    """将旧版线路摘要兼容为只表达逻辑和预期效果的一句话。"""
+    normalized = dict(item)
+    line_name = str(normalized.get("line_name", "")).strip()
+    competitive_impact = str(normalized.get("competitive_impact", "")).strip()
+    normalized["strategic_narrative"] = build_line_summary(line_name, competitive_impact)
+    normalized["competitive_moat"] = ""
+    return normalized
 
 
 def _load_endgame_analysis(

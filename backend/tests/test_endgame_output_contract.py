@@ -7,7 +7,10 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from app.api.routes.assessments import _build_endgame_result_from_record
+from app.api.routes.assessments import (
+    _build_competitiveness_result_from_record,
+    _build_endgame_result_from_record,
+)
 from app.schemas.assessment import (
     BusinessModelCanvasResult,
     CanvasBlockResult,
@@ -222,3 +225,64 @@ def test_build_endgame_result_from_record_rehydrates_three_stage_strategy() -> N
     assert result.three_stage_strategy.stage_2.focus == "规模扩展"
     assert result.three_stage_strategy.stage_3.title == "阶段 3"
     assert result.three_stage_strategy.key_risks == ["组织协同不足"]
+
+
+def test_build_competitiveness_result_from_record_normalizes_legacy_summary() -> None:
+    """确认读取旧版竞争力结果时，会兼容成纯一句话摘要。"""
+    record = SimpleNamespace(
+        generation_mode="rule_based",
+        vp_json=json.dumps(
+            {
+                "current_vp": "帮助门店提升经营效率",
+                "enhanced_vp": "通过客户经营和知识复用形成差异化竞争力",
+                "differentiation_points": ["客户经营深化", "知识资产复用"],
+                "customer_value_shift": "从单点提效升级为持续经营。",
+            },
+            ensure_ascii=False,
+        ),
+        connections_json=json.dumps(
+            [
+                {
+                    "line_name": "客户响应速度线",
+                    "point_ids": ["direction-1"],
+                    "point_titles": ["客户健康度评分"],
+                    "strategic_narrative": "将客户健康度评分串联为客户响应速度线，这不仅是单点提效。",
+                    "competitive_impact": "缩短从需求识别到价值交付的周期，提升客户满意度和复购率",
+                    "key_metrics": ["需求响应周期"],
+                    "linkage_logic": "AI不再只是辅助工具。",
+                    "competitive_moat": "旧护城河文案",
+                }
+            ],
+            ensure_ascii=False,
+        ),
+        advantages_json=json.dumps(
+            [
+                {
+                    "advantage_name": "客户经营优势",
+                    "source_elements": ["客户关系"],
+                    "description": "形成更强的客户经营闭环。",
+                    "barrier_level": "高",
+                }
+            ],
+            ensure_ascii=False,
+        ),
+        strategy_json=json.dumps(
+            {
+                "phase_1_quick_win": "先试点",
+                "phase_2_scale": "再复制",
+                "phase_3_moat": "后沉淀",
+                "key_risks": ["跨团队协同不足"],
+            },
+            ensure_ascii=False,
+        ),
+        overall_narrative="竞争力方向清晰。",
+    )
+
+    result = _build_competitiveness_result_from_record(record)
+
+    assert result.connections[0].strategic_narrative == (
+        "形成从客户洞察到快速响应的协同闭环，"
+        "缩短从需求识别到价值交付的周期，提升客户满意度和复购率。"
+    )
+    assert result.connections[0].linkage_logic == "AI不再只是辅助工具。"
+    assert result.connections[0].competitive_moat == ""

@@ -69,8 +69,12 @@ def test_competitiveness_analyzer_builds_single_line_summary() -> None:
 
     customer_line = next(conn for conn in result.connections if conn.line_name == "客户响应速度线")
 
-    assert "将客户健康度评分、人才技能匹配与梯队建设等方向串联为" in customer_line.strategic_narrative
+    assert customer_line.strategic_narrative == (
+        "形成从客户洞察到快速响应的协同闭环，"
+        "缩短从需求识别到价值交付的周期，提升客户满意度和复购率。"
+    )
     assert "提升客户满意度和复购率" in customer_line.strategic_narrative
+    assert "将客户健康度评分" not in customer_line.strategic_narrative
     assert "AI不再只是辅助工具" in customer_line.linkage_logic
     assert "客户健康度评分" in customer_line.linkage_logic
     assert customer_line.competitive_moat == ""

@@ -1,6 +1,7 @@
 from app.schemas.assessment import CanvasDiagnosisResult
 from app.schemas.competitiveness import (
     COMPETITIVENESS_KNOWLEDGE,
+    build_line_summary,
     CompetitivenessResult,
     CoreAdvantage,
     DeliveryStrategy,
@@ -149,10 +150,8 @@ class CompetitivenessAnalyzer:
         template: dict[str, object],
     ) -> str:
         """生成线路卡片的一句话总结，兼顾串联逻辑与预期效果。"""
-        direction_summary = "、".join(point_titles[:2]) or "相关方向"
-        description = str(template.get("description", "系统性竞争优势闭环"))
         impact = str(template.get("impact", "实现整体能力升级"))
-        return f"将{direction_summary}等方向串联为「{line_name}」，形成{description}的协同闭环，{impact}。"
+        return build_line_summary(line_name, impact)
 
     def _build_linkage_logic(self, point_titles: list[str]) -> str:
         """生成人机协同视角的联动逻辑说明，用于卡片详情展示。"""
