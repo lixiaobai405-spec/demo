@@ -110,13 +110,10 @@ class CompetitivenessAnalyzer:
         for line_name, line_directions in line_map.items():
             template = line_templates.get(line_name, {})
             point_titles = [d.title for d in line_directions]
-            joined = "、".join(point_titles[:4])
             narrative = (
-                f"将{'、'.join([d.title for d in line_directions[:2]])}等方向串联为"
-                f"「{line_name}」，{template.get('description', '形成系统性竞争优势')}。"
-                f"这不仅是单点提效，而是通过流程串联实现{template.get('impact', '整体能力升级')}。"
+                f"{template.get('description', '形成系统性竞争优势')}。"
+                f"实现{template.get('impact', '整体能力升级')}。"
             )
-            first_two = [d.title for d in line_directions[:2]]
             pts_joined = "、".join(point_titles[:3])
             connections.append(
                 PointToLineConnection(
