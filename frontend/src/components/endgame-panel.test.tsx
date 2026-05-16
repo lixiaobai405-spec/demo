@@ -149,5 +149,7 @@ describe("EndgamePanel", () => {
 
     expect(screen.queryByText("三阶段推进策略")).not.toBeInTheDocument();
     expect(screen.queryByText("Phase 1 — 快速验证")).not.toBeInTheDocument();
+    expect(screen.getByText("联动逻辑")).toBeInTheDocument();
+    expect(screen.queryByText("竞争壁垒")).not.toBeInTheDocument();
   });
 });

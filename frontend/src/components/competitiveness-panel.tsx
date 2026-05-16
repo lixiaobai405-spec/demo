@@ -75,12 +75,6 @@ export function CompetitivenessPanel({ data }: { data: CompetitivenessResponse }
                   <p className="mt-1 text-xs leading-5 text-warm-secondary">{conn.linkage_logic}</p>
                 </div>
               )}
-              {conn.competitive_moat && (
-                <div className="mt-2 rounded-lg bg-warm-success/5 p-3">
-                  <p className="text-[10px] uppercase text-warm-success">竞争壁垒</p>
-                  <p className="mt-1 text-xs leading-5 text-warm-secondary">{conn.competitive_moat}</p>
-                </div>
-              )}
               {conn.point_titles.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {conn.point_titles.map((title) => <span key={title} className="badge badge-muted text-xs">{title}</span>)}
