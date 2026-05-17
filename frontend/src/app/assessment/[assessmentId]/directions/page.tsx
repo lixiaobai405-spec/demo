@@ -253,7 +253,7 @@ export default function DirectionsPage({
         )}
 
         {/* Next step — only show when directions are confirmed */}
-        {directionData && hasConfirmedSelection && (
+        {directionData && hasConfirmedSelection && !isLLMPending && (
           <DirectionsNextStep assessmentId={assessmentId} />
         )}
       </div>
