@@ -12,6 +12,22 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DirectionExpansionPanel } from "@/components/direction-expansion-panel";
 import { useAssessmentStore } from "@/stores/assessment-store";
 import { toast } from "@/hooks/use-toast";
+import type { AssessmentDirectionResponse } from "@/lib/types";
+
+/**
+ * 提取当前方向页正在展示的方向 ID，确保选择和计数只基于当前这一版结果。
+ */
+function extractCurrentDirectionIds(
+  directionData: AssessmentDirectionResponse | undefined,
+): string[] {
+  if (!directionData) {
+    return [];
+  }
+
+  return directionData.direction_expansion.elements.flatMap((element) =>
+    element.suggestions.map((direction) => direction.direction_id),
+  );
+}
 
 export default function DirectionsPage({
   params,
@@ -39,6 +55,11 @@ export default function DirectionsPage({
   const directionData = directionsQuery.data;
   const isLLMPending =
     directionData?.direction_expansion.llm_status === "pending";
+  const currentDirectionIds = extractCurrentDirectionIds(directionData);
+  const currentDirectionIdSet = new Set(currentDirectionIds);
+  const currentSelectedDirectionIds = store.selectedDirectionIds.filter((id) =>
+    currentDirectionIdSet.has(id),
+  );
 
   // Sync polled data back to store for cross-tab consistency
   useEffect(() => {
@@ -46,17 +67,12 @@ export default function DirectionsPage({
     const status = directionData.direction_expansion.llm_status;
     if (status !== "pending") {
       store.setDirectionData(directionData);
-      if (
-        directionData.direction_selection &&
-        directionData.direction_selection.selected_directions.length > 0
-      ) {
-        store.setDirectionSelection(directionData.direction_selection);
-        store.setSelectedDirectionIds(
-          directionData.direction_selection.selected_directions.map(
-            (d) => d.direction_id,
-          ),
-        );
-      }
+      store.setDirectionSelection(directionData.direction_selection);
+      store.setSelectedDirectionIds(
+        directionData.direction_selection?.selected_directions.map(
+          (direction) => direction.direction_id,
+        ) ?? [],
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [directionData]);
@@ -179,20 +195,24 @@ export default function DirectionsPage({
         ) : directionData ? (
           <DirectionExpansionPanel
             data={directionData}
-            selectedIds={store.selectedDirectionIds}
+            selectedIds={currentSelectedDirectionIds}
             isSelecting={isSelecting}
             isLLMPending={isLLMPending}
             onToggleDirection={store.toggleDirectionId}
             onConfirmSelection={async () => {
-              if (!store.assessment || store.selectedDirectionIds.length < 1) return;
+              if (!store.assessment || currentSelectedDirectionIds.length < 1) return;
               setIsSelecting(true);
               try {
                 const { selectDirections: selectDirs } = await import("@/lib/api");
                 const result = await selectDirs(
                   store.assessment.id,
-                  { selected_direction_ids: store.selectedDirectionIds },
+                  { selected_direction_ids: currentSelectedDirectionIds },
                 );
                 store.setDirectionSelection(result);
+                store.setSelectedDirectionIds(
+                  result.selected_directions.map((direction) => direction.direction_id),
+                );
+                await directionsQuery.refetch();
                 toast({ title: "创新方向已确认" });
               } catch (error) {
                 toast({

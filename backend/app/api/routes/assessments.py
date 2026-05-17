@@ -569,12 +569,21 @@ def select_directions(
         )
 
     service = DirectionExpansionService()
-    selected_directions, _ = service.resolve_selected_directions(payload.selected_direction_ids)
+    selected_directions, _ = _resolve_selected_directions_for_assessment(
+        db,
+        assessment_id,
+        payload.selected_direction_ids,
+    )
+    if not selected_directions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="请选择当前创新方向列表中的有效方向。",
+        )
 
     record = _upsert_direction_selection(
         db=db,
         assessment_id=assessment_id,
-        direction_ids=payload.selected_direction_ids,
+        direction_ids=[direction.direction_id for direction in selected_directions],
         selected_directions=selected_directions,
     )
 
@@ -1273,6 +1282,39 @@ def _load_direction_expansion_result(
         return DirectionExpansionResult.model_validate(raw)
     except Exception:
         return None
+
+
+def _resolve_selected_directions_for_assessment(
+    db: Session,
+    assessment_id: str,
+    direction_ids: list[str],
+) -> tuple[list, list[str]]:
+    """优先按当前 assessment 已保存的方向扩展结果解析选择，兼容增强后的自定义方向 ID。"""
+    from app.schemas.direction import DirectionSuggestion
+
+    expansion = _load_direction_expansion_result(db, assessment_id)
+    if expansion is not None:
+        suggestion_map = {
+            suggestion.direction_id: suggestion
+            for element in expansion.elements
+            for suggestion in element.suggestions
+        }
+        selected = [
+            suggestion_map[direction_id]
+            for direction_id in direction_ids
+            if direction_id in suggestion_map
+        ]
+        categories = list(
+            dict.fromkeys(
+                category
+                for direction in selected
+                for category in direction.related_scenario_categories
+            )
+        )
+        return selected, categories
+
+    service = DirectionExpansionService()
+    return service.resolve_selected_directions(direction_ids)
 
 
 def _load_direction_categories(

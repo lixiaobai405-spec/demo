@@ -1,5 +1,7 @@
 "use client";
 
+import React from "react";
+
 import type { AssessmentDirectionResponse, DirectionSuggestion } from "@/lib/types";
 
 export function DirectionExpansionPanel({
@@ -14,6 +16,12 @@ export function DirectionExpansionPanel({
 }) {
   const { direction_expansion, direction_selection } = data;
   const hasExistingSelection = direction_selection !== null && direction_selection.selected_directions.length > 0;
+  const currentDirectionIdSet = new Set(
+    direction_expansion.elements.flatMap((element) =>
+      element.suggestions.map((direction) => direction.direction_id),
+    ),
+  );
+  const visibleSelectedIds = selectedIds.filter((id) => currentDirectionIdSet.has(id));
 
   return (
     <div className="card">
@@ -77,8 +85,8 @@ export function DirectionExpansionPanel({
 
           {direction_expansion.elements.length > 0 && (
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <button type="button" onClick={onConfirmSelection} disabled={isSelecting || selectedIds.length < 1 || selectedIds.length > 6} className="btn-primary">
-                {isSelecting ? "保存中..." : selectedIds.length < 1 ? "请至少选择 1 个方向" : selectedIds.length > 6 ? `最多选择 6 个方向（已选 ${selectedIds.length}）` : `确认选择（${selectedIds.length} 个方向）`}
+              <button type="button" onClick={onConfirmSelection} disabled={isSelecting || visibleSelectedIds.length < 1 || visibleSelectedIds.length > 6} className="btn-primary">
+                {isSelecting ? "保存中..." : visibleSelectedIds.length < 1 ? "请至少选择 1 个方向" : visibleSelectedIds.length > 6 ? `最多选择 6 个方向（已选 ${visibleSelectedIds.length}）` : `确认选择（${visibleSelectedIds.length} 个方向）`}
               </button>
             </div>
           )}
