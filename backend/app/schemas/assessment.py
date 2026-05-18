@@ -134,10 +134,19 @@ class ScenarioRecommendationItem(BaseModel):
     canvas_elements: str = ""
     expected_effects: str = ""
     core_data_requirements: str = ""
+    # 四象限优先级评分字段（可选，由 ScenePriorityScorer 填充）
+    priority_structuredness_x: float | None = None
+    priority_complexity_y: float | None = None
+    priority_qs: float | None = None
+    priority_lps: float | None = None
+    priority_lps_display: float | None = None
+    priority_quadrant: str | None = None
+    priority_tier: int | None = None
+    priority_recommendation: str | None = None
 
 
 class ScenarioRecommendationResult(BaseModel):
-    scoring_method: Literal["rule_based_v1"]
+    scoring_method: Literal["rule_based_v1", "four_quadrant_v1"]
     evaluated_count: int
     top_scenarios: list[ScenarioRecommendationItem] = Field(default_factory=list)
     created_at: datetime | None = None

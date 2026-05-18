@@ -2,6 +2,7 @@ import json
 import logging
 import threading
 from datetime import datetime, timezone
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ValidationError
@@ -813,6 +814,50 @@ def recommend_scenarios(
         assessment_id=assessment.id,
         evaluated_count=evaluated_count,
         top_scenarios=top_recommendations,
+    )
+
+    return AssessmentScenarioRecommendationResponse(
+        assessment=AssessmentResponse.model_validate(assessment, from_attributes=True),
+        scenario_recommendation=stored_scenarios,
+    )
+
+
+@router.post(
+    "/{assessment_id}/scenarios/priority",
+    response_model=AssessmentScenarioRecommendationResponse,
+    status_code=status.HTTP_200_OK,
+)
+def recommend_scenarios_with_priority(
+    assessment_id: str,
+    db: Session = Depends(get_db),
+) -> AssessmentScenarioRecommendationResponse:
+    """使用四象限优先级评分引擎推荐 Top 3 AI 场景。
+
+    先通过关键词评分从 24 个预定义场景中筛选候选，再使用
+    ScenePriorityScorer 计算每个场景的 QS/LPS/LPS_display，
+    最终按梯队+LPS_final 排序返回 Top 3。
+
+    输出每个场景附带的 priority_* 字段：
+    - priority_structuredness_x / priority_complexity_y: X/Y 评分
+    - priority_qs: 象限定位得分
+    - priority_lps / priority_lps_display: 落地优先级及展示分
+    - priority_quadrant: 象限归属
+    - priority_tier: 推荐梯队 (1=自动化主战场, 2=AI优先区, 3=人机协作区)
+    - priority_recommendation: 推荐话术模板
+    """
+    assessment = _get_assessment_or_404(db, assessment_id)
+    profile = _load_profile_from_assessment(assessment)
+    direction_categories = _load_direction_categories(db, assessment_id)
+    recommender = ScenarioRecommender()
+    priority_result = recommender.recommend_with_priority(
+        assessment, profile, direction_categories
+    )
+    stored_scenarios = _upsert_scenario_recommendation(
+        db=db,
+        assessment_id=assessment.id,
+        evaluated_count=priority_result.evaluated_count,
+        top_scenarios=priority_result.top_scenarios,
+        scoring_method=priority_result.scoring_method,
     )
 
     return AssessmentScenarioRecommendationResponse(
@@ -1911,6 +1956,7 @@ def _upsert_scenario_recommendation(
     assessment_id: str,
     evaluated_count: int,
     top_scenarios: list[ScenarioRecommendationItem],
+    scoring_method: Literal["rule_based_v1", "four_quadrant_v1"] = "rule_based_v1",
 ) -> ScenarioRecommendationResult:
     record = db.scalar(
         select(ScenarioRecommendation).where(
@@ -1920,13 +1966,13 @@ def _upsert_scenario_recommendation(
     if record is None:
         record = ScenarioRecommendation(
             assessment_id=assessment_id,
-            scoring_method="rule_based_v1",
+            scoring_method=scoring_method,
             evaluated_count=evaluated_count,
             scenario_json="[]",
             top_scenarios="[]",
         )
 
-    record.scoring_method = "rule_based_v1"
+    record.scoring_method = scoring_method
     record.evaluated_count = evaluated_count
     record.scenario_json = json.dumps(
         [item.model_dump() for item in top_scenarios],
@@ -1943,7 +1989,7 @@ def _upsert_scenario_recommendation(
     _clear_cases_and_reports(db, assessment_id)
 
     return ScenarioRecommendationResult(
-        scoring_method="rule_based_v1",
+        scoring_method=scoring_method,
         evaluated_count=evaluated_count,
         top_scenarios=top_scenarios,
         created_at=record.created_at,

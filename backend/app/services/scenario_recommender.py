@@ -6,7 +6,9 @@ from pydantic import BaseModel, Field
 
 from app.core.config import ROOT_DIR
 from app.models.assessment import Assessment
-from app.schemas.assessment import CompanyProfileResult, ScenarioRecommendationItem
+from app.schemas.assessment import CompanyProfileResult, ScenarioRecommendationItem, ScenarioRecommendationResult
+from app.schemas.scene_priority import ScenePriorityInput
+from app.services.scene_priority_scorer import ScenePriorityScorer
 
 SCENARIO_LIBRARY_PATH = ROOT_DIR / "knowledge" / "raw" / "ai_scenarios.yaml"
 
@@ -185,6 +187,106 @@ class ScenarioRecommender:
                 deduped_matches.append(match)
                 seen.add(match)
         return deduped_matches
+
+    def recommend_with_priority(
+        self,
+        assessment: Assessment,
+        profile: CompanyProfileResult | None = None,
+        direction_categories: list[str] | None = None,
+    ) -> ScenarioRecommendationResult:
+        """使用四象限优先级评分引擎进行 Top 3 场景推荐。
+
+        先运行关键词评分筛选候选场景，再通过 ScenePriorityScorer
+        计算每个场景的结构化程度、复杂度及综合优先级，最终按
+        梯队+LPS 排序返回 Top 3。
+        """
+        library = load_scenario_library()
+
+        # Step 1：关键词评分
+        scored = [
+            (self._calc_score(definition, assessment, profile, direction_categories), definition)
+            for definition in library.scenarios
+        ]
+        scored.sort(key=lambda x: (-x[0], x[1].name))
+
+        # Step 2：构建四象限评分输入
+        priority_scorer = ScenePriorityScorer()
+
+        definition_map: dict[str, ScenarioDefinition] = {}
+        candidates: list[ScenePriorityInput] = []
+        for kw_score, definition in scored:
+            definition_map[definition.id] = definition
+
+            # 启发式自动评分 X/Y
+            x = float(priority_scorer.score_structuredness(definition.summary + definition.category))
+            y = float(priority_scorer.score_complexity(definition.summary + definition.category))
+
+            candidates.append(
+                ScenePriorityInput(
+                    scene_id=definition.id,
+                    scene_name=definition.name,
+                    category=definition.category,
+                    summary=definition.summary,
+                    structuredness_x=x,
+                    complexity_y=y,
+                    industry=assessment.industry or "",
+                    canvas_elements="、".join(definition.canvas_keywords[:3]) if definition.canvas_keywords else "",
+                    expected_effects=(
+                        f"通过{definition.name}，预期可{'、'.join(definition.goal_keywords[:3])}"
+                        if definition.goal_keywords
+                        else f"通过{definition.name}提升业务效率与竞争力"
+                    ),
+                    core_data_requirements=(
+                        definition.data_requirements[0]
+                        if definition.data_requirements
+                        else ""
+                    ),
+                )
+            )
+
+        # Step 3：四象限优先级评分 + Top 3
+        priority_result = priority_scorer.recommend_top3(candidates)
+
+        # Step 4：转换为 ScenarioRecommendationItem，从原始 definition 补充内容字段
+        top_scenarios: list[ScenarioRecommendationItem] = []
+        for ps in priority_result.top_3:
+            definition = definition_map.get(ps.scene_id)
+            item = ScenarioRecommendationItem(
+                scenario_id=ps.scene_id,
+                name=ps.scene_name,
+                category=ps.category,
+                summary=definition.summary if definition else "",
+                canvas_elements=(
+                    "、".join(definition.canvas_keywords[:3])
+                    if definition and definition.canvas_keywords
+                    else ""
+                ),
+                expected_effects=(
+                    f"通过{ps.scene_name}，预期可{'、'.join(definition.goal_keywords[:3])}"
+                    if definition and definition.goal_keywords
+                    else f"通过{ps.scene_name}提升业务效率与竞争力"
+                ),
+                core_data_requirements=(
+                    definition.data_requirements[0]
+                    if definition and definition.data_requirements
+                    else ""
+                ),
+                priority_structuredness_x=ps.structuredness_x,
+                priority_complexity_y=ps.complexity_y,
+                priority_qs=ps.qs,
+                priority_lps=ps.lps,
+                priority_lps_display=ps.lps_display,
+                priority_quadrant=ps.quadrant.value,
+                priority_tier=ps.priority_tier,
+                priority_recommendation=ps.recommendation_template,
+            )
+            top_scenarios.append(item)
+
+        return ScenarioRecommendationResult(
+            scoring_method="four_quadrant_v1",
+            evaluated_count=priority_result.total_candidates,
+            top_scenarios=top_scenarios,
+        )
 
     def _normalize_text(self, text: str | None) -> str:
         if not text:
