@@ -56,6 +56,7 @@ from app.schemas.direction import (
     DirectionSelectionResponse,
 )
 from app.schemas.competitiveness import (
+    build_line_summary,
     CompetitivenessResponse,
     CompetitivenessResult,
 )
@@ -568,12 +569,21 @@ def select_directions(
         )
 
     service = DirectionExpansionService()
-    selected_directions, _ = service.resolve_selected_directions(payload.selected_direction_ids)
+    selected_directions, _ = _resolve_selected_directions_for_assessment(
+        db,
+        assessment_id,
+        payload.selected_direction_ids,
+    )
+    if not selected_directions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="请选择当前创新方向列表中的有效方向。",
+        )
 
     record = _upsert_direction_selection(
         db=db,
         assessment_id=assessment_id,
-        direction_ids=payload.selected_direction_ids,
+        direction_ids=[direction.direction_id for direction in selected_directions],
         selected_directions=selected_directions,
     )
 
@@ -1274,6 +1284,39 @@ def _load_direction_expansion_result(
         return None
 
 
+def _resolve_selected_directions_for_assessment(
+    db: Session,
+    assessment_id: str,
+    direction_ids: list[str],
+) -> tuple[list, list[str]]:
+    """优先按当前 assessment 已保存的方向扩展结果解析选择，兼容增强后的自定义方向 ID。"""
+    from app.schemas.direction import DirectionSuggestion
+
+    expansion = _load_direction_expansion_result(db, assessment_id)
+    if expansion is not None:
+        suggestion_map = {
+            suggestion.direction_id: suggestion
+            for element in expansion.elements
+            for suggestion in element.suggestions
+        }
+        selected = [
+            suggestion_map[direction_id]
+            for direction_id in direction_ids
+            if direction_id in suggestion_map
+        ]
+        categories = list(
+            dict.fromkeys(
+                category
+                for direction in selected
+                for category in direction.related_scenario_categories
+            )
+        )
+        return selected, categories
+
+    service = DirectionExpansionService()
+    return service.resolve_selected_directions(direction_ids)
+
+
 def _load_direction_categories(
     db: Session,
     assessment_id: str,
@@ -1573,15 +1616,26 @@ def _build_competitiveness_result_from_record(
     connections_raw = _parse_json_raw(record.connections_json, "Failed to parse connections.")
     advantages_raw = _parse_json_raw(record.advantages_json, "Failed to parse advantages.")
     strategy_raw = _parse_json_raw(record.strategy_json, "Failed to parse delivery strategy.")
+    normalized_connections = [_normalize_connection_summary(item) for item in connections_raw]
 
     return CompetitivenessResult(
         generation_mode=record.generation_mode,
         vp_reconstruction=VPReconstruction.model_validate(vp_raw),
-        connections=[PointToLineConnection.model_validate(item) for item in connections_raw],
+        connections=[PointToLineConnection.model_validate(item) for item in normalized_connections],
         advantages=[CoreAdvantage.model_validate(item) for item in advantages_raw],
         delivery_strategy=DeliveryStrategy.model_validate(strategy_raw),
         overall_narrative=record.overall_narrative or "",
     )
+
+
+def _normalize_connection_summary(item: dict) -> dict:
+    """将旧版线路摘要兼容为只表达逻辑和预期效果的一句话。"""
+    normalized = dict(item)
+    line_name = str(normalized.get("line_name", "")).strip()
+    competitive_impact = str(normalized.get("competitive_impact", "")).strip()
+    normalized["strategic_narrative"] = build_line_summary(line_name, competitive_impact)
+    normalized["competitive_moat"] = ""
+    return normalized
 
 
 def _load_endgame_analysis(

@@ -1,6 +1,7 @@
 from app.schemas.assessment import CanvasDiagnosisResult
 from app.schemas.competitiveness import (
     COMPETITIVENESS_KNOWLEDGE,
+    build_line_summary,
     CompetitivenessResult,
     CoreAdvantage,
     DeliveryStrategy,
@@ -93,6 +94,7 @@ class CompetitivenessAnalyzer:
         self,
         directions: list[DirectionSuggestion],
     ) -> list[PointToLineConnection]:
+        """构造 Point → Line 串联结果，并为每条线路生成一句摘要。"""
         category_to_line = COMPETITIVENESS_KNOWLEDGE["category_to_line"]
         line_templates = COMPETITIVENESS_KNOWLEDGE["line_templates"]
 
@@ -110,14 +112,8 @@ class CompetitivenessAnalyzer:
         for line_name, line_directions in line_map.items():
             template = line_templates.get(line_name, {})
             point_titles = [d.title for d in line_directions]
-            joined = "、".join(point_titles[:4])
-            narrative = (
-                f"将{'、'.join([d.title for d in line_directions[:2]])}等方向串联为"
-                f"「{line_name}」，{template.get('description', '形成系统性竞争优势')}。"
-                f"这不仅是单点提效，而是通过流程串联实现{template.get('impact', '整体能力升级')}。"
-            )
-            first_two = [d.title for d in line_directions[:2]]
-            pts_joined = "、".join(point_titles[:3])
+            narrative = self._build_line_summary(line_name, point_titles, template)
+            linkage_logic = self._build_linkage_logic(point_titles)
             connections.append(
                 PointToLineConnection(
                     line_name=line_name,
@@ -126,20 +122,8 @@ class CompetitivenessAnalyzer:
                     strategic_narrative=narrative,
                     competitive_impact=template.get("impact", "提升整体竞争优势"),
                     key_metrics=list(template.get("metrics", [])),
-                    linkage_logic=(
-                        f"AI不再只是辅助工具，而是连接{pts_joined}的'神经中枢'——"
-                        f"实时汇聚各环节数据，驱动从感知、决策到执行的闭环。"
-                        f"例如，当{point_titles[0] if point_titles else '前端'}的异常信号被捕捉后，"
-                        f"系统自动联动{'、'.join(point_titles[1:3]) if len(point_titles) > 1 else '后端'}"
-                        f"进行调整，人工只需审核关键节点。"
-                    ),
-                    competitive_moat=(
-                        f"「{line_name}」不是单点工具的堆砌，而是将{pts_joined}"
-                        f"编织为一条AI驱动的智能流水线。这种串联一旦跑通，"
-                        f"数据和算法的飞轮效应会持续拉大与跟随者的差距——"
-                        f"每多跑一轮，模型就更精准、响应就更快、成本就更低，"
-                        f"形成'越用越强、越强越难追'的结构性壁垒。"
-                    ),
+                    linkage_logic=linkage_logic,
+                    competitive_moat="",
                 )
             )
 
@@ -158,6 +142,28 @@ class CompetitivenessAnalyzer:
             )
 
         return connections
+
+    def _build_line_summary(
+        self,
+        line_name: str,
+        point_titles: list[str],
+        template: dict[str, object],
+    ) -> str:
+        """生成线路卡片的一句话总结，兼顾串联逻辑与预期效果。"""
+        impact = str(template.get("impact", "实现整体能力升级"))
+        return build_line_summary(line_name, impact)
+
+    def _build_linkage_logic(self, point_titles: list[str]) -> str:
+        """生成人机协同视角的联动逻辑说明，用于卡片详情展示。"""
+        pts_joined = "、".join(point_titles[:3]) or "相关方向"
+        downstream = "、".join(point_titles[1:3]) if len(point_titles) > 1 else "后续环节"
+        upstream = point_titles[0] if point_titles else "前端"
+        return (
+            f"AI不再只是辅助工具，而是连接{pts_joined}的神经中枢，"
+            f"实时汇聚各环节数据，驱动从感知、决策到执行的闭环；"
+            f"当{upstream}的异常信号被捕捉后，系统会联动{downstream}进行调整，"
+            f"人工只需审核关键节点。"
+        )
 
     def _build_advantages(
         self,
