@@ -1,5 +1,7 @@
 "use client";
 
+import React from "react";
+
 import type { AssessmentDirectionResponse, DirectionSuggestion } from "@/lib/types";
 
 export function DirectionExpansionPanel({
@@ -14,6 +16,39 @@ export function DirectionExpansionPanel({
 }) {
   const { direction_expansion, direction_selection } = data;
   const hasExistingSelection = direction_selection !== null && direction_selection.selected_directions.length > 0;
+  const currentDirectionIdSet = new Set(
+    direction_expansion.elements.flatMap((element) =>
+      element.suggestions.map((direction) => direction.direction_id),
+    ),
+  );
+  const visibleSelectedIds = selectedIds.filter((id) => currentDirectionIdSet.has(id));
+
+  if (isLLMPending) {
+    return (
+      <div className="card">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="section-label">延展结果</p>
+            <h2 className="section-heading">创新方向延展</h2>
+          </div>
+          <span className="badge badge-warning animate-pulse text-xs">
+            增强中
+          </span>
+        </div>
+
+        <div className="mt-6 rounded-xl border border-warm-accent/15 bg-warm-accent/5 p-6">
+          <p className="text-sm font-medium text-warm-text">AI 正在增强中，请稍候</p>
+          <p className="mt-3 text-sm leading-7 text-warm-secondary">
+            当前页面暂不展示方向卡片，也暂不可选择方向。系统会在增强完成后自动刷新并展示最终结果。
+          </p>
+          <div className="mt-4 flex items-center gap-2 text-xs text-warm-muted">
+            <span className="inline-flex h-2.5 w-2.5 rounded-full bg-warm-accent animate-pulse" />
+            <span>Loading...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="card">
@@ -23,20 +58,9 @@ export function DirectionExpansionPanel({
           <h2 className="section-heading">创新方向延展</h2>
         </div>
         <div className="flex items-center gap-2">
-          {isLLMPending && (
-            <span className="badge badge-warning animate-pulse text-xs">
-              AI 增强中...
-            </span>
-          )}
           <span className="badge badge-accent">共 {direction_expansion.total_suggestions} 个方向</span>
         </div>
       </div>
-
-      {isLLMPending && (
-        <p className="mt-3 text-xs text-warm-muted">
-          AI 正在生成增强建议，结果约 30-60 秒后自动更新，当前展示为规则引擎结果...
-        </p>
-      )}
 
       {hasExistingSelection ? (
         <div className="mt-6">
@@ -77,8 +101,8 @@ export function DirectionExpansionPanel({
 
           {direction_expansion.elements.length > 0 && (
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <button type="button" onClick={onConfirmSelection} disabled={isSelecting || selectedIds.length < 1 || selectedIds.length > 6} className="btn-primary">
-                {isSelecting ? "保存中..." : selectedIds.length < 1 ? "请至少选择 1 个方向" : selectedIds.length > 6 ? `最多选择 6 个方向（已选 ${selectedIds.length}）` : `确认选择（${selectedIds.length} 个方向）`}
+              <button type="button" onClick={onConfirmSelection} disabled={isSelecting || visibleSelectedIds.length < 1 || visibleSelectedIds.length > 6} className="btn-primary">
+                {isSelecting ? "保存中..." : visibleSelectedIds.length < 1 ? "请至少选择 1 个方向" : visibleSelectedIds.length > 6 ? `最多选择 6 个方向（已选 ${visibleSelectedIds.length}）` : `确认选择（${visibleSelectedIds.length} 个方向）`}
               </button>
             </div>
           )}

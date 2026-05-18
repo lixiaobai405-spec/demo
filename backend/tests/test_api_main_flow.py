@@ -331,6 +331,101 @@ def test_assessment_detail_serializes_direction_selection(
     } == set(selected_direction_ids)
 
 
+def test_direction_selection_accepts_llm_enhanced_direction_ids(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+) -> None:
+    assessment_id = _create_assessment(client, assessment_payload)
+
+    assert client.post(f"/api/assessments/{assessment_id}/profile").status_code == 200
+    assert client.post(f"/api/assessments/{assessment_id}/canvas").status_code == 200
+
+    breakthrough_response = client.post(
+        f"/api/assessments/{assessment_id}/breakthrough/recommend"
+    )
+    recommended_keys = breakthrough_response.json()["breakthrough_recommendation"][
+        "recommended_keys"
+    ]
+    assert client.post(
+        f"/api/assessments/{assessment_id}/breakthrough/select",
+        json={
+            "selected_keys": recommended_keys[:2],
+            "selection_mode": "system_recommended",
+        },
+    ).status_code == 200
+
+    expand_response = client.post(f"/api/assessments/{assessment_id}/directions/expand")
+    assert expand_response.status_code == 200
+
+    from sqlalchemy import select
+
+    from app.models.direction_expansion import DirectionExpansion
+
+    custom_ids = ["llm_direction_alpha", "llm_direction_beta"]
+    enhanced_expansion = {
+        "generation_mode": "llm",
+        "llm_status": "completed",
+        "total_suggestions": 2,
+        "elements": [
+            {
+                "element_key": recommended_keys[0],
+                "element_title": "收入来源",
+                "suggestions": [
+                    {
+                        "direction_id": custom_ids[0],
+                        "element_key": recommended_keys[0],
+                        "title": "AI 驱动动态定价与个性化促销引擎",
+                        "description": "根据会员行为实时调整活动策略。",
+                        "expected_impact": "提升转化与复购。",
+                        "data_needed": ["会员画像", "订单明细"],
+                        "related_scenario_categories": ["销售增长"],
+                    },
+                    {
+                        "direction_id": custom_ids[1],
+                        "element_key": recommended_keys[0],
+                        "title": "会员订阅付费计划",
+                        "description": "围绕高频客户推出订阅权益。",
+                        "expected_impact": "提升客单与留存。",
+                        "data_needed": ["会员等级", "消费频次"],
+                        "related_scenario_categories": ["销售增长"],
+                    },
+                ],
+            }
+        ],
+    }
+
+    with db_session.SessionLocal() as session:
+        record = session.scalar(
+            select(DirectionExpansion).where(
+                DirectionExpansion.assessment_id == assessment_id
+            )
+        )
+        assert record is not None
+        record.generation_mode = "llm"
+        record.llm_status = "completed"
+        record.expansion_json = json.dumps(enhanced_expansion, ensure_ascii=False)
+        session.add(record)
+        session.commit()
+
+    select_response = client.post(
+        f"/api/assessments/{assessment_id}/directions/select",
+        json={"selected_direction_ids": custom_ids},
+    )
+
+    assert select_response.status_code == 200
+    assert {
+        item["direction_id"] for item in select_response.json()["selected_directions"]
+    } == set(custom_ids)
+
+    detail_response = client.get(f"/api/assessments/{assessment_id}/directions")
+
+    assert detail_response.status_code == 200
+    assert {
+        item["direction_id"]
+        for item in detail_response.json()["direction_selection"]["selected_directions"]
+    } == set(custom_ids)
+
+
 def test_main_flow_generates_competitiveness_endgame_and_report_without_old_labels(
     client: TestClient,
     assessment_payload: dict[str, str],

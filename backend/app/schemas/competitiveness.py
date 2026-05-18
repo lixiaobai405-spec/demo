@@ -55,26 +55,31 @@ class CompetitivenessResponse(BaseModel):
 COMPETITIVENESS_KNOWLEDGE = {
     "line_templates": {
         "客户响应速度线": {
+            "summary_logic": "从客户洞察到快速响应",
             "description": "从客户洞察到快速响应的端到端能力闭环",
             "impact": "缩短从需求识别到价值交付的周期，提升客户满意度和复购率",
             "metrics": ["需求响应周期", "客户满意度", "复购率", "商机转化时间"],
         },
         "数据驱动运营线": {
+            "summary_logic": "从数据整合到经营决策",
             "description": "将分散数据资产转化为可行动的业务洞察",
             "impact": "降低决策主观性，提升资源投放 ROI",
             "metrics": ["数据口径统一率", "决策响应时间", "运营成本变化", "异常预警准确率"],
         },
         "知识沉淀复用线": {
+            "summary_logic": "从个人经验沉淀到组织能力复用",
             "description": "从个人经验到组织能力的系统化转型",
             "impact": "降低关键人依赖，缩短新人上手周期，提升交付一致性",
             "metrics": ["知识调用率", "新人上手周期", "交付质量方差", "重复问题发生率"],
         },
         "客户关系深化线": {
+            "summary_logic": "从单次交易到持续客户经营",
             "description": "从单次交易到持续客户价值经营",
             "impact": "提升客户生命周期价值，降低获客依赖",
             "metrics": ["客户 LTV", "增购率", "续约率", "客户流失预警准确率"],
         },
         "供应链/交付韧性线": {
+            "summary_logic": "从异常感知到主动预警与协同交付",
             "description": "从被动响应到主动预警的交付能力升级",
             "impact": "降低交付波动，提升供应链透明度和协同效率",
             "metrics": ["订单履约率", "交付周期波动", "异常响应时间", "库存周转率"],
@@ -100,3 +105,15 @@ COMPETITIVENESS_KNOWLEDGE = {
         "revenue_streams": "探索服务化收入与订阅式商业模式",
     },
 }
+
+
+def build_line_summary(line_name: str, competitive_impact: str = "") -> str:
+    """根据线路模板生成只表达逻辑和预期效果的一句话摘要。"""
+    template = COMPETITIVENESS_KNOWLEDGE["line_templates"].get(line_name, {})
+    summary_logic = str(template.get("summary_logic", "")).strip()
+    impact = competitive_impact.strip() or str(template.get("impact", "")).strip()
+    if summary_logic and impact:
+        return f"形成{summary_logic}的协同闭环，{impact}。"
+    if impact:
+        return f"形成协同闭环，{impact}。"
+    return "形成协同闭环，持续提升整体竞争力。"
