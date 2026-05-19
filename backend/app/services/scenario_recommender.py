@@ -420,6 +420,8 @@ class ScenarioRecommender:
             fallback_triggered=priority_result.fallback_triggered,
             fallback_reason=priority_result.fallback_reason,
             all_scores=all_scores,
+            fallback_triggered=priority_result.fallback_triggered,
+            fallback_reason=priority_result.fallback_reason,
         )
 
     def _normalize_text(self, text: str | None) -> str:
