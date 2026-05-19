@@ -103,10 +103,19 @@ export type ScenarioRecommendationItem = {
   canvas_elements: string;
   expected_effects: string;
   core_data_requirements: string;
+  // 四象限优先级评分字段（four_quadrant_v1 时填充）
+  priority_structuredness_x?: number | null;
+  priority_complexity_y?: number | null;
+  priority_qs?: number | null;
+  priority_lps?: number | null;
+  priority_lps_display?: number | null;
+  priority_quadrant?: string | null;
+  priority_tier?: number | null;
+  priority_recommendation?: string | null;
 };
 
 export type ScenarioRecommendationResult = {
-  scoring_method: "rule_based_v1";
+  scoring_method: "rule_based_v1" | "four_quadrant_v1";
   evaluated_count: number;
   top_scenarios: ScenarioRecommendationItem[];
   created_at: string | null;

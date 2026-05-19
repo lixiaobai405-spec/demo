@@ -196,6 +196,28 @@ def _build_context(assessment_id: str, db: Session) -> str:
         except (json.JSONDecodeError, TypeError):
             pass
 
+        # 读取 scenario_json 以获取四象限评分详情
+        if scenarios.scenario_json:
+            try:
+                scenario_details = json.loads(scenarios.scenario_json)
+                if isinstance(scenario_details, list) and scenario_details:
+                    parts.append(f"\n### 场景评分详情（{scenarios.scoring_method}）")
+                    for detail in scenario_details:
+                        if isinstance(detail, dict):
+                            name = detail.get("name", "")
+                            quadrant = detail.get("priority_quadrant", "")
+                            lps = detail.get("priority_lps_display", "")
+                            rec = detail.get("priority_recommendation", "")
+                            parts.append(f"- {name}")
+                            if quadrant:
+                                parts.append(f"  象限：{quadrant}")
+                            if lps is not None and lps != "":
+                                parts.append(f"  综合优先级分：{lps}")
+                            if rec:
+                                parts.append(f"  建议：{rec}")
+            except (json.JSONDecodeError, TypeError):
+                pass
+
     # ── 8. Case recommendations ──
     cases = db.scalar(
         select(CaseRecommendation).where(

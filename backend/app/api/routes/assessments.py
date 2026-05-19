@@ -800,21 +800,41 @@ def get_endgame(
 )
 def recommend_scenarios(
     assessment_id: str,
+    mode: str | None = None,
     db: Session = Depends(get_db),
 ) -> AssessmentScenarioRecommendationResponse:
+    """生成 Top 3 AI 场景推荐。
+
+    默认使用四象限优先级评分算法（four_quadrant_v1）。
+    可通过 ?mode=legacy 回退到旧关键词评分算法（rule_based_v1）。
+    """
     assessment = _get_assessment_or_404(db, assessment_id)
     profile = _load_profile_from_assessment(assessment)
     direction_categories = _load_direction_categories(db, assessment_id)
     recommender = ScenarioRecommender()
-    top_recommendations, evaluated_count = recommender.recommend(
-        assessment, profile, direction_categories
-    )
-    stored_scenarios = _upsert_scenario_recommendation(
-        db=db,
-        assessment_id=assessment.id,
-        evaluated_count=evaluated_count,
-        top_scenarios=top_recommendations,
-    )
+
+    if mode == "legacy":
+        top_recommendations, evaluated_count = recommender.recommend(
+            assessment, profile, direction_categories
+        )
+        stored_scenarios = _upsert_scenario_recommendation(
+            db=db,
+            assessment_id=assessment.id,
+            evaluated_count=evaluated_count,
+            top_scenarios=top_recommendations,
+            scoring_method="rule_based_v1",
+        )
+    else:
+        priority_result = recommender.recommend_with_priority(
+            assessment, profile, direction_categories
+        )
+        stored_scenarios = _upsert_scenario_recommendation(
+            db=db,
+            assessment_id=assessment.id,
+            evaluated_count=priority_result.evaluated_count,
+            top_scenarios=priority_result.top_scenarios,
+            scoring_method=priority_result.scoring_method,
+        )
 
     return AssessmentScenarioRecommendationResponse(
         assessment=AssessmentResponse.model_validate(assessment, from_attributes=True),

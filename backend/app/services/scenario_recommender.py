@@ -212,14 +212,54 @@ class ScenarioRecommender:
         # Step 2：构建四象限评分输入
         priority_scorer = ScenePriorityScorer()
 
+        # 构建企业侧上下文文本，用于辅助 X/Y 评分
+        enterprise_text = self._normalize_text(
+            " ".join(
+                filter(
+                    None,
+                    [
+                        assessment.available_data,
+                        assessment.current_challenges,
+                        assessment.ai_goals,
+                        profile.digital_and_ai_readiness if profile else "",
+                        "；".join(profile.key_challenges) if profile else "",
+                        "；".join(profile.priority_ai_directions) if profile else "",
+                        profile.operations_and_resources if profile else "",
+                    ],
+                )
+            )
+        )
+        direction_text = self._normalize_text(
+            " ".join(direction_categories) if direction_categories else ""
+        )
+
         definition_map: dict[str, ScenarioDefinition] = {}
         candidates: list[ScenePriorityInput] = []
         for kw_score, definition in scored:
             definition_map[definition.id] = definition
 
-            # 启发式自动评分 X/Y
-            x = float(priority_scorer.score_structuredness(definition.summary + definition.category))
-            y = float(priority_scorer.score_complexity(definition.summary + definition.category))
+            # 构建场景侧评分上下文
+            scene_text = self._normalize_text(
+                " ".join(
+                    filter(
+                        None,
+                        [
+                            definition.summary,
+                            definition.category,
+                            " ".join(definition.data_requirements),
+                            " ".join(definition.canvas_keywords),
+                        ],
+                    )
+                )
+            )
+
+            # X（结构化程度）侧重数据与流程条件 → 企业数据基础 + 场景数据需求
+            x_context = " ".join(filter(None, [enterprise_text, scene_text, direction_text]))
+            x = float(priority_scorer.score_structuredness(x_context))
+
+            # Y（实施复杂度）侧重任务本身 → 场景描述 + 企业挑战与AI目标
+            y_context = " ".join(filter(None, [scene_text, enterprise_text]))
+            y = float(priority_scorer.score_complexity(y_context))
 
             candidates.append(
                 ScenePriorityInput(

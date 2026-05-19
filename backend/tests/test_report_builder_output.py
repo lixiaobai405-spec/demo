@@ -100,7 +100,7 @@ def _build_profile() -> CompanyProfileResult:
 def _build_scenarios() -> ScenarioRecommendationResult:
     """构造场景推荐样例，覆盖结果页与报告引用内容。"""
     return ScenarioRecommendationResult(
-        scoring_method="rule_based_v1",
+        scoring_method="four_quadrant_v1",
         evaluated_count=3,
         top_scenarios=[
             ScenarioRecommendationItem(
@@ -111,6 +111,14 @@ def _build_scenarios() -> ScenarioRecommendationResult:
                 canvas_elements="客户关系、关键资源",
                 expected_effects="通过门店知识助手，预期可降低培训成本、提升运营效率",
                 core_data_requirements="POS 数据、知识库文档",
+                priority_structuredness_x=4.0,
+                priority_complexity_y=2.0,
+                priority_qs=8.0,
+                priority_lps=4.0,
+                priority_lps_display=8.0,
+                priority_quadrant="自动化主战场",
+                priority_tier=1,
+                priority_recommendation="强烈推荐快速启动，3个月内可见可量化效果。",
             )
         ],
     )
@@ -243,3 +251,10 @@ def test_report_builder_does_not_emit_ellipsis_or_removed_labels() -> None:
     assert "待补充信息" not in payload
     assert "投资需求" not in payload
     assert "时间范围" not in payload
+
+    # 验证四象限评分字段出现在报告中
+    assert "四象限优先级评分" in payload
+    assert "自动化主战场" in payload
+    assert "象限归属" in payload
+    assert "综合优先级得分" in payload
+    assert "推荐意见" in payload
