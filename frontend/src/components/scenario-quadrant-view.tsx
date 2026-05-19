@@ -69,13 +69,41 @@ function bubblePos(x: number, y: number) {
   };
 }
 
+// ── 滑块描述文案 ──────────────────────────────────────
+
+const X_DESCRIPTIONS: Record<number, string> = {
+  1: "完全非结构化，依赖直觉",
+  2: "低度结构化，规则难描述",
+  3: "中度结构化，部分规则可编码",
+  4: "高度结构化，大部分已标准化",
+  5: "完全结构化，全程数字化+SOP",
+};
+
+const Y_DESCRIPTIONS: Record<number, string> = {
+  1: "极低复杂，极易落地",
+  2: "低复杂，规则线性可执行",
+  3: "中等复杂，需一定专业知识",
+  4: "高复杂，多变量跨域判断",
+  5: "极高复杂，阻力最大",
+};
+
+function xDesc(x: number): string {
+  const r = Math.round(x);
+  return X_DESCRIPTIONS[r] ?? "";
+}
+
+function yDesc(y: number): string {
+  const r = Math.round(y);
+  return Y_DESCRIPTIONS[r] ?? "";
+}
+
 // ── 视觉常量 ──────────────────────────────────────────
 
-const QUADRANT_COLORS: Record<QuadrantLabel, { bg: string; text: string; ring: string }> = {
-  "自动化主战场": { bg: "bg-emerald-50", text: "text-emerald-700", ring: "ring-emerald-400" },
-  "AI优先区": { bg: "bg-amber-50", text: "text-amber-700", ring: "ring-amber-400" },
-  "人机协作区": { bg: "bg-sky-50", text: "text-sky-700", ring: "ring-sky-400" },
-  "人类保留区": { bg: "bg-rose-50", text: "text-rose-700", ring: "ring-rose-400" },
+const QUADRANT_COLORS: Record<QuadrantLabel, { bg: string; text: string; ring: string; bar: string }> = {
+  "自动化主战场": { bg: "bg-emerald-50", text: "text-emerald-700", ring: "ring-emerald-400", bar: "bg-emerald-400" },
+  "AI优先区": { bg: "bg-amber-50", text: "text-amber-700", ring: "ring-amber-400", bar: "bg-amber-400" },
+  "人机协作区": { bg: "bg-sky-50", text: "text-sky-700", ring: "ring-sky-400", bar: "bg-sky-400" },
+  "人类保留区": { bg: "bg-rose-50", text: "text-rose-700", ring: "ring-rose-400", bar: "bg-rose-400" },
 };
 
 const QUADRANT_BADGE_CLASS: Record<QuadrantLabel, string> = {
@@ -172,13 +200,113 @@ export function ScenarioQuadrantView({
 
       {/* ═══ 上半部分：候选池 + 矩阵 ═══ */}
       <div className="flex flex-col gap-6 lg:flex-row">
-        {/* ── 左侧：候选场景池 + 调分 ── */}
+        {/* ── 左侧：校准评分 + 候选场景池 ── */}
         <div className="flex-shrink-0 lg:w-[380px] space-y-4">
-          <div className="card-inset">
-            <p className="text-xs uppercase tracking-[0.14em] text-warm-muted mb-3">
-              {isFullPool ? `候选场景池（${scenarios.length}）` : `Top 3 场景`}
-            </p>
-            <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+          {/* 校准评分框 */}
+          <div className="rounded-2xl border border-warm-border-light bg-warm-surface p-5">
+            <h3 className="font-heading text-base font-bold text-warm-text">校准候选场景</h3>
+            {selected ? (
+              <p className="mt-0.5 text-sm text-warm-accent">当前校准：{selected.name}</p>
+            ) : (
+              <p className="mt-0.5 text-sm text-warm-muted">请先在下方候选场景池中选择一个场景</p>
+            )}
+            <div className="my-4 border-t border-warm-border-light" />
+
+            {selected ? (
+              <>
+                {/* 两列滑块 */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {/* X 滑块 */}
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-warm-secondary font-medium">结构化程度 X</span>
+                      <span className="font-bold text-warm-text">{selected._x}</span>
+                    </div>
+                    <p className="text-[0.65rem] text-warm-muted mb-1">高 = AI 易落地</p>
+                    <input
+                      type="range"
+                      min="1"
+                      max="5"
+                      step="0.1"
+                      value={selected._x}
+                      onChange={(e) => handleSlider("x", parseFloat(e.target.value))}
+                      className="w-full accent-amber-600"
+                    />
+                    <div className="flex justify-between text-[0.65rem] text-warm-muted mt-0.5">
+                      <span>1</span>
+                      <span>5</span>
+                    </div>
+                    <p className="mt-1 text-[0.65rem] leading-relaxed text-warm-muted">{xDesc(selected._x)}</p>
+                  </div>
+
+                  {/* Y 滑块 */}
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-warm-secondary font-medium">实施复杂度 Y</span>
+                      <span className="font-bold text-warm-text">{selected._y}</span>
+                    </div>
+                    <p className="text-[0.65rem] text-warm-muted mb-1">高 = 落地阻力大（取反计分）</p>
+                    <input
+                      type="range"
+                      min="1"
+                      max="5"
+                      step="0.1"
+                      value={selected._y}
+                      onChange={(e) => handleSlider("y", parseFloat(e.target.value))}
+                      className="w-full accent-amber-600"
+                    />
+                    <div className="flex justify-between text-[0.65rem] text-warm-muted mt-0.5">
+                      <span>1</span>
+                      <span>5</span>
+                    </div>
+                    <p className="mt-1 text-[0.65rem] leading-relaxed text-warm-muted">{yDesc(selected._y)}</p>
+                  </div>
+                </div>
+
+                {/* 实时预览 */}
+                <div className="mt-4 rounded-xl bg-warm-inset px-4 py-3 space-y-1.5 text-sm">
+                  <p className="text-xs font-medium text-warm-muted mb-2">实时预览</p>
+                  <div className="flex justify-between">
+                    <span className="text-warm-muted">QS 象限分</span>
+                    <span className="font-semibold text-warm-text">{selected._qs}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-warm-muted">LPS 综合优先级</span>
+                    <span className="font-semibold text-warm-text">{selected._lpsDisplay} / 10</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-warm-muted">象限</span>
+                    <span className={`badge text-[0.65rem] ${QUADRANT_BADGE_CLASS[selected._quadrant]}`}>
+                      {selected._quadrant}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-warm-muted">推荐等级</span>
+                    <span className="font-semibold text-warm-text">{selected._level}</span>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-warm-muted py-4 text-center">
+                选择一个候选场景后，可在此处校准其 X/Y 评分
+              </p>
+            )}
+          </div>
+
+          {/* 候选场景池 */}
+          <div className="rounded-2xl border border-warm-border-light bg-warm-surface p-5">
+            <div className="flex items-center justify-between">
+              <h3 className="font-heading text-base font-bold text-warm-text">候选场景池</h3>
+              <span className="text-xs text-warm-muted bg-warm-inset rounded-full px-2.5 py-0.5">
+                {scenarios.length} 个场景
+              </span>
+            </div>
+            {!isFullPool && (
+              <p className="mt-1 text-xs text-warm-muted">当前为降级展示（仅 Top 3）</p>
+            )}
+            <div className="my-4 border-t border-warm-border-light" />
+
+            <div className="space-y-2 max-h-[420px] overflow-y-auto pr-2">
               {scenarios.map((s) => {
                 const isSel = selectedId === s.scenario_id;
                 const colors = QUADRANT_COLORS[s._quadrant];
@@ -187,99 +315,34 @@ export function ScenarioQuadrantView({
                     key={s.scenario_id}
                     type="button"
                     onClick={() => setSelectedId(isSel ? null : s.scenario_id)}
-                    className={`w-full text-left rounded-lg border px-3 py-2.5 transition text-sm ${
+                    className={`w-full text-left rounded-xl border bg-white flex items-stretch overflow-hidden transition text-sm ${
                       isSel
-                        ? `border-2 ${colors.ring.replace("ring-", "border-")} ${colors.bg}`
-                        : "border-warm-border-light bg-warm-surface hover:border-warm-accent/30"
+                        ? `border-2 border-${colors.ring.replace("ring-", "")} ring-1 ${colors.ring}/20`
+                        : "border-warm-border-light hover:border-warm-accent/30 hover:bg-amber-50/30"
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold text-warm-text truncate">{s.name}</span>
-                      <span className={`badge text-[0.6rem] shrink-0 ${QUADRANT_BADGE_CLASS[s._quadrant]}`}>
-                        {s._quadrant}
-                      </span>
-                    </div>
-                    <div className="mt-1.5 flex items-center gap-3 text-xs text-warm-muted">
-                      <span>X: {s._x}</span>
-                      <span>Y: {s._y}</span>
-                      <span>得分: {s._lpsDisplay}</span>
-                      <span>{s._level}</span>
+                    {/* 左侧象限色条 */}
+                    <div className={`w-1.5 flex-shrink-0 ${colors.bar}`} />
+
+                    <div className="flex-1 px-3 py-2.5 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-warm-text truncate">{s.name}</span>
+                        <span className={`badge text-[0.6rem] shrink-0 ${QUADRANT_BADGE_CLASS[s._quadrant]}`}>
+                          {s._quadrant}
+                        </span>
+                      </div>
+                      <div className="mt-1.5 flex items-center gap-3 text-xs text-warm-muted">
+                        <span>X: {s._x}</span>
+                        <span>Y: {s._y}</span>
+                        <span className="font-medium text-warm-text">{s._lpsDisplay} 分</span>
+                        <span>{s._level}</span>
+                      </div>
                     </div>
                   </button>
                 );
               })}
             </div>
           </div>
-
-          {/* 选中场景 X/Y 调分 */}
-          {selected && (
-            <div className="card-inset space-y-4">
-              <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">
-                校准评分 · {selected.name}
-              </p>
-              {/* X 滑块 */}
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-warm-secondary">结构化程度 X</span>
-                  <span className="font-bold text-warm-text">{selected._x} / 5</span>
-                </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="5"
-                  step="0.1"
-                  value={selected._x}
-                  onChange={(e) => handleSlider("x", parseFloat(e.target.value))}
-                  className="w-full accent-amber-600"
-                />
-                <div className="flex justify-between text-[0.65rem] text-warm-muted">
-                  <span>低结构化</span>
-                  <span>高结构化</span>
-                </div>
-              </div>
-              {/* Y 滑块 */}
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-warm-secondary">实施复杂度 Y</span>
-                  <span className="font-bold text-warm-text">{selected._y} / 5</span>
-                </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="5"
-                  step="0.1"
-                  value={selected._y}
-                  onChange={(e) => handleSlider("y", parseFloat(e.target.value))}
-                  className="w-full accent-amber-600"
-                />
-                <div className="flex justify-between text-[0.65rem] text-warm-muted">
-                  <span>低复杂度</span>
-                  <span>高复杂度</span>
-                </div>
-              </div>
-              {/* 实时预览 */}
-              <div className="rounded-xl bg-warm-inset px-4 py-3 space-y-1.5 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-warm-muted">QS 象限分</span>
-                  <span className="font-semibold text-warm-text">{selected._qs}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-warm-muted">综合优先级</span>
-                  <span className="font-semibold text-warm-text">{selected._lpsDisplay} / 10</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-warm-muted">象限</span>
-                  <span className={`badge text-[0.65rem] ${QUADRANT_BADGE_CLASS[selected._quadrant]}`}>
-                    {selected._quadrant}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-warm-muted">推荐等级</span>
-                  <span className="font-semibold text-warm-text">{selected._level}</span>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* ── 右侧：四象限矩阵 ── */}
