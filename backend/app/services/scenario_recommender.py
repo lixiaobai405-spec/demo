@@ -286,6 +286,8 @@ class ScenarioRecommender:
             scoring_method="four_quadrant_v1",
             evaluated_count=priority_result.total_candidates,
             top_scenarios=top_scenarios,
+            fallback_triggered=priority_result.fallback_triggered,
+            fallback_reason=priority_result.fallback_reason,
         )
 
     def _normalize_text(self, text: str | None) -> str:

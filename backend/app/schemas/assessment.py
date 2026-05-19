@@ -149,6 +149,8 @@ class ScenarioRecommendationResult(BaseModel):
     scoring_method: Literal["rule_based_v1", "four_quadrant_v1"]
     evaluated_count: int
     top_scenarios: list[ScenarioRecommendationItem] = Field(default_factory=list)
+    fallback_triggered: bool = False
+    fallback_reason: str = ""
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

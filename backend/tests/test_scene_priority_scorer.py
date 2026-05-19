@@ -554,3 +554,156 @@ class TestRecommendationTemplate:
             s = result.all_scores[0]
             assert s.quadrant == quadrant
             assert len(s.recommendation_template) > 0, f"{quadrant} 缺少话术模板"
+
+
+# ═══════════════════════════════════════════════════════════
+# Spec #2 修复验证：Q4 兜底消息传播到 ScenarioRecommendationResult
+# ═══════════════════════════════════════════════════════════
+
+class TestFallbackMessagePropagation:
+    """验证 fallback_triggered / fallback_reason 正确流动"""
+
+    def test_normal_flow_no_fallback(self, scorer):
+        """正常场景（有 eligible 候选）不触发 fallback"""
+        candidates = [
+            _make_candidate("s1", "正常场景", "销售增长", x=5, y=1),
+        ]
+        result = scorer.recommend_top3(candidates)
+        assert result.fallback_triggered is False
+        assert result.fallback_reason == ""
+
+    def test_all_q4_triggers_fallback(self, scorer):
+        """全部 Q4 时 fallback_triggered=True"""
+        candidates = [
+            _make_candidate("s1", "Q4场景A", "协同办公", x=2, y=1),
+            _make_candidate("s2", "Q4场景B", "协同办公", x=1, y=1),
+        ]
+        result = scorer.recommend_top3(candidates)
+        assert result.fallback_triggered is True
+        assert len(result.fallback_reason) > 0
+
+    def test_fallback_reason_has_actionable_content(self, scorer):
+        """PRD §3.1 — fallback_reason 包含可操作的前置行动建议"""
+        candidates = [
+            _make_candidate("s1", "Q4场景", "协同办公", x=2, y=1),
+        ]
+        result = scorer.recommend_top3(candidates)
+
+        # 关键要素验证
+        assert "人类保留区" in result.fallback_reason
+        assert "前置行动建议" in result.fallback_reason
+        assert "业务流程数字化" in result.fallback_reason
+        assert "数据采集" in result.fallback_reason
+        # 至少 50 字，确保不是敷衍的一句话
+        assert len(result.fallback_reason) >= 50
+
+    def test_mixed_q4_and_eligible_no_fallback(self, scorer):
+        """混合场景（有 Q4 但也有 eligible）不触发 fallback"""
+        candidates = [
+            _make_candidate("s1", "Q4场景", "协同办公", x=2, y=1),       # Q4
+            _make_candidate("s2", "正常场景", "销售增长", x=5, y=1),      # Q2 eligible
+        ]
+        result = scorer.recommend_top3(candidates)
+        assert result.fallback_triggered is False
+        assert result.eligible_count >= 1
+
+
+class TestScenarioRecommendationResultModel:
+    """验证 Pydantic model 序列化包含 fallback 字段（供前端消费）"""
+
+    def test_model_serializes_fallback_fields(self):
+        from app.schemas.assessment import ScenarioRecommendationResult, ScenarioRecommendationItem
+
+        result = ScenarioRecommendationResult(
+            scoring_method="four_quadrant_v1",
+            evaluated_count=24,
+            top_scenarios=[],
+            fallback_triggered=True,
+            fallback_reason="测试兜底原因",
+        )
+        data = result.model_dump()
+
+        assert data["fallback_triggered"] is True
+        assert data["fallback_reason"] == "测试兜底原因"
+
+    def test_model_defaults_fallback_false(self):
+        from app.schemas.assessment import ScenarioRecommendationResult
+
+        result = ScenarioRecommendationResult(
+            scoring_method="rule_based_v1",
+            evaluated_count=24,
+        )
+        data = result.model_dump()
+
+        assert data["fallback_triggered"] is False
+        assert data["fallback_reason"] == ""
+
+    def test_legacy_rule_based_no_fallback(self):
+        """旧评分方法 (rule_based_v1) 的默认 fallback 字段不影响前端"""
+        from app.schemas.assessment import ScenarioRecommendationResult
+
+        result = ScenarioRecommendationResult(
+            scoring_method="rule_based_v1",
+            evaluated_count=24,
+        )
+        assert result.fallback_triggered is False
+        assert result.fallback_reason == ""
+
+
+class TestScenePriorityResultToRecommendationResult:
+    """验证 ScenePriorityResult → ScenarioRecommendationResult 的转换路径"""
+
+    def test_fallback_fields_flow_through_result(self, scorer):
+        """完整链路：scorer → ScenePriorityResult → 验证字段可被消费"""
+        candidates = [
+            _make_candidate("s1", "Q4-A", "协同办公", x=1, y=1),
+            _make_candidate("s2", "Q4-B", "协同办公", x=2, y=1),
+        ]
+        priority_result = scorer.recommend_top3(candidates)
+
+        # ScenePriorityResult 字段
+        assert priority_result.fallback_triggered is True
+        assert "前置行动建议" in priority_result.fallback_reason
+
+        # 验证 top_3 中每个场景有 rank（PRD §4）
+        for s in priority_result.top_3:
+            assert s.rank is not None
+
+        # 模拟 ScenarioRecommender.recommend_with_priority() 的转换逻辑
+        # — 验证 fallback 字段可以从 ScenePriorityResult 映射到 ScenarioRecommendationResult
+        from app.schemas.assessment import ScenarioRecommendationResult
+
+        api_result = ScenarioRecommendationResult(
+            scoring_method="four_quadrant_v1",
+            evaluated_count=priority_result.total_candidates,
+            top_scenarios=[],
+            fallback_triggered=priority_result.fallback_triggered,
+            fallback_reason=priority_result.fallback_reason,
+        )
+
+        assert api_result.fallback_triggered is True
+        assert "前置行动建议" in api_result.fallback_reason
+        assert "数据采集" in api_result.fallback_reason
+
+    def test_full_flow_normal_case(self, scorer):
+        """正常场景完整链路：fallback_triggered=False, fallback_reason=''"""
+        from app.schemas.assessment import ScenarioRecommendationResult
+
+        candidates = [
+            _make_candidate("s1", "A", "生产运营", x=5, y=1),
+            _make_candidate("s2", "B", "交付运营", x=4, y=2),
+        ]
+        priority_result = scorer.recommend_top3(candidates)
+
+        assert priority_result.fallback_triggered is False
+
+        api_result = ScenarioRecommendationResult(
+            scoring_method="four_quadrant_v1",
+            evaluated_count=priority_result.total_candidates,
+            top_scenarios=[],
+            fallback_triggered=priority_result.fallback_triggered,
+            fallback_reason=priority_result.fallback_reason,
+        )
+
+        assert api_result.fallback_triggered is False
+        assert api_result.fallback_reason == ""
