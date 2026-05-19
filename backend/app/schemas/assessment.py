@@ -154,8 +154,6 @@ class ScenarioRecommendationResult(BaseModel):
     fallback_triggered: bool = False
     fallback_reason: str = ""
     all_scores: list[ScenarioRecommendationItem] | None = None
-    fallback_triggered: bool = False
-    fallback_reason: str = ""
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
