@@ -266,7 +266,7 @@ class TestRuleBAllQ4Fallback:
 
         assert result.fallback_triggered is True
         assert "人类保留区" in result.fallback_reason
-        assert len(result.top_3) == 2
+        assert len(result.top_3) == 3
 
     def test_all_q4_fallback_includes_action_suggestion(self, scorer):
         """PRD §3.1 #3 — 兜底时必须包含前置行动建议"""

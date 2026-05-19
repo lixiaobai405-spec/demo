@@ -187,7 +187,7 @@ class TestFullChainE2E:
         assert resp.status_code == 200, f"Scenarios failed: {resp.text}"
         sc_body = resp.json()["scenario_recommendation"]
         assert sc_body["scoring_method"] == "four_quadrant_v1"
-        assert 1 <= len(sc_body["top_scenarios"]) <= 3
+        assert len(sc_body["top_scenarios"]) == 3
         print(f"✅ Step 10 场景推荐 → Top 3: {[s['name'] for s in sc_body['top_scenarios']]}")
         # verify new-style scenario fields are present
         has_expected = all(
