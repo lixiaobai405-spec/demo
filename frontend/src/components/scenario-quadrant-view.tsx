@@ -61,7 +61,26 @@ function toEditable(item: ScenarioRecommendationItem): EditableScenario {
   const y = item.priority_complexity_y ?? 3;
   const kappa = item.industry_coefficient ?? 1.0;
   const { qs, lps, lpsDisplay, quadrant, tier, level } = recompute(x, y, kappa);
-  return { ...item, _x: x, _y: y, _qs: qs, _lps: lps, _lpsDisplay: lpsDisplay, _quadrant: quadrant, _tier: tier, _level: level, _kappa: kappa };
+  // 优先使用后端 recommendation_level（含 Q4 兜底强制「观察」），仅为空时本地兜底
+  const finalLevel = item.recommendation_level || level;
+  return { ...item, _x: x, _y: y, _qs: qs, _lps: lps, _lpsDisplay: lpsDisplay, _quadrant: quadrant, _tier: tier, _level: finalLevel, _kappa: kappa };
+}
+
+/** 以 top_scenarios 为权威顺序重排候选场景池，确保前 N 个与最终推荐 Top N 一致 */
+function buildDisplayScenarios(
+  recommendation: ScenarioRecommendationResult,
+): EditableScenario[] {
+  const all = recommendation.all_scores ?? recommendation.top_scenarios;
+  const topIds = new Set(recommendation.top_scenarios.map((s) => s.scenario_id));
+  const byId = new Map(all.map((item) => [item.scenario_id, item]));
+
+  const topItems = recommendation.top_scenarios
+    .map((ts) => byId.get(ts.scenario_id) ?? ts)
+    .filter(Boolean) as ScenarioRecommendationItem[];
+
+  const restItems = all.filter((item) => !topIds.has(item.scenario_id));
+
+  return [...topItems, ...restItems].map(toEditable);
 }
 
 function bubblePos(x: number, y: number) {
@@ -126,11 +145,10 @@ export function ScenarioQuadrantView({
   scenarioRecommendation: ScenarioRecommendationResult;
   assessmentId: string;
 }) {
-  const rawCandidates = scenarioRecommendation.all_scores ?? scenarioRecommendation.top_scenarios;
   const isFullPool = scenarioRecommendation.all_scores != null && scenarioRecommendation.all_scores.length > 0;
 
   const [scenarios, setScenarios] = useState<EditableScenario[]>(() =>
-    rawCandidates.map(toEditable),
+    buildDisplayScenarios(scenarioRecommendation),
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -142,14 +160,17 @@ export function ScenarioQuadrantView({
     [scenarios, selectedId],
   );
 
-  // 按梯队+LPS_display排序得到Top3
-  const ranked = useMemo(() => {
-    const sorted = [...scenarios].sort((a, b) => {
-      if (a._tier !== b._tier) return a._tier - b._tier;
-      return b._lpsDisplay - a._lpsDisplay;
-    });
-    return sorted.slice(0, 3).map((s, i) => ({ ...s, rank: i }));
-  }, [scenarios]);
+  // 以后端 top_scenarios 为最终推荐的唯一权威来源
+  const top3Ids = useMemo(
+    () => new Set(scenarioRecommendation.top_scenarios.map((s) => s.scenario_id)),
+    [scenarioRecommendation.top_scenarios],
+  );
+
+  const top3Cards = useMemo(() => {
+    return scenarioRecommendation.top_scenarios
+      .map((ts) => scenarios.find((s) => s.scenario_id === ts.scenario_id))
+      .filter(Boolean) as EditableScenario[];
+  }, [scenarioRecommendation.top_scenarios, scenarios]);
 
   const handleSlider = useCallback(
     (axis: "x" | "y", value: number) => {
@@ -202,6 +223,9 @@ export function ScenarioQuadrantView({
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(await res.text());
+      const payload = await res.json();
+      const nextRecommendation = payload.scenario_recommendation as ScenarioRecommendationResult;
+      setScenarios(buildDisplayScenarios(nextRecommendation));
       setHasUnsavedChanges(false);
       setSaveStatus("saved");
     } catch {
@@ -469,7 +493,7 @@ export function ScenarioQuadrantView({
                 {/* 气泡 */}
                 {scenarios.map((s) => {
                   const pos = bubblePos(s._x, s._y);
-                  const isTop3 = ranked.some((r) => r.scenario_id === s.scenario_id);
+                  const isTop3 = top3Ids.has(s.scenario_id);
                   const isSel = s.scenario_id === selectedId;
                   const colors = QUADRANT_COLORS[s._quadrant];
                   return (
@@ -512,7 +536,7 @@ export function ScenarioQuadrantView({
         <p className="section-label">最终推荐</p>
         <h2 className="section-heading mb-4">Top 3 推荐场景</h2>
         <div className="grid gap-4 xl:grid-cols-3">
-          {ranked.map((item, index) => {
+          {top3Cards.map((item, index) => {
             const isExpanded = expandedId === item.scenario_id;
             const colors = QUADRANT_COLORS[item._quadrant];
             const rankBorder =
