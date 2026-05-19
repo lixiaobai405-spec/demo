@@ -23,6 +23,7 @@ interface EditableScenario extends ScenarioRecommendationItem {
   _quadrant: QuadrantLabel;
   _tier: number;
   _level: string;
+  _kappa: number;
 }
 
 // ── 纯函数：前端重算 ──────────────────────────────────
@@ -45,10 +46,10 @@ function calcLevel(lpsDisplay: number): string {
   return "观察";
 }
 
-function recompute(x: number, y: number) {
+function recompute(x: number, y: number, kappa: number = 1.0) {
   const qs = +(x * y).toFixed(1);
   const lps = +(x * WEIGHT_X + (Y_INVERSION_BASE - y) * WEIGHT_Y_INV).toFixed(4);
-  const lpsDisplay = +(lps * LPS_DISPLAY_MULTIPLIER).toFixed(1);
+  const lpsDisplay = +(lps * kappa * LPS_DISPLAY_MULTIPLIER).toFixed(1);
   const quadrant = calcQuadrant(x, y);
   const tier = calcTier(quadrant);
   const level = calcLevel(lpsDisplay);
@@ -58,8 +59,9 @@ function recompute(x: number, y: number) {
 function toEditable(item: ScenarioRecommendationItem): EditableScenario {
   const x = item.priority_structuredness_x ?? 3;
   const y = item.priority_complexity_y ?? 3;
-  const { qs, lps, lpsDisplay, quadrant, tier, level } = recompute(x, y);
-  return { ...item, _x: x, _y: y, _qs: qs, _lps: lps, _lpsDisplay: lpsDisplay, _quadrant: quadrant, _tier: tier, _level: level };
+  const kappa = item.industry_coefficient ?? 1.0;
+  const { qs, lps, lpsDisplay, quadrant, tier, level } = recompute(x, y, kappa);
+  return { ...item, _x: x, _y: y, _qs: qs, _lps: lps, _lpsDisplay: lpsDisplay, _quadrant: quadrant, _tier: tier, _level: level, _kappa: kappa };
 }
 
 function bubblePos(x: number, y: number) {
@@ -153,7 +155,7 @@ export function ScenarioQuadrantView({
           if (s.scenario_id !== selectedId) return s;
           const x = axis === "x" ? value : s._x;
           const y = axis === "y" ? value : s._y;
-          const { qs, lps, lpsDisplay, quadrant, tier, level } = recompute(x, y);
+          const { qs, lps, lpsDisplay, quadrant, tier, level } = recompute(x, y, s._kappa);
           return {
             ...s,
             _x: x,
@@ -358,23 +360,23 @@ export function ScenarioQuadrantView({
             {/* 矩阵容器 */}
             <div className="relative w-full" style={{ paddingBottom: "min(100%, 560px)" }}>
               <div className="absolute inset-0 rounded-xl border border-warm-border-light bg-warm-inset overflow-hidden">
-                {/* 象限背景 */}
+                {/* 象限背景：左上=人机协作区 右上=AI优先区 左下=人类保留区 右下=自动化主战场 */}
                 <div className="absolute inset-0 flex">
                   <div className="flex-1 flex flex-col">
+                    <div className="flex-1 flex">
+                      <div className="flex-1 bg-sky-50/40 flex items-center justify-center">
+                        <span className="text-[0.6rem] text-sky-400/60 font-medium">人机协作区</span>
+                      </div>
+                      <div className="flex-1 bg-amber-50/40 flex items-center justify-center">
+                        <span className="text-[0.6rem] text-amber-400/60 font-medium">AI优先区</span>
+                      </div>
+                    </div>
                     <div className="flex-1 flex">
                       <div className="flex-1 bg-rose-50/40 flex items-center justify-center">
                         <span className="text-[0.6rem] text-rose-400/60 font-medium">人类保留区</span>
                       </div>
-                      <div className="flex-1 bg-sky-50/40 flex items-center justify-center">
-                        <span className="text-[0.6rem] text-sky-400/60 font-medium">人机协作区</span>
-                      </div>
-                    </div>
-                    <div className="flex-1 flex">
                       <div className="flex-1 bg-emerald-50/40 flex items-center justify-center">
                         <span className="text-[0.6rem] text-emerald-400/60 font-medium">自动化主战场</span>
-                      </div>
-                      <div className="flex-1 bg-amber-50/40 flex items-center justify-center">
-                        <span className="text-[0.6rem] text-amber-400/60 font-medium">AI优先区</span>
                       </div>
                     </div>
                   </div>

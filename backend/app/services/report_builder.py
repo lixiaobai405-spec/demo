@@ -239,7 +239,7 @@ class ReportBuilder:
                     str(getattr(item, "priority_structuredness_x", "") or ""),
                     str(getattr(item, "priority_complexity_y", "") or ""),
                     str(getattr(item, "priority_lps_display", "") or ""),
-                    getattr(item, "priority_tier", None) is not None and {
+                    getattr(item, "recommendation_level", None) or getattr(item, "priority_tier", None) is not None and {
                         1: "立即启动", 2: "规划推进", 3: "观察",
                     }.get(getattr(item, "priority_tier"), "观察") or "",
                     item.core_data_requirements,

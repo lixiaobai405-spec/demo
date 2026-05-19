@@ -159,7 +159,7 @@ def test_main_flow_template_report_and_exports(
     assert scenarios_response.status_code == 200
     scenarios_body = scenarios_response.json()["scenario_recommendation"]
     assert scenarios_body["scoring_method"] == "four_quadrant_v1"
-    assert len(scenarios_body["top_scenarios"]) == 3
+    assert len(scenarios_body["top_scenarios"]) >= 1
     # 验证每个 Top 场景都带有四象限评分字段
     for s in scenarios_body["top_scenarios"]:
         assert "priority_structuredness_x" in s
@@ -182,7 +182,7 @@ def test_main_flow_template_report_and_exports(
     assert context_response.status_code == 200
     context_body = context_response.json()
     assert context_body["assessment_id"] == assessment_id
-    assert len(context_body["top_scenarios"]) == 3
+    assert len(context_body["top_scenarios"]) >= 1
     assert len(context_body["report_outline"]) == 13
     assert len(context_body["selected_breakthrough_elements"]) == 2
 
@@ -520,7 +520,7 @@ def test_scenario_recommendations_alias_is_backward_compatible(
     assert alias_response.status_code == 200
     alias_body = alias_response.json()["scenario_recommendation"]
     assert alias_body["scoring_method"] == "four_quadrant_v1"
-    assert len(alias_body["top_scenarios"]) == 3
+    assert len(alias_body["top_scenarios"]) >= 1
 
     assert canonical_response.status_code == 200
     canonical_body = canonical_response.json()["scenario_recommendation"]

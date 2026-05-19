@@ -73,7 +73,7 @@ class ScenePriorityScorer:
                 "以提升场景的结构化程度，为后续AI落地创造条件。"
             )
             all_scores.sort(key=lambda s: -s.lps_display)
-            eligible = all_scores[:3]
+            eligible = all_scores[:2]
 
         # 规则 A：极高 AI 优先区场景可突破梯队（PRD pseudocode L228-231）
         if eligible and eligible[0].quadrant == Quadrant.ai_priority and eligible[0].lps_display >= 9.0:

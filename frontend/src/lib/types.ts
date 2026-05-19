@@ -112,6 +112,8 @@ export type ScenarioRecommendationItem = {
   priority_quadrant?: string | null;
   priority_tier?: number | null;
   priority_recommendation?: string | null;
+  industry_coefficient?: number | null;
+  recommendation_level?: string | null;
 };
 
 export type ScenarioRecommendationResult = {

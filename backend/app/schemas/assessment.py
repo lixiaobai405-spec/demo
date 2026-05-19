@@ -143,6 +143,8 @@ class ScenarioRecommendationItem(BaseModel):
     priority_quadrant: str | None = None
     priority_tier: int | None = None
     priority_recommendation: str | None = None
+    industry_coefficient: float | None = None
+    recommendation_level: str | None = None
 
 
 class ScenarioRecommendationResult(BaseModel):

@@ -13,6 +13,85 @@ from app.services.scene_priority_scorer import ScenePriorityScorer
 SCENARIO_LIBRARY_PATH = ROOT_DIR / "knowledge" / "raw" / "ai_scenarios.yaml"
 
 
+# ── 轻量预期价值量化（P2.1）────────────────────────────
+
+_QUANTIFIED_EFFECTS: dict[str, list[str]] = {
+    "销售增长": [
+        "预计提升 10%-25% 销售转化效率",
+        "预计将线索响应时间从数小时缩短至分钟级",
+    ],
+    "售前效率": [
+        "预计缩短 30%-50% 方案准备时间",
+        "预计报价响应从 2-3 天压缩至 4-8 小时",
+    ],
+    "知识管理": [
+        "预计减少 40%-60% 重复咨询",
+        "预计知识检索时间从 30 分钟降至秒级",
+    ],
+    "交付运营": [
+        "预计降低 20%-35% 交付延期风险",
+        "预计提升 15%-25% 订单履约准时率",
+    ],
+    "生产运营": [
+        "预计减少 15%-30% 非计划停机时间",
+        "预计提升 10%-20% 产能利用率",
+    ],
+    "供应链": [
+        "预计降低 20%-35% 库存积压",
+        "预计提升 15%-25% 采购成本优化空间",
+    ],
+    "客户服务": [
+        "预计缩短 40%-60% 客服响应时间",
+        "预计降低 15%-25% 工单转人工率",
+    ],
+    "客户经营": [
+        "预计提升 10%-20% 客户续约率",
+        "预计提前 14-30 天识别流失风险",
+    ],
+    "财务经营": [
+        "预计降低 15%-25% 逾期回款比例",
+        "预计缩短 20%-35% 平均回款天数",
+    ],
+    "风险控制": [
+        "预计缩短 50%-70% 合同审阅时间",
+        "预计降低 20%-30% 合同条款遗漏风险",
+    ],
+    "人力资源": [
+        "预计缩短 50%-70% 简历筛选时间",
+        "预计提升 10%-20% 面试匹配精准度",
+    ],
+    "市场营销": [
+        "预计提升 15%-25% 投放 ROI",
+        "预计缩短 30%-50% 内容生产周期",
+    ],
+    "零售运营": [
+        "预计提升 10%-20% 门店库存周转",
+        "预计降低 15%-25% 缺货率",
+    ],
+    "管理分析": [
+        "预计缩短 40%-60% 经营分析报告生成时间",
+        "预计将异常发现时效从 T+3 天提升至实时",
+    ],
+    "协同办公": [
+        "预计减少 20%-35% 跨部门信息遗漏",
+        "预计缩短 30%-50% 会议行动项闭环时间",
+    ],
+}
+
+
+def _build_quantified_effect(name: str, category: str, goal_keywords: list[str] | None) -> str:
+    """构建预期价值量化描述，优先使用区间化数字，保留原有场景文案。"""
+    base_text = (
+        f"通过{name}，预期可{'、'.join(goal_keywords[:3])}"
+        if goal_keywords
+        else f"通过{name}提升业务效率与竞争力"
+    )
+    quant_lines = _QUANTIFIED_EFFECTS.get(category)
+    if quant_lines:
+        base_text = f"{base_text}。" + "；".join(quant_lines)
+    return base_text
+
+
 class ScenarioDefinition(BaseModel):
     id: str
     name: str
@@ -24,6 +103,8 @@ class ScenarioDefinition(BaseModel):
     data_keywords: list[str] = Field(default_factory=list)
     canvas_keywords: list[str] = Field(default_factory=list)
     data_requirements: list[str] = Field(default_factory=list)
+    structuredness_x: float | None = None
+    complexity_y: float | None = None
 
 
 class ScenarioLibrary(BaseModel):
@@ -68,10 +149,8 @@ class ScenarioRecommender:
             category=definition.category,
             summary=definition.summary,
             canvas_elements="、".join(definition.canvas_keywords[:3]) if definition.canvas_keywords else "",
-            expected_effects=(
-                f"通过{definition.name}，预期可{'、'.join(definition.goal_keywords[:3])}"
-                if definition.goal_keywords
-                else f"通过{definition.name}提升业务效率与竞争力"
+            expected_effects=_build_quantified_effect(
+                definition.name, definition.category, definition.goal_keywords,
             ),
             core_data_requirements=(
                 definition.data_requirements[0]
@@ -253,13 +332,19 @@ class ScenarioRecommender:
                 )
             )
 
-            # X（结构化程度）侧重数据与流程条件 → 企业数据基础 + 场景数据需求
-            x_context = " ".join(filter(None, [enterprise_text, scene_text, direction_text]))
-            x = float(priority_scorer.score_structuredness(x_context))
+            # X（结构化程度）：优先使用场景库基准分，缺失时用 NLP 关键词评分兜底
+            if definition.structuredness_x is not None and 1 <= definition.structuredness_x <= 5:
+                x = float(definition.structuredness_x)
+            else:
+                x_context = " ".join(filter(None, [enterprise_text, scene_text, direction_text]))
+                x = float(priority_scorer.score_structuredness(x_context))
 
-            # Y（实施复杂度）侧重任务本身 → 场景描述 + 企业挑战与AI目标
-            y_context = " ".join(filter(None, [scene_text, enterprise_text]))
-            y = float(priority_scorer.score_complexity(y_context))
+            # Y（实施复杂度）：优先使用场景库基准分，缺失时用 NLP 关键词评分兜底
+            if definition.complexity_y is not None and 1 <= definition.complexity_y <= 5:
+                y = float(definition.complexity_y)
+            else:
+                y_context = " ".join(filter(None, [scene_text, enterprise_text]))
+                y = float(priority_scorer.score_complexity(y_context))
 
             candidates.append(
                 ScenePriorityInput(
@@ -271,10 +356,8 @@ class ScenarioRecommender:
                     complexity_y=y,
                     industry=assessment.industry or "",
                     canvas_elements="、".join(definition.canvas_keywords[:3]) if definition.canvas_keywords else "",
-                    expected_effects=(
-                        f"通过{definition.name}，预期可{'、'.join(definition.goal_keywords[:3])}"
-                        if definition.goal_keywords
-                        else f"通过{definition.name}提升业务效率与竞争力"
+                    expected_effects=_build_quantified_effect(
+                        definition.name, definition.category, definition.goal_keywords,
                     ),
                     core_data_requirements=(
                         definition.data_requirements[0]
@@ -299,10 +382,10 @@ class ScenarioRecommender:
                     if definition and definition.canvas_keywords
                     else ""
                 ),
-                expected_effects=(
-                    f"通过{ps.scene_name}，预期可{'、'.join(definition.goal_keywords[:3])}"
-                    if definition and definition.goal_keywords
-                    else f"通过{ps.scene_name}提升业务效率与竞争力"
+                expected_effects=_build_quantified_effect(
+                    ps.scene_name,
+                    ps.category,
+                    definition.goal_keywords if definition else None,
                 ),
                 core_data_requirements=(
                     definition.data_requirements[0]
@@ -317,6 +400,8 @@ class ScenarioRecommender:
                 priority_quadrant=ps.quadrant.value,
                 priority_tier=ps.priority_tier,
                 priority_recommendation=ps.recommendation_template,
+                industry_coefficient=ps.industry_coefficient,
+                recommendation_level=ps.recommendation_level.value if ps.recommendation_level else None,
             )
 
         top_scenarios = [
