@@ -51,7 +51,7 @@ function getAuthHeaders(): Record<string, string> {
 
 export async function postChatMessage(
   assessmentId: string,
-  payload: { message: string; files?: File[] },
+  payload: { message: string; files?: File[]; current_page?: string },
   init?: { signal?: AbortSignal },
 ): Promise<Response> {
   const hasFiles = Boolean(payload.files && payload.files.length > 0);
@@ -64,13 +64,16 @@ export async function postChatMessage(
   if (hasFiles) {
     const formData = new FormData();
     formData.append("message", payload.message);
+    if (payload.current_page) {
+      formData.append("current_page", payload.current_page);
+    }
     for (const file of payload.files ?? []) {
       formData.append("files", file);
     }
     body = formData;
   } else {
     headers["Content-Type"] = "application/json";
-    body = JSON.stringify({ message: payload.message });
+    body = JSON.stringify({ message: payload.message, current_page: payload.current_page });
   }
 
   const response = await fetch(`${apiBaseUrl}/api/assessments/${assessmentId}/chat`, {
