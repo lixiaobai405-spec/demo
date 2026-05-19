@@ -288,10 +288,8 @@ class ScenarioRecommender:
         priority_result = priority_scorer.recommend_top3(candidates)
 
         # Step 4：转换为 ScenarioRecommendationItem，从原始 definition 补充内容字段
-        top_scenarios: list[ScenarioRecommendationItem] = []
-        for ps in priority_result.top_3:
-            definition = definition_map.get(ps.scene_id)
-            item = ScenarioRecommendationItem(
+        def _score_to_item(ps, definition) -> ScenarioRecommendationItem:
+            return ScenarioRecommendationItem(
                 scenario_id=ps.scene_id,
                 name=ps.scene_name,
                 category=ps.category,
@@ -320,12 +318,21 @@ class ScenarioRecommender:
                 priority_tier=ps.priority_tier,
                 priority_recommendation=ps.recommendation_template,
             )
-            top_scenarios.append(item)
+
+        top_scenarios = [
+            _score_to_item(ps, definition_map.get(ps.scene_id))
+            for ps in priority_result.top_3
+        ]
+        all_scores = [
+            _score_to_item(ps, definition_map.get(ps.scene_id))
+            for ps in priority_result.all_scores
+        ]
 
         return ScenarioRecommendationResult(
             scoring_method="four_quadrant_v1",
             evaluated_count=priority_result.total_candidates,
             top_scenarios=top_scenarios,
+            all_scores=all_scores,
         )
 
     def _normalize_text(self, text: str | None) -> str:

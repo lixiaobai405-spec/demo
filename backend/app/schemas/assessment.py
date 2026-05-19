@@ -149,6 +149,7 @@ class ScenarioRecommendationResult(BaseModel):
     scoring_method: Literal["rule_based_v1", "four_quadrant_v1"]
     evaluated_count: int
     top_scenarios: list[ScenarioRecommendationItem] = Field(default_factory=list)
+    all_scores: list[ScenarioRecommendationItem] | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

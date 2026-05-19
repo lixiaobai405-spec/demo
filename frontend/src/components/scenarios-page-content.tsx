@@ -8,7 +8,7 @@ import { useAssessmentDetail } from "@/hooks";
 import { useGenerateCompetitiveness } from "@/hooks/use-competitiveness";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScenarioRecommendationsPanel } from "@/components/scenario-recommendations-panel";
+import { ScenarioQuadrantView } from "@/components/scenario-quadrant-view";
 import { toast } from "@/hooks/use-toast";
 import { formatMutationError } from "@/lib/api";
 
@@ -114,11 +114,8 @@ export function ScenariosPageContent({
 
         {scenarios ? (
           <>
-            <ScenarioRecommendationsPanel
-              assessmentId={assessmentId}
-              readyForReport={detail.progress.ready_for_report}
+            <ScenarioQuadrantView
               scenarioRecommendation={scenarios}
-              hideNextAction
             />
             {/* Next step */}
             {detail.progress.ready_for_report && (

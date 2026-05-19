@@ -118,6 +118,7 @@ export type ScenarioRecommendationResult = {
   scoring_method: "rule_based_v1" | "four_quadrant_v1";
   evaluated_count: number;
   top_scenarios: ScenarioRecommendationItem[];
+  all_scores?: ScenarioRecommendationItem[] | null;
   created_at: string | null;
   updated_at: string | null;
 };
