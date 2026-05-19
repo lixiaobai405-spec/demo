@@ -156,6 +156,16 @@ class ScenarioRecommendationResult(BaseModel):
     updated_at: datetime | None = None
 
 
+class ScenarioCalibrationItem(BaseModel):
+    scenario_id: str
+    priority_structuredness_x: float = Field(ge=1, le=5)
+    priority_complexity_y: float = Field(ge=1, le=5)
+
+
+class ScenarioCalibrationRequest(BaseModel):
+    calibrations: list[ScenarioCalibrationItem] = Field(min_length=1, max_length=50)
+
+
 class AssessmentScenarioRecommendationResponse(BaseModel):
     assessment: AssessmentResponse
     scenario_recommendation: ScenarioRecommendationResult

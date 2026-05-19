@@ -116,6 +116,7 @@ export function ScenariosPageContent({
           <>
             <ScenarioQuadrantView
               scenarioRecommendation={scenarios}
+              assessmentId={assessmentId}
             />
             {/* Next step */}
             {detail.progress.ready_for_report && (

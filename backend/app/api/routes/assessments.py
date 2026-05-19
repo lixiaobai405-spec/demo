@@ -39,6 +39,8 @@ from app.schemas.assessment import (
     CompanyProfileResult,
     ReportContextResponse,
     ReportDocumentResponse,
+    ScenarioCalibrationItem,
+    ScenarioCalibrationRequest,
     ScenarioRecommendationItem,
     ScenarioRecommendationResult,
 )
@@ -885,6 +887,131 @@ def recommend_scenarios_with_priority(
     return AssessmentScenarioRecommendationResponse(
         assessment=AssessmentResponse.model_validate(assessment, from_attributes=True),
         scenario_recommendation=stored_scenarios,
+    )
+
+
+@router.post(
+    "/{assessment_id}/scenarios/calibrations",
+    response_model=AssessmentScenarioRecommendationResponse,
+    status_code=status.HTTP_200_OK,
+)
+def save_scenario_calibrations(
+    assessment_id: str,
+    body: ScenarioCalibrationRequest,
+    db: Session = Depends(get_db),
+) -> AssessmentScenarioRecommendationResponse:
+    """保存人工校准后的 X/Y 评分，重算所有 priority_* 字段并更新 Top3。
+
+    请求体包含校准后的场景列表，每个场景提供 scenario_id 和新的 X/Y 值。
+    后端按四象限公式重算：QS, LPS, LPS_display, 象限, 梯队, 推荐等级。
+    重新排序后更新 top_scenarios 和 all_scores。
+    """
+    assessment = _get_assessment_or_404(db, assessment_id)
+
+    record = db.scalar(
+        select(ScenarioRecommendation).where(
+            ScenarioRecommendation.assessment_id == assessment_id
+        )
+    )
+    if record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="请先生成场景推荐后再进行校准。",
+        )
+
+    raw_all = _parse_json_raw(record.all_scores_json or record.scenario_json, "场景数据解析失败")
+    if not isinstance(raw_all, list) or len(raw_all) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="当前没有可校准的场景数据。",
+        )
+
+    all_items = [ScenarioRecommendationItem.model_validate(item) for item in raw_all]
+    cal_map: dict[str, tuple[float, float]] = {
+        c.scenario_id: (c.priority_structuredness_x, c.priority_complexity_y)
+        for c in body.calibrations
+    }
+
+    for item in all_items:
+        if item.scenario_id in cal_map:
+            new_x, new_y = cal_map[item.scenario_id]
+            item.priority_structuredness_x = new_x
+            item.priority_complexity_y = new_y
+
+            x = max(1.0, min(5.0, new_x))
+            y = max(1.0, min(5.0, new_y))
+            kappa = item.industry_coefficient or 1.0
+
+            qs = round(x * y, 1)
+            lps = round(x * 0.6 + (6 - y) * 0.4, 4)
+            lps_display = round(lps * kappa * 2, 1)
+
+            if x >= 3.5 and y >= 3.5:
+                quadrant = "AI优先区"
+                tier = 2
+            elif x >= 3.5 and y < 3.5:
+                quadrant = "自动化主战场"
+                tier = 1
+            elif x < 3.5 and y >= 3.5:
+                quadrant = "人机协作区"
+                tier = 3
+            else:
+                quadrant = "人类保留区"
+                tier = 4
+
+            if lps_display >= 8.0:
+                level = "立即启动"
+            elif lps_display >= 5.0:
+                level = "规划推进"
+            else:
+                level = "观察"
+
+            item.priority_qs = qs
+            item.priority_lps = lps
+            item.priority_lps_display = lps_display
+            item.priority_quadrant = quadrant
+            item.priority_tier = tier
+            item.recommendation_level = level
+
+    # 重新排序：梯队优先 + LPS_display 降序
+    all_items.sort(key=lambda s: (
+        (s.priority_tier or 4),
+        -(s.priority_lps_display or 0),
+        -(s.priority_structuredness_x or 3),
+        -(s.priority_qs or 0),
+    ))
+
+    new_top3 = [s for s in all_items if (s.priority_tier or 4) <= 3]
+    if len(new_top3) < 3:
+        q4_pool = [s for s in all_items if (s.priority_tier or 4) > 3]
+        q4_pool.sort(key=lambda s: -(s.priority_lps_display or 0))
+        new_top3 = new_top3 + q4_pool[:3 - len(new_top3)]
+    else:
+        new_top3 = new_top3[:3]
+
+    record.all_scores_json = json.dumps(
+        [item.model_dump() for item in all_items], ensure_ascii=False,
+    )
+    record.scenario_json = json.dumps(
+        [item.model_dump() for item in new_top3], ensure_ascii=False,
+    )
+    record.top_scenarios = json.dumps(
+        [item.name for item in new_top3], ensure_ascii=False,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+
+    return AssessmentScenarioRecommendationResponse(
+        assessment=AssessmentResponse.model_validate(assessment, from_attributes=True),
+        scenario_recommendation=ScenarioRecommendationResult(
+            scoring_method=record.scoring_method,
+            evaluated_count=record.evaluated_count,
+            top_scenarios=new_top3,
+            all_scores=all_items,
+            created_at=record.created_at,
+            updated_at=record.updated_at,
+        ),
     )
 
 
@@ -2025,6 +2152,8 @@ def _upsert_scenario_recommendation(
             [item.model_dump() for item in all_scores],
             ensure_ascii=False,
         )
+    else:
+        record.all_scores_json = None
 
     db.add(record)
     db.commit()

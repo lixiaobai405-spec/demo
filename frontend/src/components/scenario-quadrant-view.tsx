@@ -121,8 +121,10 @@ const RANK_MEDAL = ["🥇", "🥈", "🥉"];
 
 export function ScenarioQuadrantView({
   scenarioRecommendation,
+  assessmentId,
 }: {
   scenarioRecommendation: ScenarioRecommendationResult;
+  assessmentId: string;
 }) {
   const rawCandidates = scenarioRecommendation.all_scores ?? scenarioRecommendation.top_scenarios;
   const isFullPool = scenarioRecommendation.all_scores != null && scenarioRecommendation.all_scores.length > 0;
@@ -132,6 +134,8 @@ export function ScenarioQuadrantView({
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const selected = useMemo(
     () => scenarios.find((s) => s.scenario_id === selectedId) ?? null,
@@ -150,6 +154,8 @@ export function ScenarioQuadrantView({
   const handleSlider = useCallback(
     (axis: "x" | "y", value: number) => {
       if (!selectedId) return;
+      setHasUnsavedChanges(true);
+      setSaveStatus("idle");
       setScenarios((prev) =>
         prev.map((s) => {
           if (s.scenario_id !== selectedId) return s;
@@ -179,6 +185,29 @@ export function ScenarioQuadrantView({
     },
     [selectedId],
   );
+
+  const handleSaveCalibration = useCallback(async () => {
+    setSaveStatus("saving");
+    try {
+      const body = {
+        calibrations: scenarios.map((s) => ({
+          scenario_id: s.scenario_id,
+          priority_structuredness_x: s._x,
+          priority_complexity_y: s._y,
+        })),
+      };
+      const res = await fetch(`/api/assessments/${assessmentId}/scenarios/calibrations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setHasUnsavedChanges(false);
+      setSaveStatus("saved");
+    } catch {
+      setSaveStatus("error");
+    }
+  }, [assessmentId, scenarios]);
 
   return (
     <div className="space-y-10">
@@ -286,6 +315,40 @@ export function ScenarioQuadrantView({
                     <span className="text-warm-muted">推荐等级</span>
                     <span className="font-semibold text-warm-text">{selected._level}</span>
                   </div>
+                </div>
+
+                {/* 保存校准按钮 */}
+                <div className="mt-3 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleSaveCalibration}
+                    disabled={saveStatus === "saving" || !hasUnsavedChanges}
+                    className={`rounded-full px-4 py-1.5 text-xs font-medium transition ${
+                      saveStatus === "saving"
+                        ? "bg-warm-inset text-warm-muted cursor-wait"
+                        : saveStatus === "saved"
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : hasUnsavedChanges
+                            ? "bg-amber-500 text-white hover:bg-amber-600"
+                            : "bg-warm-inset text-warm-muted cursor-not-allowed"
+                    }`}
+                  >
+                    {saveStatus === "saving"
+                      ? "保存中..."
+                      : saveStatus === "saved"
+                        ? "已保存"
+                        : saveStatus === "error"
+                          ? "保存失败，点击重试"
+                          : "保存校准"}
+                  </button>
+                  {!hasUnsavedChanges && (
+                    <span className="text-[0.65rem] text-warm-muted">
+                      {saveStatus === "saved" ? "已应用到推荐结果" : "当前页校准"}
+                    </span>
+                  )}
+                  {hasUnsavedChanges && (
+                    <span className="text-[0.65rem] text-amber-600">当前页校准，刷新将丢失</span>
+                  )}
                 </div>
               </>
             ) : (

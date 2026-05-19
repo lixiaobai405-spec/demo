@@ -537,6 +537,80 @@ def test_scenario_recommendations_alias_is_backward_compatible(
     legacy_body = legacy_response.json()["scenario_recommendation"]
     assert legacy_body["scoring_method"] == "rule_based_v1"
     assert len(legacy_body["top_scenarios"]) == 3
+    assert legacy_body.get("all_scores") is None
+
+    # 验证四象限模式返回 all_scores
+    assert canonical_body.get("all_scores") is not None
+    assert len(canonical_body["all_scores"]) >= len(canonical_body["top_scenarios"])
+
+
+def test_save_calibrations_persists_xy_and_reranks_top3(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+) -> None:
+    assessment_id = _create_assessment(client, assessment_payload)
+    assert client.post(f"/api/assessments/{assessment_id}/profile").status_code == 200
+
+    scenarios_resp = client.post(f"/api/assessments/{assessment_id}/scenarios")
+    assert scenarios_resp.status_code == 200
+    original = scenarios_resp.json()["scenario_recommendation"]
+    all_scores = original.get("all_scores") or original["top_scenarios"]
+
+    if len(all_scores) < 1:
+        return
+
+    first = all_scores[0]
+    calibrations = [
+        {
+            "scenario_id": first["scenario_id"],
+            "priority_structuredness_x": 5.0,
+            "priority_complexity_y": 1.0,
+        }
+    ]
+
+    cal_resp = client.post(
+        f"/api/assessments/{assessment_id}/scenarios/calibrations",
+        json={"calibrations": calibrations},
+    )
+    assert cal_resp.status_code == 200
+    cal_body = cal_resp.json()["scenario_recommendation"]
+
+    updated = next(
+        (s for s in cal_body["all_scores"] if s["scenario_id"] == first["scenario_id"]),
+        None,
+    )
+    assert updated is not None
+    assert updated["priority_structuredness_x"] == 5.0
+    assert updated["priority_complexity_y"] == 1.0
+    assert updated["priority_qs"] == 5.0
+    assert updated["priority_quadrant"] == "自动化主战场"
+    assert updated["priority_tier"] == 1
+    assert updated["recommendation_level"] == "立即启动"
+
+    # 刷新后数据应持久化
+    detail_resp = client.get(f"/api/assessments/{assessment_id}")
+    assert detail_resp.status_code == 200
+    detail_scenarios = detail_resp.json()["scenario_recommendation"]
+    assert detail_scenarios is not None
+    detail_updated = next(
+        (s for s in detail_scenarios["all_scores"]
+         if s["scenario_id"] == first["scenario_id"]),
+        None,
+    )
+    assert detail_updated is not None
+    assert detail_updated["priority_structuredness_x"] == 5.0
+
+
+def test_calibration_requires_existing_scenarios(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+) -> None:
+    assessment_id = _create_assessment(client, assessment_payload)
+    cal_resp = client.post(
+        f"/api/assessments/{assessment_id}/scenarios/calibrations",
+        json={"calibrations": [{"scenario_id": "test", "priority_structuredness_x": 3, "priority_complexity_y": 3}]},
+    )
+    assert cal_resp.status_code in (404, 400)
 
 
 def test_report_endpoints_return_404_for_missing_report_id(client: TestClient) -> None:
