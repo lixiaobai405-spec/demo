@@ -186,7 +186,7 @@ class TestFullChainE2E:
         resp = client.post(f"/api/assessments/{assessment_id}/scenarios")
         assert resp.status_code == 200, f"Scenarios failed: {resp.text}"
         sc_body = resp.json()["scenario_recommendation"]
-        assert sc_body["scoring_method"] == "rule_based_v1"
+        assert sc_body["scoring_method"] == "four_quadrant_v1"
         assert len(sc_body["top_scenarios"]) == 3
         print(f"✅ Step 10 场景推荐 → Top 3: {[s['name'] for s in sc_body['top_scenarios']]}")
         # verify new-style scenario fields are present
@@ -196,6 +196,14 @@ class TestFullChainE2E:
         )
         if has_expected:
             print("   → 新格式生效：场景包含画布要素/预期效果/核心数据需求")
+        # verify four-quadrant priority fields
+        for s in sc_body["top_scenarios"]:
+            assert "priority_quadrant" in s, f"Missing priority_quadrant in {s['name']}"
+            assert s["priority_quadrant"] in ("自动化主战场", "AI优先区", "人机协作区", "人类保留区"), f"Invalid quadrant: {s['priority_quadrant']}"
+            assert "priority_lps_display" in s
+            assert "priority_tier" in s
+            assert "priority_recommendation" in s
+        print("   → 四象限评分字段完整：象限/优先级分/推荐话术均已填充")
 
         # ── Step 11: 商业终局分析 ──
         resp = client.post(f"/api/assessments/{assessment_id}/endgame/generate")

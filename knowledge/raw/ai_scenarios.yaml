@@ -9,6 +9,8 @@ scenarios:
     data_keywords: ["CRM", "线索", "商机", "客户", "报价", "拜访"]
     canvas_keywords: ["客户关系", "渠道", "客户细分"]
     data_requirements: ["CRM 线索与商机记录", "跟进行为日志", "成交/流失结果标签"]
+    structuredness_x: 4.0
+    complexity_y: 2.0
 
   - id: sales_win_rate_prediction
     name: 商机赢单概率预测
@@ -20,6 +22,8 @@ scenarios:
     data_keywords: ["CRM", "商机", "报价", "合同", "客户"]
     canvas_keywords: ["客户关系", "收入来源"]
     data_requirements: ["商机阶段数据", "历史成交结果", "报价和合同节点数据"]
+    structuredness_x: 3.5
+    complexity_y: 3.0
 
   - id: intelligent_quotation_assistant
     name: 智能报价助手
@@ -31,6 +35,8 @@ scenarios:
     data_keywords: ["报价", "产品", "BOM", "成本", "合同", "Excel"]
     canvas_keywords: ["价值主张", "收入来源"]
     data_requirements: ["历史报价单", "产品/服务价格规则", "毛利或成本边界"]
+    structuredness_x: 3.5
+    complexity_y: 3.5
 
   - id: presales_knowledge_assistant
     name: 方案与标书知识助手
@@ -42,6 +48,8 @@ scenarios:
     data_keywords: ["文档", "知识库", "方案", "标书", "工单", "Excel"]
     canvas_keywords: ["关键资源", "价值主张"]
     data_requirements: ["历史方案/标书文档", "产品资料与 FAQ", "知识分类规则"]
+    structuredness_x: 3.0
+    complexity_y: 3.0
 
   - id: order_delivery_risk_alert
     name: 订单交付风险预警
@@ -53,6 +61,8 @@ scenarios:
     data_keywords: ["ERP", "订单", "排产", "采购", "库存", "工单"]
     canvas_keywords: ["关键活动", "关键合作伙伴", "成本结构"]
     data_requirements: ["订单与交期数据", "生产/实施计划数据", "异常与延期记录"]
+    structuredness_x: 4.0
+    complexity_y: 3.0
 
   - id: production_schedule_optimization
     name: 生产排程优化建议
@@ -64,6 +74,8 @@ scenarios:
     data_keywords: ["ERP", "MES", "排产", "工单", "设备", "BOM"]
     canvas_keywords: ["关键活动", "关键资源", "成本结构"]
     data_requirements: ["工单与产能数据", "设备负荷数据", "物料与 BOM 数据"]
+    structuredness_x: 3.0
+    complexity_y: 4.5
 
   - id: predictive_maintenance
     name: 设备维护预测
@@ -75,6 +87,8 @@ scenarios:
     data_keywords: ["设备", "传感器", "工单", "维修", "报警"]
     canvas_keywords: ["关键资源", "关键活动", "成本结构"]
     data_requirements: ["设备运行日志", "故障维修记录", "传感器或报警数据"]
+    structuredness_x: 4.5
+    complexity_y: 3.5
 
   - id: inventory_replenishment_optimization
     name: 库存补货优化
@@ -86,6 +100,8 @@ scenarios:
     data_keywords: ["ERP", "库存", "采购", "销量", "SKU"]
     canvas_keywords: ["关键资源", "关键合作伙伴", "成本结构"]
     data_requirements: ["库存台账", "销量/出库数据", "采购交期与安全库存规则"]
+    structuredness_x: 4.5
+    complexity_y: 3.0
 
   - id: demand_forecasting
     name: 需求预测
@@ -97,6 +113,8 @@ scenarios:
     data_keywords: ["销量", "订单", "库存", "ERP", "Excel"]
     canvas_keywords: ["客户细分", "收入来源", "关键活动"]
     data_requirements: ["历史销量数据", "订单与退货数据", "季节或活动因素数据"]
+    structuredness_x: 3.5
+    complexity_y: 4.0
 
   - id: customer_service_ticket_assistant
     name: 客服工单分类与答复建议
@@ -108,6 +126,8 @@ scenarios:
     data_keywords: ["工单", "客服", "FAQ", "知识库", "聊天记录"]
     canvas_keywords: ["客户关系", "价值主张"]
     data_requirements: ["历史工单数据", "常见问题与标准答复", "服务优先级规则"]
+    structuredness_x: 4.0
+    complexity_y: 2.5
 
   - id: customer_churn_alert
     name: 客户流失预警
@@ -119,6 +139,8 @@ scenarios:
     data_keywords: ["CRM", "订单", "续约", "工单", "投诉", "回访"]
     canvas_keywords: ["客户关系", "收入来源", "客户细分"]
     data_requirements: ["客户活跃与交易记录", "工单/投诉记录", "续约或复购结果数据"]
+    structuredness_x: 3.5
+    complexity_y: 3.5
 
   - id: voc_insight_analysis
     name: VOC 与投诉洞察分析
@@ -130,6 +152,8 @@ scenarios:
     data_keywords: ["投诉", "工单", "回访", "录音", "文本"]
     canvas_keywords: ["客户关系", "价值主张"]
     data_requirements: ["客户反馈与投诉文本", "工单闭环结果", "产品/服务问题分类规则"]
+    structuredness_x: 2.5
+    complexity_y: 3.0
 
   - id: receivable_risk_alert
     name: 回款风险预警
@@ -141,6 +165,8 @@ scenarios:
     data_keywords: ["财务", "发票", "回款", "ERP", "合同"]
     canvas_keywords: ["收入来源", "客户关系", "成本结构"]
     data_requirements: ["应收账款台账", "回款记录", "合同与账期条款"]
+    structuredness_x: 4.5
+    complexity_y: 2.0
 
   - id: contract_review_assistant
     name: 合同审阅助手
@@ -152,6 +178,8 @@ scenarios:
     data_keywords: ["合同", "条款", "文档", "法务"]
     canvas_keywords: ["收入来源", "关键合作伙伴"]
     data_requirements: ["历史合同文本", "标准合同模板", "审阅规则与风险清单"]
+    structuredness_x: 2.0
+    complexity_y: 4.5
 
   - id: recruitment_resume_screening
     name: 招聘简历初筛
@@ -163,6 +191,8 @@ scenarios:
     data_keywords: ["简历", "岗位", "招聘", "Excel"]
     canvas_keywords: ["关键资源"]
     data_requirements: ["历史简历与面试结果", "岗位 JD", "招聘评价标准"]
+    structuredness_x: 3.5
+    complexity_y: 2.5
 
   - id: employee_knowledge_qa
     name: 员工知识问答助手
@@ -174,6 +204,8 @@ scenarios:
     data_keywords: ["文档", "知识库", "FAQ", "制度", "流程"]
     canvas_keywords: ["关键资源", "关键活动"]
     data_requirements: ["制度流程文档", "FAQ 与培训材料", "知识分类与权限规则"]
+    structuredness_x: 3.0
+    complexity_y: 2.5
 
   - id: marketing_content_optimization
     name: 营销内容生成与投放优化
@@ -185,6 +217,8 @@ scenarios:
     data_keywords: ["投放", "线索", "内容", "客户", "CRM"]
     canvas_keywords: ["渠道", "客户细分", "价值主张"]
     data_requirements: ["历史投放数据", "客户画像与内容素材", "线索归因结果"]
+    structuredness_x: 2.5
+    complexity_y: 3.5
 
   - id: store_sales_forecast
     name: 门店销量预测
@@ -196,6 +230,8 @@ scenarios:
     data_keywords: ["POS", "销量", "库存", "门店", "促销"]
     canvas_keywords: ["渠道", "客户细分", "收入来源"]
     data_requirements: ["门店销量数据", "库存与促销数据", "节假日/天气等外部因素"]
+    structuredness_x: 4.5
+    complexity_y: 3.0
 
   - id: procurement_price_analysis
     name: 采购价格与供应风险分析
@@ -207,6 +243,8 @@ scenarios:
     data_keywords: ["采购", "供应商", "ERP", "价格", "交期"]
     canvas_keywords: ["关键合作伙伴", "成本结构"]
     data_requirements: ["采购订单与价格历史", "供应商履约记录", "交期与异常数据"]
+    structuredness_x: 4.0
+    complexity_y: 3.0
 
   - id: operating_dashboard_root_cause
     name: 经营驾驶舱异常归因
@@ -218,6 +256,8 @@ scenarios:
     data_keywords: ["ERP", "CRM", "财务", "订单", "库存", "Excel"]
     canvas_keywords: ["成本结构", "收入来源", "关键活动"]
     data_requirements: ["核心经营指标数据", "多系统对照口径", "异常标签与归因规则"]
+    structuredness_x: 2.5
+    complexity_y: 4.0
 
   - id: aftersales_fault_knowledge
     name: 售后故障知识助手
@@ -229,6 +269,8 @@ scenarios:
     data_keywords: ["工单", "维修", "知识库", "FAQ", "设备"]
     canvas_keywords: ["客户关系", "关键资源", "价值主张"]
     data_requirements: ["售后工单与故障记录", "维修手册与 FAQ", "问题分类与解决方案"]
+    structuredness_x: 3.0
+    complexity_y: 3.0
 
   - id: meeting_summary_action_tracking
     name: 会议纪要与行动项跟踪
@@ -240,3 +282,5 @@ scenarios:
     data_keywords: ["会议纪要", "文档", "IM", "邮件"]
     canvas_keywords: ["关键活动", "关键资源"]
     data_requirements: ["会议记录或录音", "任务跟踪规则", "组织结构与责任人信息"]
+    structuredness_x: 3.0
+    complexity_y: 2.0

@@ -45,6 +45,7 @@ class ReportBuilder:
             self._build_direction_section(direction_labels),
             self._build_ai_readiness_section(ai_readiness_score, profile, canvas_diagnosis),
             self._build_priority_scenarios_section(scenario_recommendation),
+            self._build_scenario_planning_section(scenario_recommendation),
             self._build_competitiveness_section(profile, canvas_diagnosis, scenario_recommendation, competitiveness_result),
             self._build_cases_section(case_recommendation),
             self._build_roadmap_section(roadmap),
@@ -218,9 +219,34 @@ class ReportBuilder:
         self,
         scenario_recommendation: ScenarioRecommendationResult,
     ) -> ReportSectionData:
-        table = ReportTableData(
-            columns=["推荐场景", "类别", "对应画布要素", "预期效果", "核心数据需求"],
-            rows=[
+        is_four_quadrant = scenario_recommendation.scoring_method == "four_quadrant_v1"
+        has_priority = any(
+            getattr(item, "priority_lps_display", None) is not None
+            for item in scenario_recommendation.top_scenarios
+        )
+
+        if is_four_quadrant and has_priority:
+            columns = [
+                "推荐场景", "类别", "象限归属", "结构化程度",
+                "实施复杂度", "综合优先级得分", "推荐等级", "核心数据需求",
+            ]
+            rows = []
+            for item in scenario_recommendation.top_scenarios:
+                rows.append([
+                    item.name,
+                    item.category,
+                    getattr(item, "priority_quadrant", "") or "",
+                    str(getattr(item, "priority_structuredness_x", "") or ""),
+                    str(getattr(item, "priority_complexity_y", "") or ""),
+                    str(getattr(item, "priority_lps_display", "") or ""),
+                    getattr(item, "recommendation_level", None) or getattr(item, "priority_tier", None) is not None and {
+                        1: "立即启动", 2: "规划推进", 3: "观察",
+                    }.get(getattr(item, "priority_tier"), "观察") or "",
+                    item.core_data_requirements,
+                ])
+        else:
+            columns = ["推荐场景", "类别", "对应画布要素", "预期效果", "核心数据需求"]
+            rows = [
                 [
                     item.name,
                     item.category,
@@ -229,15 +255,24 @@ class ReportBuilder:
                     item.core_data_requirements,
                 ]
                 for item in scenario_recommendation.top_scenarios
-            ],
+            ]
+
+        table = ReportTableData(columns=columns, rows=rows)
+
+        content = (
+            "以下场景基于企业问卷、商业画布诊断和四象限优先级评分结果生成，"
+            "适合作为当前阶段优先验证的 AI 提效切入口。"
+            if is_four_quadrant
+            else (
+                "以下场景基于企业问卷、商业画布诊断和规则评分结果生成，"
+                "适合作为当前阶段优先验证的 AI 提效切入口。"
+            )
         )
+
         return ReportSectionData(
             key="priority_scenarios",
             title="高优先级 AI 提效场景",
-            content=(
-                "以下场景基于企业问卷、商业画布诊断和规则评分结果生成，"
-                "适合作为当前阶段优先验证的 AI 提效切入口。"
-            ),
+            content=content,
             table=table,
         )
 
@@ -261,6 +296,7 @@ class ReportBuilder:
                     bullets=[
                         f"预期效果：{item.expected_effects}" if item.expected_effects else None,
                         f"核心数据需求：{item.core_data_requirements}" if item.core_data_requirements else None,
+                        f"推荐意见：{getattr(item, 'priority_recommendation', None)}" if getattr(item, "priority_recommendation", None) else None,
                         "试点建议：先定义成功标准、责任人、验收频次和异常兜底机制。",
                     ],
                 )

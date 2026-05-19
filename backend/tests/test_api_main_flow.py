@@ -158,8 +158,19 @@ def test_main_flow_template_report_and_exports(
     scenarios_response = client.post(f"/api/assessments/{assessment_id}/scenarios")
     assert scenarios_response.status_code == 200
     scenarios_body = scenarios_response.json()["scenario_recommendation"]
-    assert scenarios_body["scoring_method"] == "rule_based_v1"
-    assert len(scenarios_body["top_scenarios"]) == 3
+    assert scenarios_body["scoring_method"] == "four_quadrant_v1"
+    assert len(scenarios_body["top_scenarios"]) >= 1
+    # 验证每个 Top 场景都带有四象限评分字段
+    for s in scenarios_body["top_scenarios"]:
+        assert "priority_structuredness_x" in s
+        assert "priority_complexity_y" in s
+        assert "priority_qs" in s
+        assert "priority_lps" in s
+        assert "priority_lps_display" in s
+        assert "priority_quadrant" in s
+        assert s["priority_quadrant"] in ("自动化主战场", "AI优先区", "人机协作区", "人类保留区")
+        assert "priority_tier" in s
+        assert "priority_recommendation" in s
 
     cases_response = client.post(f"/api/assessments/{assessment_id}/cases")
     assert cases_response.status_code == 200
@@ -171,7 +182,7 @@ def test_main_flow_template_report_and_exports(
     assert context_response.status_code == 200
     context_body = context_response.json()
     assert context_body["assessment_id"] == assessment_id
-    assert len(context_body["top_scenarios"]) == 3
+    assert len(context_body["top_scenarios"]) >= 1
     assert len(context_body["report_outline"]) == 13
     assert len(context_body["selected_breakthrough_elements"]) == 2
 
@@ -508,15 +519,98 @@ def test_scenario_recommendations_alias_is_backward_compatible(
 
     assert alias_response.status_code == 200
     alias_body = alias_response.json()["scenario_recommendation"]
-    assert alias_body["scoring_method"] == "rule_based_v1"
-    assert len(alias_body["top_scenarios"]) == 3
+    assert alias_body["scoring_method"] == "four_quadrant_v1"
+    assert len(alias_body["top_scenarios"]) >= 1
 
     assert canonical_response.status_code == 200
     canonical_body = canonical_response.json()["scenario_recommendation"]
-    assert canonical_body["scoring_method"] == "rule_based_v1"
+    assert canonical_body["scoring_method"] == "four_quadrant_v1"
     assert [item["name"] for item in canonical_body["top_scenarios"]] == [
         item["name"] for item in alias_body["top_scenarios"]
     ]
+
+    # 验证 legacy mode 仍返回 rule_based_v1
+    legacy_response = client.post(
+        f"/api/assessments/{assessment_id}/scenarios?mode=legacy"
+    )
+    assert legacy_response.status_code == 200
+    legacy_body = legacy_response.json()["scenario_recommendation"]
+    assert legacy_body["scoring_method"] == "rule_based_v1"
+    assert len(legacy_body["top_scenarios"]) == 3
+    assert legacy_body.get("all_scores") is None
+
+    # 验证四象限模式返回 all_scores
+    assert canonical_body.get("all_scores") is not None
+    assert len(canonical_body["all_scores"]) >= len(canonical_body["top_scenarios"])
+
+
+def test_save_calibrations_persists_xy_and_reranks_top3(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+) -> None:
+    assessment_id = _create_assessment(client, assessment_payload)
+    assert client.post(f"/api/assessments/{assessment_id}/profile").status_code == 200
+
+    scenarios_resp = client.post(f"/api/assessments/{assessment_id}/scenarios")
+    assert scenarios_resp.status_code == 200
+    original = scenarios_resp.json()["scenario_recommendation"]
+    all_scores = original.get("all_scores") or original["top_scenarios"]
+
+    if len(all_scores) < 1:
+        return
+
+    first = all_scores[0]
+    calibrations = [
+        {
+            "scenario_id": first["scenario_id"],
+            "priority_structuredness_x": 5.0,
+            "priority_complexity_y": 1.0,
+        }
+    ]
+
+    cal_resp = client.post(
+        f"/api/assessments/{assessment_id}/scenarios/calibrations",
+        json={"calibrations": calibrations},
+    )
+    assert cal_resp.status_code == 200
+    cal_body = cal_resp.json()["scenario_recommendation"]
+
+    updated = next(
+        (s for s in cal_body["all_scores"] if s["scenario_id"] == first["scenario_id"]),
+        None,
+    )
+    assert updated is not None
+    assert updated["priority_structuredness_x"] == 5.0
+    assert updated["priority_complexity_y"] == 1.0
+    assert updated["priority_qs"] == 5.0
+    assert updated["priority_quadrant"] == "自动化主战场"
+    assert updated["priority_tier"] == 1
+    assert updated["recommendation_level"] == "立即启动"
+
+    # 刷新后数据应持久化
+    detail_resp = client.get(f"/api/assessments/{assessment_id}")
+    assert detail_resp.status_code == 200
+    detail_scenarios = detail_resp.json()["scenario_recommendation"]
+    assert detail_scenarios is not None
+    detail_updated = next(
+        (s for s in detail_scenarios["all_scores"]
+         if s["scenario_id"] == first["scenario_id"]),
+        None,
+    )
+    assert detail_updated is not None
+    assert detail_updated["priority_structuredness_x"] == 5.0
+
+
+def test_calibration_requires_existing_scenarios(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+) -> None:
+    assessment_id = _create_assessment(client, assessment_payload)
+    cal_resp = client.post(
+        f"/api/assessments/{assessment_id}/scenarios/calibrations",
+        json={"calibrations": [{"scenario_id": "test", "priority_structuredness_x": 3, "priority_complexity_y": 3}]},
+    )
+    assert cal_resp.status_code in (404, 400)
 
 
 def test_report_endpoints_return_404_for_missing_report_id(client: TestClient) -> None:

@@ -170,7 +170,7 @@ describe("result detail page content", () => {
     render(<ScenariosPageContent assessmentId="assessment-1" />);
 
     expect(screen.getByText("测试企业 AI 场景推荐")).toBeInTheDocument();
-    expect(screen.getByText("门店知识助手")).toBeInTheDocument();
+    expect(screen.getAllByText("门店知识助手").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders the competitiveness page with client-fetched queries", () => {

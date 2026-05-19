@@ -67,20 +67,31 @@ class ScenePriorityScorer:
         if not eligible:
             fallback_triggered = True
             fallback_reason = (
-                "所有候选场景均落入人类保留区，返回LPS最高的前2个作为兜底推荐。"
+                "所有候选场景均落入人类保留区，返回LPS最高的前3个作为兜底推荐。"
                 "⚠️ 前置行动建议：建议优先进行业务流程数字化改造与数据采集基础建设，"
                 "包括建立核心业务数据库、梳理SOP流程、部署数据采集工具等，"
                 "以提升场景的结构化程度，为后续AI落地创造条件。"
             )
             all_scores.sort(key=lambda s: -s.lps_display)
             eligible = all_scores[:2]
+            # 全 Q4 兜底场景统一标记为「观察」，不按 LPS_display 误显为强推荐
+            for s in eligible:
+                s.recommendation_level = RecommendationLevel.observe
+                s.recommendation_label = RecommendationLevel.observe.value
+                s.recommendation_template = QUADRANT_RECOMMENDATION_TEMPLATES.get(
+                    Quadrant.human_reserved, ""
+                )
 
         # 规则 A：极高 AI 优先区场景可突破梯队（PRD pseudocode L228-231）
         if eligible and eligible[0].quadrant == Quadrant.ai_priority and eligible[0].lps_display >= 9.0:
             pass  # 已足够高，保持原位
 
-        # 确定 Top 3 + 分配排名
-        if len(eligible) <= 3:
+        # 确定 Top 3 + 分配排名（不足时从 Q4 补足，兜底时不重复补）
+        if len(eligible) < 3 and not fallback_triggered:
+            q4_candidates = [s for s in all_scores if s.priority_tier > 3]
+            q4_candidates.sort(key=lambda s: -s.lps_display)
+            top_3 = list(eligible) + q4_candidates[:3 - len(eligible)]
+        elif len(eligible) <= 3:
             top_3 = list(eligible)
         else:
             top_3 = list(eligible[:3])

@@ -39,6 +39,8 @@ from app.schemas.assessment import (
     CompanyProfileResult,
     ReportContextResponse,
     ReportDocumentResponse,
+    ScenarioCalibrationItem,
+    ScenarioCalibrationRequest,
     ScenarioRecommendationItem,
     ScenarioRecommendationResult,
 )
@@ -76,6 +78,8 @@ from app.services.report_builder import ReportBuilder
 from app.services.report_enrichment import ReportEnrichmentService
 from app.services.report_service import ReportService
 from app.services.scenario_recommender import ScenarioRecommender
+from app.services.scene_priority_scorer import ScenePriorityScorer
+from app.schemas.scene_priority import ScenePriorityInput
 from app.api.deps import get_current_user, require_instructor
 from app.models.user import User
 from app.schemas.assessment import AssessmentCardItem, AssessmentListResponse
@@ -800,21 +804,42 @@ def get_endgame(
 )
 def recommend_scenarios(
     assessment_id: str,
+    mode: str | None = None,
     db: Session = Depends(get_db),
 ) -> AssessmentScenarioRecommendationResponse:
+    """生成 Top 3 AI 场景推荐。
+
+    默认使用四象限优先级评分算法（four_quadrant_v1）。
+    可通过 ?mode=legacy 回退到旧关键词评分算法（rule_based_v1）。
+    """
     assessment = _get_assessment_or_404(db, assessment_id)
     profile = _load_profile_from_assessment(assessment)
     direction_categories = _load_direction_categories(db, assessment_id)
     recommender = ScenarioRecommender()
-    top_recommendations, evaluated_count = recommender.recommend(
-        assessment, profile, direction_categories
-    )
-    stored_scenarios = _upsert_scenario_recommendation(
-        db=db,
-        assessment_id=assessment.id,
-        evaluated_count=evaluated_count,
-        top_scenarios=top_recommendations,
-    )
+
+    if mode == "legacy":
+        top_recommendations, evaluated_count = recommender.recommend(
+            assessment, profile, direction_categories
+        )
+        stored_scenarios = _upsert_scenario_recommendation(
+            db=db,
+            assessment_id=assessment.id,
+            evaluated_count=evaluated_count,
+            top_scenarios=top_recommendations,
+            scoring_method="rule_based_v1",
+        )
+    else:
+        priority_result = recommender.recommend_with_priority(
+            assessment, profile, direction_categories
+        )
+        stored_scenarios = _upsert_scenario_recommendation(
+            db=db,
+            assessment_id=assessment.id,
+            evaluated_count=priority_result.evaluated_count,
+            top_scenarios=priority_result.top_scenarios,
+            scoring_method=priority_result.scoring_method,
+            all_scores=priority_result.all_scores,
+        )
 
     return AssessmentScenarioRecommendationResponse(
         assessment=AssessmentResponse.model_validate(assessment, from_attributes=True),
@@ -860,11 +885,138 @@ def recommend_scenarios_with_priority(
         scoring_method=priority_result.scoring_method,
         fallback_triggered=priority_result.fallback_triggered,
         fallback_reason=priority_result.fallback_reason,
+        all_scores=priority_result.all_scores,
     )
 
     return AssessmentScenarioRecommendationResponse(
         assessment=AssessmentResponse.model_validate(assessment, from_attributes=True),
         scenario_recommendation=stored_scenarios,
+    )
+
+
+@router.post(
+    "/{assessment_id}/scenarios/calibrations",
+    response_model=AssessmentScenarioRecommendationResponse,
+    status_code=status.HTTP_200_OK,
+)
+def save_scenario_calibrations(
+    assessment_id: str,
+    body: ScenarioCalibrationRequest,
+    db: Session = Depends(get_db),
+) -> AssessmentScenarioRecommendationResponse:
+    """保存人工校准后的 X/Y 评分，重算所有 priority_* 字段并更新 Top3。
+
+    请求体包含校准后的场景列表，每个场景提供 scenario_id 和新的 X/Y 值。
+    后端按四象限公式重算：QS, LPS, LPS_display, 象限, 梯队, 推荐等级。
+    重新排序后更新 top_scenarios 和 all_scores。
+    """
+    assessment = _get_assessment_or_404(db, assessment_id)
+
+    record = db.scalar(
+        select(ScenarioRecommendation).where(
+            ScenarioRecommendation.assessment_id == assessment_id
+        )
+    )
+    if record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="请先生成场景推荐后再进行校准。",
+        )
+
+    raw_all = _parse_json_raw(record.all_scores_json or record.scenario_json, "场景数据解析失败")
+    if not isinstance(raw_all, list) or len(raw_all) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="当前没有可校准的场景数据。",
+        )
+
+    all_items = [ScenarioRecommendationItem.model_validate(item) for item in raw_all]
+    cal_map: dict[str, tuple[float, float]] = {
+        c.scenario_id: (c.priority_structuredness_x, c.priority_complexity_y)
+        for c in body.calibrations
+    }
+
+    # 构建原始 item 查找表，保留 summary/canvas_elements/expected_effects 等字段
+    orig_by_id: dict[str, ScenarioRecommendationItem] = {item.scenario_id: item for item in all_items}
+
+    # 构建 ScenePriorityInput 列表，应用校准后的 X/Y 值
+    industry = (assessment.industry or "") if assessment else ""
+    candidates: list[ScenePriorityInput] = []
+    for item in all_items:
+        if item.scenario_id in cal_map:
+            new_x, new_y = cal_map[item.scenario_id]
+        else:
+            new_x = item.priority_structuredness_x or 3.0
+            new_y = item.priority_complexity_y or 3.0
+        candidates.append(ScenePriorityInput(
+            scene_id=item.scenario_id,
+            scene_name=item.name,
+            category=item.category,
+            summary=item.summary or "",
+            structuredness_x=new_x,
+            complexity_y=new_y,
+            industry=industry,
+            canvas_elements=item.canvas_elements or "",
+            expected_effects=item.expected_effects or "",
+            core_data_requirements=item.core_data_requirements or "",
+        ))
+
+    # 复用 ScenePriorityScorer 进行评分、排序、Q4 兜底、tie-break
+    scorer = ScenePriorityScorer()
+    result = scorer.recommend_top3(candidates)
+
+    # 用 scorer 结果更新 all_items，保留原始非评分字段
+    score_by_id = {s.scene_id: s for s in result.all_scores}
+    updated_items: list[ScenarioRecommendationItem] = []
+    for s in result.all_scores:
+        orig = orig_by_id.get(s.scene_id)
+        if orig is None:
+            continue
+        orig.priority_structuredness_x = s.structuredness_x
+        orig.priority_complexity_y = s.complexity_y
+        orig.priority_qs = s.qs
+        orig.priority_lps = s.lps
+        orig.priority_lps_display = s.lps_display
+        orig.priority_quadrant = s.quadrant.value if hasattr(s.quadrant, "value") else str(s.quadrant)
+        orig.priority_tier = s.priority_tier
+        orig.recommendation_level = s.recommendation_label
+        orig.industry_coefficient = s.industry_coefficient
+        updated_items.append(orig)
+
+    # 取 scorer 输出的 Top 3（已应用所有排序/兜底规则）
+    top3_ids = {s.scene_id for s in result.top_3}
+    new_top3 = [orig_by_id[s.scene_id] for s in result.top_3 if s.scene_id in orig_by_id]
+
+    record.all_scores_json = json.dumps(
+        [item.model_dump() for item in updated_items], ensure_ascii=False,
+    )
+    record.scenario_json = json.dumps(
+        [item.model_dump() for item in new_top3], ensure_ascii=False,
+    )
+    record.top_scenarios = json.dumps(
+        [item.name for item in new_top3], ensure_ascii=False,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+
+    # 清理下游依赖：案例推荐、竞争力分析、报告等（PRD §3 item 6）
+    _clear_cases_and_reports(db, assessment_id)
+    _delete_records(
+        db,
+        [db.scalar(select(CompetitivenessAnalysis).where(CompetitivenessAnalysis.assessment_id == assessment_id))],
+    )
+
+    return AssessmentScenarioRecommendationResponse(
+        assessment=AssessmentResponse.model_validate(assessment, from_attributes=True),
+        scenario_recommendation=ScenarioRecommendationResult(
+            scoring_method=record.scoring_method,
+            evaluated_count=record.evaluated_count,
+            top_scenarios=new_top3,
+            all_scores=updated_items,
+            created_at=record.created_at,
+            updated_at=record.updated_at,
+        ),
     )
 
 
@@ -1117,10 +1269,25 @@ def _load_scenario_recommendation(
             detail="Failed to parse stored scenario recommendation for this assessment.",
         ) from exc
 
+    raw_all_scores = _parse_json_raw(
+        record.all_scores_json,
+        "Failed to parse stored all_scores for this assessment.",
+    ) if record.all_scores_json else None
+    all_scores = None
+    if isinstance(raw_all_scores, list) and len(raw_all_scores) > 0:
+        try:
+            all_scores = [
+                ScenarioRecommendationItem.model_validate(item)
+                for item in raw_all_scores
+            ]
+        except ValidationError:
+            all_scores = None
+
     return ScenarioRecommendationResult(
         scoring_method=record.scoring_method,
         evaluated_count=record.evaluated_count,
         top_scenarios=validated_scenarios,
+        all_scores=all_scores,
         created_at=record.created_at,
         updated_at=record.updated_at,
     )
@@ -1961,6 +2128,7 @@ def _upsert_scenario_recommendation(
     scoring_method: Literal["rule_based_v1", "four_quadrant_v1"] = "rule_based_v1",
     fallback_triggered: bool = False,
     fallback_reason: str = "",
+    all_scores: list[ScenarioRecommendationItem] | None = None,
 ) -> ScenarioRecommendationResult:
     record = db.scalar(
         select(ScenarioRecommendation).where(
@@ -1986,6 +2154,13 @@ def _upsert_scenario_recommendation(
         [item.name for item in top_scenarios],
         ensure_ascii=False,
     )
+    if all_scores is not None:
+        record.all_scores_json = json.dumps(
+            [item.model_dump() for item in all_scores],
+            ensure_ascii=False,
+        )
+    else:
+        record.all_scores_json = None
 
     db.add(record)
     db.commit()
@@ -1998,6 +2173,7 @@ def _upsert_scenario_recommendation(
         top_scenarios=top_scenarios,
         fallback_triggered=fallback_triggered,
         fallback_reason=fallback_reason,
+        all_scores=all_scores,
         created_at=record.created_at,
         updated_at=record.updated_at,
     )

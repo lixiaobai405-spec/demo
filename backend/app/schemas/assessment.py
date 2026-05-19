@@ -143,6 +143,8 @@ class ScenarioRecommendationItem(BaseModel):
     priority_quadrant: str | None = None
     priority_tier: int | None = None
     priority_recommendation: str | None = None
+    industry_coefficient: float | None = None
+    recommendation_level: str | None = None
 
 
 class ScenarioRecommendationResult(BaseModel):
@@ -151,8 +153,19 @@ class ScenarioRecommendationResult(BaseModel):
     top_scenarios: list[ScenarioRecommendationItem] = Field(default_factory=list)
     fallback_triggered: bool = False
     fallback_reason: str = ""
+    all_scores: list[ScenarioRecommendationItem] | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class ScenarioCalibrationItem(BaseModel):
+    scenario_id: str
+    priority_structuredness_x: float = Field(ge=1, le=5)
+    priority_complexity_y: float = Field(ge=1, le=5)
+
+
+class ScenarioCalibrationRequest(BaseModel):
+    calibrations: list[ScenarioCalibrationItem] = Field(min_length=1, max_length=50)
 
 
 class AssessmentScenarioRecommendationResponse(BaseModel):
