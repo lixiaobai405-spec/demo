@@ -834,6 +834,7 @@ def recommend_scenarios(
             evaluated_count=priority_result.evaluated_count,
             top_scenarios=priority_result.top_scenarios,
             scoring_method=priority_result.scoring_method,
+            all_scores=priority_result.all_scores,
         )
 
     return AssessmentScenarioRecommendationResponse(
@@ -878,6 +879,7 @@ def recommend_scenarios_with_priority(
         evaluated_count=priority_result.evaluated_count,
         top_scenarios=priority_result.top_scenarios,
         scoring_method=priority_result.scoring_method,
+        all_scores=priority_result.all_scores,
     )
 
     return AssessmentScenarioRecommendationResponse(
@@ -1135,10 +1137,25 @@ def _load_scenario_recommendation(
             detail="Failed to parse stored scenario recommendation for this assessment.",
         ) from exc
 
+    raw_all_scores = _parse_json_raw(
+        record.all_scores_json,
+        "Failed to parse stored all_scores for this assessment.",
+    ) if record.all_scores_json else None
+    all_scores = None
+    if isinstance(raw_all_scores, list) and len(raw_all_scores) > 0:
+        try:
+            all_scores = [
+                ScenarioRecommendationItem.model_validate(item)
+                for item in raw_all_scores
+            ]
+        except ValidationError:
+            all_scores = None
+
     return ScenarioRecommendationResult(
         scoring_method=record.scoring_method,
         evaluated_count=record.evaluated_count,
         top_scenarios=validated_scenarios,
+        all_scores=all_scores,
         created_at=record.created_at,
         updated_at=record.updated_at,
     )
@@ -1977,6 +1994,7 @@ def _upsert_scenario_recommendation(
     evaluated_count: int,
     top_scenarios: list[ScenarioRecommendationItem],
     scoring_method: Literal["rule_based_v1", "four_quadrant_v1"] = "rule_based_v1",
+    all_scores: list[ScenarioRecommendationItem] | None = None,
 ) -> ScenarioRecommendationResult:
     record = db.scalar(
         select(ScenarioRecommendation).where(
@@ -2002,6 +2020,11 @@ def _upsert_scenario_recommendation(
         [item.name for item in top_scenarios],
         ensure_ascii=False,
     )
+    if all_scores is not None:
+        record.all_scores_json = json.dumps(
+            [item.model_dump() for item in all_scores],
+            ensure_ascii=False,
+        )
 
     db.add(record)
     db.commit()
@@ -2012,6 +2035,7 @@ def _upsert_scenario_recommendation(
         scoring_method=scoring_method,
         evaluated_count=evaluated_count,
         top_scenarios=top_scenarios,
+        all_scores=all_scores,
         created_at=record.created_at,
         updated_at=record.updated_at,
     )

@@ -56,6 +56,7 @@ def init_db() -> None:
     _migrate_endgame_analyses_table()
     _migrate_assessments_add_user_id()
     _migrate_assessment_intake_sessions_add_user_id()
+    _migrate_scenario_recommendations_table()
 
 
 def _migrate_bmc_scorings_table() -> None:
@@ -232,6 +233,25 @@ def _migrate_assessment_intake_sessions_add_user_id() -> None:
                 text(
                     "ALTER TABLE assessment_intake_sessions "
                     "ADD COLUMN user_id VARCHAR(36) REFERENCES users(id)"
+                )
+            )
+
+
+def _migrate_scenario_recommendations_table() -> None:
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    if "scenario_recommendations" not in inspector.get_table_names():
+        return
+
+    existing_columns = {c["name"] for c in inspector.get_columns("scenario_recommendations")}
+    if "all_scores_json" not in existing_columns:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "ALTER TABLE scenario_recommendations "
+                    "ADD COLUMN all_scores_json TEXT"
                 )
             )
 
