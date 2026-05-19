@@ -81,10 +81,12 @@ def test_chat_accepts_uploaded_files(monkeypatch: pytest.MonkeyPatch, client: Te
         incoming_assessment_id: str,
         user_message: str,
         attachments: Optional[List[Dict[str, object]]] = None,
+        current_page: Optional[str] = None,
     ):
         captured["assessment_id"] = incoming_assessment_id
         captured["message"] = user_message
         captured["attachments"] = attachments
+        captured["current_page"] = current_page
         yield 'data: {"done": true}\n\n'
 
     monkeypatch.setattr(chat_route, "stream_chat", fake_stream_chat)
@@ -105,3 +107,28 @@ def test_chat_accepts_uploaded_files(monkeypatch: pytest.MonkeyPatch, client: Te
     assert attachments[0]["name"] == "memo.txt"
     assert attachments[0]["kind"] == "txt"
     assert "第一行" in str(attachments[0]["content"])
+
+
+def test_chat_passes_current_page_to_stream(monkeypatch: pytest.MonkeyPatch, client: TestClient) -> None:
+    """Verify current_page is extracted and forwarded to stream_chat."""
+    assessment_id = create_assessment()
+    captured: Dict[str, object] = {}
+
+    async def fake_stream_chat(
+        incoming_assessment_id: str,
+        user_message: str,
+        attachments: Optional[List[Dict[str, object]]] = None,
+        current_page: Optional[str] = None,
+    ):
+        captured["current_page"] = current_page
+        yield 'data: {"done": true}\n\n'
+
+    monkeypatch.setattr(chat_route, "stream_chat", fake_stream_chat)
+
+    response = client.post(
+        f"/api/assessments/{assessment_id}/chat",
+        json={"message": "测试", "current_page": "canvas"},
+    )
+
+    assert response.status_code == 200
+    assert captured["current_page"] == "canvas"

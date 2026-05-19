@@ -43,8 +43,7 @@
 │   │   └── services/         # 业务服务
 │   ├── data/                 # SQLite / Chroma
 │   ├── tests/                # 测试
-│   ├── run.py                # 入口（端口自动回退）
-│   └── requirements.txt
+│   └── run.py                # 入口（端口自动回退）
 ├── frontend/
 │   └── src/
 │       ├── app/              # 页面
@@ -96,12 +95,14 @@ LLM_REPORT_ENABLED="true"
 
 ### 2. 安装依赖
 
-后端：
+后端（需先配置 conda 环境 `rag-env`，Python 3.11）：
 
 ```powershell
 cd backend
-pip install -r requirements.txt
+conda activate rag-env
 ```
+
+项目依赖由 conda 环境管理，无需 pip install。
 
 前端：
 

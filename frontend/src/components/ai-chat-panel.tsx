@@ -15,6 +15,11 @@ function extractAssessmentId(pathname: string): string | null {
   return match ? match[1] : null;
 }
 
+function extractCurrentPage(pathname: string): string {
+  const match = pathname.match(/\/assessment\/[a-zA-Z0-9_-]+\/(\w+)/);
+  return match ? match[1] : "overview";
+}
+
 function fileKey(file: File): string {
   return `${file.name}-${file.size}-${file.lastModified}`;
 }
@@ -22,6 +27,7 @@ function fileKey(file: File): string {
 export function AIChatPanel() {
   const pathname = usePathname();
   const assessmentId = extractAssessmentId(pathname);
+  const currentPage = extractCurrentPage(pathname);
   const queryClient = useQueryClient();
 
   const [open, setOpen] = useState(false);
@@ -126,7 +132,7 @@ export function AIChatPanel() {
     try {
       const response = await postChatMessage(
         assessmentId,
-        { message: text, files: pendingFiles },
+        { message: text, files: pendingFiles, current_page: currentPage },
         { signal: abortRef.current.signal },
       );
 

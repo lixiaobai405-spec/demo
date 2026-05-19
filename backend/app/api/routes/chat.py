@@ -22,9 +22,12 @@ async def chat(
     message = ""
     attachments: list[dict[str, object]] = []
 
+    current_page: str | None = None
+
     if content_type.startswith("multipart/form-data"):
         form = await request.form()
         message = str(form.get("message", "") or "").strip()
+        current_page = str(form.get("current_page", "") or "").strip() or None
         intake_service = IntakeService()
         for item in form.getlist("files"):
             upload = item if hasattr(item, "filename") and hasattr(item, "read") else None
@@ -45,6 +48,7 @@ async def chat(
     else:
         req = ChatRequest.model_validate(await request.json())
         message = req.message.strip()
+        current_page = req.current_page
 
     if not message and not attachments:
         raise HTTPException(
@@ -53,7 +57,7 @@ async def chat(
         )
 
     return StreamingResponse(
-        stream_chat(assessment_id, message, attachments=attachments),
+        stream_chat(assessment_id, message, attachments=attachments, current_page=current_page),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

@@ -884,6 +884,8 @@ def recommend_scenarios_with_priority(
         top_scenarios=priority_result.top_scenarios,
         scoring_method=priority_result.scoring_method,
         all_scores=priority_result.all_scores,
+        fallback_triggered=priority_result.fallback_triggered,
+        fallback_reason=priority_result.fallback_reason,
     )
 
     return AssessmentScenarioRecommendationResponse(
@@ -2125,6 +2127,8 @@ def _upsert_scenario_recommendation(
     top_scenarios: list[ScenarioRecommendationItem],
     scoring_method: Literal["rule_based_v1", "four_quadrant_v1"] = "rule_based_v1",
     all_scores: list[ScenarioRecommendationItem] | None = None,
+    fallback_triggered: bool = False,
+    fallback_reason: str = "",
 ) -> ScenarioRecommendationResult:
     record = db.scalar(
         select(ScenarioRecommendation).where(
@@ -2168,6 +2172,8 @@ def _upsert_scenario_recommendation(
         evaluated_count=evaluated_count,
         top_scenarios=top_scenarios,
         all_scores=all_scores,
+        fallback_triggered=fallback_triggered,
+        fallback_reason=fallback_reason,
         created_at=record.created_at,
         updated_at=record.updated_at,
     )

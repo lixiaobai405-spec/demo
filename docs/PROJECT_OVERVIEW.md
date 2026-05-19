@@ -253,7 +253,7 @@ TypeScript 检查：0 errors
 
 ## 九、部署方式
 
-### Docker 一键部署（推荐）
+### Docker 开发环境（一键启动）
 
 ```bash
 docker compose up
@@ -261,18 +261,16 @@ docker compose up
 
 浏览器打开 `http://localhost:3001` 即用。
 
-- 不依赖本地 Python/Node 环境
-- Windows / macOS / Linux 通用
-- 热重载：改代码自动生效
-- 数据持久化：SQLite volume
+> 注意：`docker-compose.yml` 为 **开发环境配置**（含 `--reload` 热重载、源码 volume 挂载），
+> 非生产部署。数据通过 Docker volume `backend_data` 持久化。
 
 ### 本机启动
 
 ```bash
-# 后端 (端口 8000)
+# 后端 (端口 8000) — 需要 conda 环境 rag-env (Python 3.11)
 cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+conda activate rag-env
+python -m uvicorn app.main:app --reload --port 8000
 
 # 前端 (端口 3001)
 cd frontend

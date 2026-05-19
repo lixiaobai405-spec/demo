@@ -322,11 +322,11 @@ RAG_TOP_K="5"
 
 ## 7.3 启动命令
 
-### 后端
+### 后端（需要 conda 环境 rag-env, Python 3.11）
 
 ```powershell
 cd backend
-pip install -r requirements.txt
+conda activate rag-env
 python -m uvicorn app.main:app --reload --port 8000
 ```
 

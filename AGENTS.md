@@ -13,8 +13,8 @@ The system helps business executives generate AI business innovation plans throu
 
 ## Tech Stack
 
-- **Backend**: FastAPI + SQLAlchemy + SQLite
-- **Frontend**: Next.js 15 + React 19 + Tailwind CSS
+- **Backend**: FastAPI + SQLAlchemy + SQLite (conda env: rag-env, Python 3.11)
+- **Frontend**: Next.js 15.5 + React 18.2 + Tailwind CSS
 - **AI**: OpenAI-compatible LLM API (configurable)
 - **RAG**: ChromaDB for case knowledge retrieval (optional)
 
@@ -26,9 +26,9 @@ The system helps business executives generate AI business innovation plans throu
 ## Quick Start
 
 ```bash
-# Backend
+# Backend (requires conda env rag-env, Python 3.11)
 cd backend
-pip install -r requirements.txt
+conda activate rag-env
 python -m uvicorn app.main:app --reload --port 8000
 
 # Frontend (separate terminal)
@@ -50,9 +50,9 @@ backend/
 │   ├── schemas/          # Pydantic schemas
 │   └── services/         # Business logic
 ├── data/
-│   ├── meitai_demo.db    # SQLite database
-│   └── chroma/           # RAG vector store
-└── requirements.txt
+│   ├── meitai_demo.db    # SQLite database (gitignored)
+│   └── chroma/           # RAG vector store (gitignored)
+└── run.py                # 开发入口
 
 frontend/
 ├── src/

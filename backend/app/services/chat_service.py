@@ -23,11 +23,40 @@ logger = logging.getLogger(__name__)
 MAX_ATTACHMENT_TEXT_CHARS = 12000
 DEFAULT_ATTACHMENT_PROMPT = "请先提炼我上传资料中的关键信息，并结合当前评估上下文给出建议。"
 
+# 模块生成顺序（从早到晚）。用于按用户当前页面位置过滤 context，
+# 防止 AI 提前泄露用户尚未到达的后续模块内容。
+PAGE_MODULE_ORDER = [
+    "profile", "canvas", "scoring", "directions",
+    "scenarios", "competitiveness", "endgame", "results",
+]
 
-def _build_context(assessment_id: str, db: Session) -> str:
-    """Build AI context from all generated assessment results, with progress table."""
+PAGE_LABELS: dict[str, str] = {
+    "profile": "企业画像",
+    "canvas": "商业画布诊断",
+    "scoring": "BMC 突破要素评分",
+    "directions": "创新方向延展",
+    "scenarios": "AI 场景推荐",
+    "competitiveness": "差异化竞争力分析",
+    "endgame": "商业终局设计",
+    "results": "结果仪表盘",
+}
+
+
+def _build_context(assessment_id: str, db: Session, current_page: str | None = None) -> str:
+    """Build AI context from all generated assessment results, with progress table.
+
+    When current_page is provided, only modules up to and including the current
+    page position are exposed to the AI — future modules are hidden to prevent
+    the assistant from leaking content the user hasn't reached yet.
+    """
     parts: list[str] = []
     progress_rows: list[str] = []
+
+    # Determine which modules the AI is allowed to see
+    allowed_modules: set[str] = set(PAGE_MODULE_ORDER)
+    if current_page and current_page in PAGE_MODULE_ORDER:
+        idx = PAGE_MODULE_ORDER.index(current_page)
+        allowed_modules = set(PAGE_MODULE_ORDER[:idx + 1])
 
     # Assessment basic info (always present)
     assessment = db.scalar(
@@ -51,7 +80,7 @@ def _build_context(assessment_id: str, db: Session) -> str:
         parts.append(f"- 备注：{assessment.notes}")
 
     # ── 1. Company profile ──
-    has_profile = bool(assessment.profile_payload)
+    has_profile = bool(assessment.profile_payload) and "profile" in allowed_modules
     progress_rows.append(f"| 企业画像 | {'✅ 已生成' if has_profile else '❌ 未生成'} |")
     if has_profile and assessment.profile_payload:
         try:
@@ -70,7 +99,7 @@ def _build_context(assessment_id: str, db: Session) -> str:
     canvas = db.scalar(
         select(CanvasDiagnosis).where(CanvasDiagnosis.assessment_id == assessment_id)
     )
-    has_canvas = canvas is not None
+    has_canvas = canvas is not None and "canvas" in allowed_modules
     progress_rows.append(f"| 商业画布 | {'✅ 已生成' if has_canvas else '❌ 未生成'} |")
     if canvas:
         parts.append("\n## 商业画布 9 格诊断")
@@ -91,7 +120,7 @@ def _build_context(assessment_id: str, db: Session) -> str:
             BreakthroughSelection.assessment_id == assessment_id
         )
     )
-    has_breakthrough = breakthrough is not None
+    has_breakthrough = breakthrough is not None and "scoring" in allowed_modules
     progress_rows.append(
         f"| BMC 突破要素 | {'✅ 已生成' if has_breakthrough else '❌ 未生成'} |"
     )
@@ -116,8 +145,10 @@ def _build_context(assessment_id: str, db: Session) -> str:
             DirectionSelection.assessment_id == assessment_id
         )
     )
-    has_directions = direction_sel is not None and bool(
-        getattr(direction_sel, "directions_json", None)
+    has_directions = (
+        direction_sel is not None
+        and bool(getattr(direction_sel, "directions_json", None))
+        and "directions" in allowed_modules
     )
     progress_rows.append(
         f"| 方向延展 | {'✅ 已生成' if has_directions else '❌ 未生成'} |"
@@ -141,7 +172,7 @@ def _build_context(assessment_id: str, db: Session) -> str:
             CompetitivenessAnalysis.assessment_id == assessment_id
         )
     )
-    has_competitiveness = competitiveness is not None
+    has_competitiveness = competitiveness is not None and "competitiveness" in allowed_modules
     progress_rows.append(
         f"| 竞争力分析 | {'✅ 已生成' if has_competitiveness else '❌ 未生成'} |"
     )
@@ -165,7 +196,7 @@ def _build_context(assessment_id: str, db: Session) -> str:
             EndgameAnalysis.assessment_id == assessment_id
         )
     )
-    has_endgame = endgame is not None and bool(endgame.overall_narrative)
+    has_endgame = endgame is not None and bool(endgame.overall_narrative) and "endgame" in allowed_modules
     progress_rows.append(
         f"| 终局设计 | {'✅ 已生成' if has_endgame else '❌ 未生成'} |"
     )
@@ -182,7 +213,7 @@ def _build_context(assessment_id: str, db: Session) -> str:
             ScenarioRecommendation.assessment_id == assessment_id
         )
     )
-    has_scenarios = scenarios is not None
+    has_scenarios = scenarios is not None and "scenarios" in allowed_modules
     progress_rows.append(
         f"| 场景推荐 | {'✅ 已生成' if has_scenarios else '❌ 未生成'} |"
     )
@@ -224,7 +255,7 @@ def _build_context(assessment_id: str, db: Session) -> str:
             CaseRecommendation.assessment_id == assessment_id
         )
     )
-    has_cases = cases is not None
+    has_cases = cases is not None and "competitiveness" in allowed_modules
     progress_rows.append(
         f"| 案例匹配 | {'✅ 已生成' if has_cases else '❌ 未生成'} |"
     )
@@ -244,7 +275,7 @@ def _build_context(assessment_id: str, db: Session) -> str:
             GeneratedReport.assessment_id == assessment_id
         )
     )
-    has_report = report is not None
+    has_report = report is not None and "results" in allowed_modules
     progress_rows.append(
         f"| 报告 | {'✅ 已生成' if has_report else '❌ 未生成'} |"
     )
@@ -274,20 +305,28 @@ SYSTEM_PROMPT_TEMPLATE = """你是一个 AI 商业创新顾问，专门帮助企
 - 回答简洁专业，聚焦可落地的商业建议
 - 用户可能在不同页面（画布、方向延展、终局设计、结果仪表盘）与你对话
 - 当用户在新页面生成新结果后，你会自动获得更新后的上下文
-
+{page_hint}
 ## 重要约束
 
 - 最上方的"模块生成状态"表格列出了每个模块的生成状态
 - 对于标记为"❌ 未生成"的模块，不要在回答中主动提及或讨论其内容
 - 如果用户问到的内容涉及未生成模块，诚实告知该模块尚未生成，引导用户先去完成对应步骤
 - 不要猜测或编造未生成模块的数据
+- 不要提前讲解用户尚未到达的后续步骤的详细方案；如果用户询问后续内容，用简短方式说明"后续页面会逐步展开，现在请先完成当前步骤"
 
 请用中文回答。"""
 
 
-def build_system_prompt(assessment_id: str, db: Session) -> str:
-    context = _build_context(assessment_id, db)
-    return SYSTEM_PROMPT_TEMPLATE.format(context=context)
+def build_system_prompt(assessment_id: str, db: Session, current_page: str | None = None) -> str:
+    context = _build_context(assessment_id, db, current_page=current_page)
+    page_hint = ""
+    if current_page:
+        label = PAGE_LABELS.get(current_page, current_page)
+        page_hint = (
+            f"- 用户当前正在查看「{label}」页面，请严格围绕该页面及之前已完成步骤的内容回答\n"
+            f"- 可以讨论当前页面及之前已完成步骤的内容，但不要提前透露后续步骤的详细方案\n"
+        )
+    return SYSTEM_PROMPT_TEMPLATE.format(context=context, page_hint=page_hint)
 
 
 def _compose_user_message(
@@ -323,6 +362,7 @@ async def stream_chat(
     assessment_id: str,
     user_message: str,
     attachments: list[dict[str, object]] | None = None,
+    current_page: str | None = None,
 ):
     """Stream AI chat response via SSE using DeepSeek API.
 
@@ -330,6 +370,10 @@ async def stream_chat(
         data: {"token": "..."}
         data: {"done": true, "message_id": "..."}
         data: {"error": "..."}
+
+    When current_page is provided, the system prompt and context are scoped
+    to only include modules up to the user's current page position,
+    preventing the AI from leaking future content.
     """
     db = SessionLocal()
     conversation = None
@@ -359,8 +403,8 @@ async def stream_chat(
         db.add(user_msg)
         db.commit()
 
-        # Build system prompt with latest context
-        system_prompt = build_system_prompt(assessment_id, db)
+        # Build system prompt with latest context (scoped to current_page)
+        system_prompt = build_system_prompt(assessment_id, db, current_page=current_page)
 
         # Load recent history (last 20 messages)
         history = db.scalars(
