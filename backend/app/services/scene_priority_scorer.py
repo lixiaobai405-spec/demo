@@ -74,6 +74,13 @@ class ScenePriorityScorer:
             )
             all_scores.sort(key=lambda s: -s.lps_display)
             eligible = all_scores[:2]
+            # 全 Q4 兜底场景统一标记为「观察」，不按 LPS_display 误显为强推荐
+            for s in eligible:
+                s.recommendation_level = RecommendationLevel.observe
+                s.recommendation_label = RecommendationLevel.observe.value
+                s.recommendation_template = QUADRANT_RECOMMENDATION_TEMPLATES.get(
+                    Quadrant.human_reserved, ""
+                )
 
         # 规则 A：极高 AI 优先区场景可突破梯队（PRD pseudocode L228-231）
         if eligible and eligible[0].quadrant == Quadrant.ai_priority and eligible[0].lps_display >= 9.0:

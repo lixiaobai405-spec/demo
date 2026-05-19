@@ -78,6 +78,8 @@ from app.services.report_builder import ReportBuilder
 from app.services.report_enrichment import ReportEnrichmentService
 from app.services.report_service import ReportService
 from app.services.scenario_recommender import ScenarioRecommender
+from app.services.scene_priority_scorer import ScenePriorityScorer
+from app.schemas.scene_priority import ScenePriorityInput
 from app.api.deps import get_current_user, require_instructor
 from app.models.user import User
 from app.schemas.assessment import AssessmentCardItem, AssessmentListResponse
@@ -932,65 +934,59 @@ def save_scenario_calibrations(
         for c in body.calibrations
     }
 
+    # 构建原始 item 查找表，保留 summary/canvas_elements/expected_effects 等字段
+    orig_by_id: dict[str, ScenarioRecommendationItem] = {item.scenario_id: item for item in all_items}
+
+    # 构建 ScenePriorityInput 列表，应用校准后的 X/Y 值
+    industry = (assessment.industry or "") if assessment else ""
+    candidates: list[ScenePriorityInput] = []
     for item in all_items:
         if item.scenario_id in cal_map:
             new_x, new_y = cal_map[item.scenario_id]
-            item.priority_structuredness_x = new_x
-            item.priority_complexity_y = new_y
+        else:
+            new_x = item.priority_structuredness_x or 3.0
+            new_y = item.priority_complexity_y or 3.0
+        candidates.append(ScenePriorityInput(
+            scene_id=item.scenario_id,
+            scene_name=item.name,
+            category=item.category,
+            summary=item.summary or "",
+            structuredness_x=new_x,
+            complexity_y=new_y,
+            industry=industry,
+            canvas_elements=item.canvas_elements or "",
+            expected_effects=item.expected_effects or "",
+            core_data_requirements=item.core_data_requirements or "",
+        ))
 
-            x = max(1.0, min(5.0, new_x))
-            y = max(1.0, min(5.0, new_y))
-            kappa = item.industry_coefficient or 1.0
+    # 复用 ScenePriorityScorer 进行评分、排序、Q4 兜底、tie-break
+    scorer = ScenePriorityScorer()
+    result = scorer.recommend_top3(candidates)
 
-            qs = round(x * y, 1)
-            lps = round(x * 0.6 + (6 - y) * 0.4, 4)
-            lps_display = round(lps * kappa * 2, 1)
+    # 用 scorer 结果更新 all_items，保留原始非评分字段
+    score_by_id = {s.scene_id: s for s in result.all_scores}
+    updated_items: list[ScenarioRecommendationItem] = []
+    for s in result.all_scores:
+        orig = orig_by_id.get(s.scene_id)
+        if orig is None:
+            continue
+        orig.priority_structuredness_x = s.structuredness_x
+        orig.priority_complexity_y = s.complexity_y
+        orig.priority_qs = s.qs
+        orig.priority_lps = s.lps
+        orig.priority_lps_display = s.lps_display
+        orig.priority_quadrant = s.quadrant.value if hasattr(s.quadrant, "value") else str(s.quadrant)
+        orig.priority_tier = s.priority_tier
+        orig.recommendation_level = s.recommendation_label
+        orig.industry_coefficient = s.industry_coefficient
+        updated_items.append(orig)
 
-            if x >= 3.5 and y >= 3.5:
-                quadrant = "AI优先区"
-                tier = 2
-            elif x >= 3.5 and y < 3.5:
-                quadrant = "自动化主战场"
-                tier = 1
-            elif x < 3.5 and y >= 3.5:
-                quadrant = "人机协作区"
-                tier = 3
-            else:
-                quadrant = "人类保留区"
-                tier = 4
-
-            if lps_display >= 8.0:
-                level = "立即启动"
-            elif lps_display >= 5.0:
-                level = "规划推进"
-            else:
-                level = "观察"
-
-            item.priority_qs = qs
-            item.priority_lps = lps
-            item.priority_lps_display = lps_display
-            item.priority_quadrant = quadrant
-            item.priority_tier = tier
-            item.recommendation_level = level
-
-    # 重新排序：梯队优先 + LPS_display 降序
-    all_items.sort(key=lambda s: (
-        (s.priority_tier or 4),
-        -(s.priority_lps_display or 0),
-        -(s.priority_structuredness_x or 3),
-        -(s.priority_qs or 0),
-    ))
-
-    new_top3 = [s for s in all_items if (s.priority_tier or 4) <= 3]
-    if len(new_top3) < 3:
-        q4_pool = [s for s in all_items if (s.priority_tier or 4) > 3]
-        q4_pool.sort(key=lambda s: -(s.priority_lps_display or 0))
-        new_top3 = new_top3 + q4_pool[:3 - len(new_top3)]
-    else:
-        new_top3 = new_top3[:3]
+    # 取 scorer 输出的 Top 3（已应用所有排序/兜底规则）
+    top3_ids = {s.scene_id for s in result.top_3}
+    new_top3 = [orig_by_id[s.scene_id] for s in result.top_3 if s.scene_id in orig_by_id]
 
     record.all_scores_json = json.dumps(
-        [item.model_dump() for item in all_items], ensure_ascii=False,
+        [item.model_dump() for item in updated_items], ensure_ascii=False,
     )
     record.scenario_json = json.dumps(
         [item.model_dump() for item in new_top3], ensure_ascii=False,
@@ -1002,13 +998,20 @@ def save_scenario_calibrations(
     db.commit()
     db.refresh(record)
 
+    # 清理下游依赖：案例推荐、竞争力分析、报告等（PRD §3 item 6）
+    _clear_cases_and_reports(db, assessment_id)
+    _delete_records(
+        db,
+        [db.scalar(select(CompetitivenessAnalysis).where(CompetitivenessAnalysis.assessment_id == assessment_id))],
+    )
+
     return AssessmentScenarioRecommendationResponse(
         assessment=AssessmentResponse.model_validate(assessment, from_attributes=True),
         scenario_recommendation=ScenarioRecommendationResult(
             scoring_method=record.scoring_method,
             evaluated_count=record.evaluated_count,
             top_scenarios=new_top3,
-            all_scores=all_items,
+            all_scores=updated_items,
             created_at=record.created_at,
             updated_at=record.updated_at,
         ),
