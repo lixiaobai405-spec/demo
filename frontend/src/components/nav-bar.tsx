@@ -27,11 +27,8 @@ export function NavBar() {
                 <Link href="/history" className="text-sm text-muted-foreground hover:text-warm-text transition-colors">
                   评估历史
                 </Link>
-                <Link href="/intake" className="text-sm text-muted-foreground hover:text-warm-text transition-colors">
-                  导入材料
-                </Link>
                 <Link href="/assessment" className="text-sm text-muted-foreground hover:text-warm-text transition-colors">
-                  企业问卷
+                  主流程工作台
                 </Link>
               </>
             )}
@@ -85,8 +82,7 @@ export function NavBar() {
           {isAuthenticated && (
             <>
               <Link href="/history" className="block text-sm text-muted-foreground hover:text-warm-text py-2" onClick={() => setMenuOpen(false)}>评估历史</Link>
-              <Link href="/intake" className="block text-sm text-muted-foreground hover:text-warm-text py-2" onClick={() => setMenuOpen(false)}>导入材料</Link>
-              <Link href="/assessment" className="block text-sm text-muted-foreground hover:text-warm-text py-2" onClick={() => setMenuOpen(false)}>企业问卷</Link>
+              <Link href="/assessment" className="block text-sm text-muted-foreground hover:text-warm-text py-2" onClick={() => setMenuOpen(false)}>主流程工作台</Link>
               <div className="pt-2 border-t border-border flex items-center justify-between">
                 <span className="text-sm">{user?.display_name || user?.email}</span>
                 <Button variant="ghost" size="sm" onClick={() => { logout(); setMenuOpen(false); }}>退出</Button>

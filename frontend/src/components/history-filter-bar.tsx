@@ -14,9 +14,13 @@ export type HistoryFilters = {
 export function HistoryFilterBar({
   filters,
   onChange,
+  deleteMode,
+  onToggleDeleteMode,
 }: {
   filters: HistoryFilters;
   onChange: (f: HistoryFilters) => void;
+  deleteMode: boolean;
+  onToggleDeleteMode: () => void;
 }) {
   const [local, setLocal] = useState(filters);
 
@@ -73,6 +77,14 @@ export function HistoryFilterBar({
             清除所有筛选
           </Button>
         )}
+        <Button
+          variant={deleteMode ? "default" : "outline"}
+          size="sm"
+          onClick={onToggleDeleteMode}
+          className={deleteMode ? "bg-red-600 hover:bg-red-700" : ""}
+        >
+          {deleteMode ? "完成" : "删除"}
+        </Button>
       </div>
     </div>
   );

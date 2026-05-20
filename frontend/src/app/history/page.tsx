@@ -11,7 +11,8 @@ import {
 } from "@/components/history-filter-bar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { listMyAssessments } from "@/lib/api";
+import { deleteAssessment, listMyAssessments } from "@/lib/api";
+import { toast } from "@/hooks/use-toast";
 
 function HistoryContent() {
   const [filters, setFilters] = useState<HistoryFilters>({
@@ -21,6 +22,22 @@ function HistoryContent() {
     industry: "",
   });
   const [page, setPage] = useState(1);
+  const [deleteMode, setDeleteMode] = useState(false);
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("确认删除这条评估记录吗？删除后将无法恢复。")) return;
+    try {
+      await deleteAssessment(id);
+      toast({ title: "已删除", variant: "success" });
+      refetch();
+    } catch (error) {
+      toast({
+        title: "删除失败",
+        description: error instanceof Error ? error.message : "请稍后重试",
+        variant: "destructive",
+      });
+    }
+  };
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["my-assessments", filters, page],
@@ -55,7 +72,12 @@ function HistoryContent() {
         </section>
 
         {/* Filters */}
-        <HistoryFilterBar filters={filters} onChange={(f) => { setFilters(f); setPage(1); }} />
+        <HistoryFilterBar
+          filters={filters}
+          onChange={(f) => { setFilters(f); setPage(1); }}
+          deleteMode={deleteMode}
+          onToggleDeleteMode={() => setDeleteMode((d) => !d)}
+        />
 
         {/* Content */}
         <section className="mt-6">
@@ -80,7 +102,12 @@ function HistoryContent() {
             <>
               <div className="grid gap-4 sm:grid-cols-2">
                 {data.items.map((item) => (
-                  <AssessmentCard key={item.id} item={item} />
+                  <AssessmentCard
+                    key={item.id}
+                    item={item}
+                    deleteMode={deleteMode}
+                    onDelete={handleDelete}
+                  />
                 ))}
               </div>
 

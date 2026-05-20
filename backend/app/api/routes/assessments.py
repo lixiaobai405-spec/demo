@@ -4,22 +4,26 @@ import threading
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal, get_db
 from app.models.assessment import Assessment
+from app.models.bmc_scoring import BMCScoring
 from app.models.breakthrough_selection import BreakthroughSelection
 from app.models.canvas_diagnosis import CanvasDiagnosis
 from app.models.case_recommendation import CaseRecommendation
+from app.models.chat import Conversation, Message
 from app.models.competitiveness_analysis import CompetitivenessAnalysis
 from app.models.direction_expansion import DirectionExpansion
 from app.models.direction_selection import DirectionSelection
 from app.models.endgame_analysis import EndgameAnalysis
+from app.models.follow_up import FollowUpTask
 from app.models.generated_report import GeneratedReport
 from app.models.intake_session import AssessmentIntakeSession
+from app.models.push_record import PushRecord
 from app.models.scenario_recommendation import ScenarioRecommendation
 from app.schemas.assessment import (
     AssessmentCanvasResponse,
@@ -213,6 +217,74 @@ def list_assessments(
         page_size=page_size,
         total_pages=max(1, (total + page_size - 1) // page_size),
     )
+
+
+@router.delete("/{assessment_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_assessment(
+    assessment_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """删除当前用户的评估及其所有关联数据。"""
+    assessment = _get_assessment_or_404(db, assessment_id)
+    if assessment.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权删除此评估")
+
+    # 1. 删除会话和消息
+    conv = db.scalar(
+        select(Conversation).where(Conversation.assessment_id == assessment_id)
+    )
+    if conv:
+        msgs = db.scalars(
+            select(Message).where(Message.conversation_id == conv.id)
+        ).all()
+        for m in msgs:
+            db.delete(m)
+        db.delete(conv)
+
+    # 2. 级联删除所有 1:1 子记录
+    for model in [
+        CanvasDiagnosis,
+        BreakthroughSelection,
+        DirectionExpansion,
+        DirectionSelection,
+        CompetitivenessAnalysis,
+        EndgameAnalysis,
+        ScenarioRecommendation,
+        CaseRecommendation,
+        GeneratedReport,
+        BMCScoring,
+    ]:
+        record = db.scalar(
+            select(model).where(model.assessment_id == assessment_id)
+        )
+        if record is not None:
+            db.delete(record)
+
+    # 3. 删除 1:N 子记录
+    for record in db.scalars(
+        select(FollowUpTask).where(FollowUpTask.assessment_id == assessment_id)
+    ).all():
+        db.delete(record)
+    for record in db.scalars(
+        select(PushRecord).where(PushRecord.assessment_id == assessment_id)
+    ).all():
+        db.delete(record)
+
+    # 4. 清除 intake session 中的关联
+    intake = db.scalar(
+        select(AssessmentIntakeSession).where(
+            AssessmentIntakeSession.created_assessment_id == assessment_id
+        )
+    )
+    if intake is not None:
+        intake.created_assessment_id = None
+
+    # 5. 删除评估本身
+    db.delete(assessment)
+    db.commit()
+
+    return Response(status_code=204)
 
 
 @router.get(
@@ -883,8 +955,6 @@ def recommend_scenarios_with_priority(
         evaluated_count=priority_result.evaluated_count,
         top_scenarios=priority_result.top_scenarios,
         scoring_method=priority_result.scoring_method,
-        fallback_triggered=priority_result.fallback_triggered,
-        fallback_reason=priority_result.fallback_reason,
         all_scores=priority_result.all_scores,
     )
 
@@ -2126,8 +2196,6 @@ def _upsert_scenario_recommendation(
     evaluated_count: int,
     top_scenarios: list[ScenarioRecommendationItem],
     scoring_method: Literal["rule_based_v1", "four_quadrant_v1"] = "rule_based_v1",
-    fallback_triggered: bool = False,
-    fallback_reason: str = "",
     all_scores: list[ScenarioRecommendationItem] | None = None,
 ) -> ScenarioRecommendationResult:
     record = db.scalar(
@@ -2171,8 +2239,6 @@ def _upsert_scenario_recommendation(
         scoring_method=scoring_method,
         evaluated_count=evaluated_count,
         top_scenarios=top_scenarios,
-        fallback_triggered=fallback_triggered,
-        fallback_reason=fallback_reason,
         all_scores=all_scores,
         created_at=record.created_at,
         updated_at=record.updated_at,

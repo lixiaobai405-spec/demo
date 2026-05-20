@@ -26,7 +26,11 @@ import {
   emptyConfirmedForm,
 } from "@/lib/intake-utils";
 
-export function IntakeImportSection() {
+export function IntakeImportSection({
+  onImported,
+}: {
+  onImported?: (importSessionId: string) => void;
+}) {
   const router = useRouter();
   const store = useIntakeStore();
   const importMutation = useImportIntake();
@@ -90,6 +94,7 @@ export function IntakeImportSection() {
           });
         }
         store.setImportSessionId(result.import_session_id);
+        onImported?.(result.import_session_id);
         store.setUploadStage("completed");
 
         // Auto-redirect if assessment was auto-created
@@ -105,7 +110,7 @@ export function IntakeImportSection() {
         store.setIsImporting(false);
       }
     },
-    [store, importMutation, importFileMutation],
+    [store, importMutation, importFileMutation, onImported],
   );
 
   const isPending = importMutation.isPending || importFileMutation.isPending;
@@ -121,9 +126,11 @@ export function IntakeImportSection() {
             用户确认后才会正式创建 Assessment。
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => router.push("/assessment")}>
-          切回快速填写
-        </Button>
+        {!onImported ? (
+          <Button variant="outline" size="sm" onClick={() => router.push("/assessment")}>
+            切回快速填写
+          </Button>
+        ) : null}
       </div>
 
       <form onSubmit={handleImport} className="mt-6 space-y-6">
