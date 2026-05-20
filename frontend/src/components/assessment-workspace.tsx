@@ -8,9 +8,9 @@ import { useRouter } from "next/navigation";
 import { AssessmentFormSection } from "@/components/assessment-form-section";
 import { IntakeImportSection } from "@/components/intake-import-section";
 import { AssessmentSkeleton } from "@/components/assessment-skeleton";
-import { ProgressStepper } from "@/components/progress-stepper";
+import { Button } from "@/components/ui/button";
 import {
-  WorkflowSidebar,
+  ActionBtn,
   type WorkflowModule,
 } from "@/components/workflow-sidebar";
 import {
@@ -97,6 +97,7 @@ export function AssessmentWorkspace({
   >(null);
   const [progress, setProgress] = useState<AssessmentProgress>(initialProgress);
   const [showImport, setShowImport] = useState(false);
+  const [isQuestionnaireExpanded, setIsQuestionnaireExpanded] = useState(true);
   const [localPrefillSessionId, setLocalPrefillSessionId] = useState<
     string | null
   >(null);
@@ -469,6 +470,13 @@ export function AssessmentWorkspace({
   }
 
   const currentAssessment = store.assessment ?? null;
+
+  useEffect(() => {
+    if (currentAssessment) {
+      setIsQuestionnaireExpanded(false);
+    }
+  }, [currentAssessment]);
+
   const hasProfile = store.companyProfile !== null;
   const hasCanvas = store.canvasDiagnosis !== null;
   const hasBreakthrough =
@@ -571,16 +579,13 @@ export function AssessmentWorkspace({
       }))
     : [];
 
+  const filledCount = Object.values(form).filter(
+    (v) => typeof v === "string" && v.trim().length > 0,
+  ).length;
+
   return (
     <section className="flex flex-col gap-6">
-      <div className="sticky top-0 z-10 -mx-6 bg-background/95 px-6 pb-4 backdrop-blur-sm">
-        <ProgressStepper
-          hasAssessment={currentAssessment !== null}
-          progress={progress}
-          activeStep={activeGenStep}
-        />
-      </div>
-
+      {/* 课前材料导入（可选） */}
       {!assessmentId && !currentAssessment ? (
         <div className="card">
           <button
@@ -604,139 +609,121 @@ export function AssessmentWorkspace({
         </div>
       ) : null}
 
-      <div
-        className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]"
-        id="section-assessment-form"
-      >
-        <AssessmentFormSection
-          assessmentId={assessmentId}
-          prefillSummary={prefillSummary}
-          prefillError={prefillError}
-          prefillFieldMeta={prefillQuery.data?.field_meta ?? null}
-          form={form}
-          onFormChange={updateField}
-          assessment={currentAssessment}
-          onReset={handleResetForm}
-        />
+      {/* 企业问卷录入区 */}
+      <section>
+        {currentAssessment && !isQuestionnaireExpanded ? (
+          <div className="card">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="section-label">企业问卷已录入</p>
+                <p className="mt-2 text-sm text-warm-text">
+                  企业：{currentAssessment.company_name || "—"}　行业：{currentAssessment.industry || "—"}　规模：{currentAssessment.company_size || "—"}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  已填写：{filledCount} / 11 项
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setIsQuestionnaireExpanded(true)}>
+                展开查看
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <AssessmentFormSection
+              assessmentId={assessmentId}
+              prefillSummary={prefillSummary}
+              prefillError={prefillError}
+              prefillFieldMeta={prefillQuery.data?.field_meta ?? null}
+              form={form}
+              onFormChange={updateField}
+              assessment={currentAssessment}
+              onReset={handleResetForm}
+            />
+            {currentAssessment ? (
+              <div className="mt-4 text-right">
+                <Button variant="ghost" size="sm" onClick={() => setIsQuestionnaireExpanded(false)}>
+                  收起问卷
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </section>
 
-        <WorkflowSidebar
-          assessment={currentAssessment}
-          progress={progress}
-          companyProfile={store.companyProfile}
-          profileMode={store.profileMode}
-          canvasDiagnosis={store.canvasDiagnosis}
-          breakthroughSelection={store.breakthroughSelection}
-          scenarioRecommendation={store.scenarioRecommendation}
-          modules={workflowModules}
-        />
-      </div>
-
+      {/* 操作区 + 结果摘要区 */}
       {currentAssessment ? (
-        <>
-          <div className="border-t border-warm-border-light pt-6">
-            <p className="section-label">下一步</p>
-            <h2 className="section-heading">继续生成分析结果</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              问卷已创建，你可以通过下方卡片进入各模块，或使用右侧工作流按钮逐步生成。
+        <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+          {/* 左侧：操作区 */}
+          <div className="card">
+            <p className="section-label">操作</p>
+            <h2 className="section-heading">逐步生成</h2>
+            <div className="mt-6 grid gap-3">
+              {workflowModules.map(({ key, ...actionProps }) => (
+                <ActionBtn key={key} {...actionProps} />
+              ))}
+            </div>
+            <p className="mt-4 text-sm leading-7 text-muted-foreground">
+              刷新页面后会自动从后端恢复当前 Assessment 状态。重新生成上游模块时，
+              下游结果会被自动失效并需要重新生成。
             </p>
           </div>
 
-          <section
-            id="section-profile-results"
-            className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
-          >
+          {/* 右侧：结果摘要区 */}
+          <div className="space-y-2">
+            <p className="section-label">结果摘要</p>
             {resultCards.map((card) => (
-              <ResultCard
-                key={card.key}
-                label={card.label}
-                state={card.state}
-                done={card.done}
-                statusLabel={card.statusLabel}
-                link={card.link}
-              />
+              <ResultSummaryRow key={card.key} card={card} />
             ))}
-          </section>
-
-          <section className="sm:max-w-md">
-            <ResultCard
-              label="结果仪表盘"
-              state={hasDashboard ? "done" : "locked"}
-              done={hasDashboard}
-              statusLabel={hasDashboard ? "可查看" : "待生成"}
-              link={
-                hasDashboard
+            <ResultSummaryRow
+              card={{
+                key: "dashboard",
+                label: "结果仪表盘",
+                state: hasDashboard ? "done" : "locked",
+                done: hasDashboard,
+                statusLabel: hasDashboard ? "可查看" : "待生成",
+                link: hasDashboard
                   ? getResultsDashboardPath(currentAssessment.id)
-                  : undefined
-              }
-              primary
+                  : undefined,
+              }}
             />
-          </section>
-        </>
+          </div>
+        </div>
       ) : null}
 
     </section>
   );
 }
 
-/**
- * 渲染工作台中的单个结果卡片。
- */
-function ResultCard({
-  label,
-  state,
-  done,
-  statusLabel,
-  link,
-  primary,
-}: {
-  label: string;
-  state: WorkflowDisplayState;
-  done: boolean;
-  statusLabel: string;
-  link?: string;
-  primary?: boolean;
-}) {
-  const isBright = state !== "locked";
+function ResultSummaryRow({ card }: { card: ResultCardItem }) {
+  const isLocked = card.state === "locked";
+  const badgeCls = card.done
+    ? "badge-success"
+    : card.state === "pending-review" || card.state === "available"
+      ? "badge-warning"
+      : "badge-muted";
+
   const content = (
     <div
-      className={`rounded-xl border px-4 py-4 transition ${
-        primary
-          ? "border-warm-accent/30 bg-warm-accent/5 ring-1 ring-warm-accent/10"
-          : isBright
-            ? "border-warm-border-light bg-warm-surface"
-            : "border-dashed border-warm-border bg-secondary/50"
-      } ${link ? "cursor-pointer hover:-translate-y-px hover:shadow-md" : ""}`}
+      className={`flex items-center justify-between rounded-2xl border px-5 py-3.5 ${
+        isLocked
+          ? "border-warm-border-light bg-warm-inset opacity-70"
+          : "border-warm-border-light bg-warm-surface hover:shadow-sm transition"
+      } ${!isLocked && card.link ? "cursor-pointer" : ""}`}
     >
-      <div className="flex items-center justify-between gap-2">
-        <p
-          className={`text-sm font-medium ${
-            done ? "text-warm-text" : "text-muted-foreground"
-          }`}
-        >
-          {label}
-        </p>
-        <span
-          className={`badge text-[10px] ${
-            done
-              ? primary
-                ? "badge-accent"
-                : "badge-success"
-              : state === "pending-review" || state === "available"
-                ? "badge-warning"
-                : "badge-muted"
-          }`}
-        >
-          {statusLabel}
-        </span>
-      </div>
+      <span className={`font-medium text-sm ${isLocked ? "text-muted-foreground" : "text-warm-text"}`}>
+        {card.label}
+      </span>
+      <span className={`badge text-xs ${badgeCls}`}>{card.statusLabel}</span>
     </div>
   );
 
-  if (!link) return content;
-
-  return (
-    <Link href={link} target="_blank" rel="noopener noreferrer">
-      {content}
-    </Link>
-  );
+  if (card.link && !isLocked) {
+    return (
+      <Link href={card.link} target="_blank" rel="noopener noreferrer">
+        {content}
+      </Link>
+    );
+  }
+  return content;
 }
