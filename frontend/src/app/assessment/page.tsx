@@ -106,7 +106,7 @@ function AssessmentPageFallback() {
               返回首页
             </Link>
             <span className="badge badge-accent">
-              企业问卷 / 企业画像 / 商业画布 / AI 场景 / 报告
+              主流程工作台 / 企业画像 / 商业画布 / AI 场景 / 报告
             </span>
             <h1 className="font-heading text-4xl font-bold tracking-tight text-warm-text">
               主流程工作台

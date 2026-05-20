@@ -448,6 +448,14 @@ export function AssessmentWorkspace({
             ? 7
             : null;
 
+  const currentAssessment = store.assessment ?? null;
+
+  useEffect(() => {
+    if (currentAssessment) {
+      setIsQuestionnaireExpanded(false);
+    }
+  }, [currentAssessment]);
+
   if (detailQuery.isLoading) return <AssessmentSkeleton />;
 
   if (detailQuery.isError) {
@@ -468,14 +476,6 @@ export function AssessmentWorkspace({
       </div>
     );
   }
-
-  const currentAssessment = store.assessment ?? null;
-
-  useEffect(() => {
-    if (currentAssessment) {
-      setIsQuestionnaireExpanded(false);
-    }
-  }, [currentAssessment]);
 
   const hasProfile = store.companyProfile !== null;
   const hasCanvas = store.canvasDiagnosis !== null;
