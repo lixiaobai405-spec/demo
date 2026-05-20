@@ -97,11 +97,17 @@ export function AssessmentWorkspace({
   >(null);
   const [progress, setProgress] = useState<AssessmentProgress>(initialProgress);
   const [showImport, setShowImport] = useState(false);
+  const [localPrefillSessionId, setLocalPrefillSessionId] = useState<
+    string | null
+  >(null);
+
+  const effectivePrefillSessionId =
+    !assessmentId
+      ? (localPrefillSessionId ?? prefillSessionId ?? null)
+      : null;
 
   const detailQuery = useAssessmentDetail(assessmentId);
-  const prefillQuery = useIntakeSession(
-    !assessmentId && prefillSessionId ? prefillSessionId : null,
-  );
+  const prefillQuery = useIntakeSession(effectivePrefillSessionId);
 
   const generateProfile = useGenerateProfile();
   const generateCanvas = useGenerateCanvas();
@@ -592,7 +598,7 @@ export function AssessmentWorkspace({
           </button>
           {showImport ? (
             <div className="mt-4">
-              <IntakeImportSection />
+              <IntakeImportSection onImported={setLocalPrefillSessionId} />
             </div>
           ) : null}
         </div>
