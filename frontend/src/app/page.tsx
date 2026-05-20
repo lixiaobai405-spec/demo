@@ -47,6 +47,25 @@ export default function Home() {
               </p>
             </div>
           </div>
+
+          {/* 点线面方法 */}
+          <div className="mt-8 grid gap-3 border-t border-warm-border-light pt-6 md:grid-cols-3">
+            <div className="rounded-2xl border border-warm-border-light bg-warm-surface/70 p-4">
+              <span className="badge badge-accent">点</span>
+              <h3 className="mt-3 font-heading text-lg font-semibold text-warm-text">AI 场景切入</h3>
+              <p className="mt-2 text-sm leading-6 text-warm-secondary">从企业问卷、画像和商业画布中识别最值得启动的 AI 场景。</p>
+            </div>
+            <div className="rounded-2xl border border-warm-border-light bg-warm-surface/70 p-4">
+              <span className="badge badge-accent">线</span>
+              <h3 className="mt-3 font-heading text-lg font-semibold text-warm-text">业务链路串联</h3>
+              <p className="mt-2 text-sm leading-6 text-warm-secondary">将场景、案例、报告和后续行动串成一条可执行的转型路径。</p>
+            </div>
+            <div className="rounded-2xl border border-warm-border-light bg-warm-surface/70 p-4">
+              <span className="badge badge-accent">面</span>
+              <h3 className="mt-3 font-heading text-lg font-semibold text-warm-text">能力底座沉淀</h3>
+              <p className="mt-2 text-sm leading-6 text-warm-secondary">为后续 RAG、案例检索、讲师工作台和复盘运营提供统一基础。</p>
+            </div>
+          </div>
         </section>
 
         {/* Health + Scope */}
