@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { AssessmentFormSection } from "@/components/assessment-form-section";
+import { IntakeImportSection } from "@/components/intake-import-section";
 import { AssessmentSkeleton } from "@/components/assessment-skeleton";
 import { ProgressStepper } from "@/components/progress-stepper";
 import {
@@ -95,6 +96,7 @@ export function AssessmentWorkspace({
     string | null
   >(null);
   const [progress, setProgress] = useState<AssessmentProgress>(initialProgress);
+  const [showImport, setShowImport] = useState(false);
 
   const detailQuery = useAssessmentDetail(assessmentId);
   const prefillQuery = useIntakeSession(
@@ -573,6 +575,29 @@ export function AssessmentWorkspace({
         />
       </div>
 
+      {!assessmentId && !currentAssessment ? (
+        <div className="card">
+          <button
+            type="button"
+            onClick={() => setShowImport(!showImport)}
+            className="flex w-full items-center justify-between text-left"
+          >
+            <div>
+              <p className="section-label">可选步骤</p>
+              <h2 className="section-heading">课前材料导入（可选）</h2>
+            </div>
+            <span className="text-sm text-muted-foreground">
+              {showImport ? "收起 ▲" : "展开 ▼"}
+            </span>
+          </button>
+          {showImport ? (
+            <div className="mt-4">
+              <IntakeImportSection />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       <div
         className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]"
         id="section-assessment-form"
@@ -602,6 +627,14 @@ export function AssessmentWorkspace({
 
       {currentAssessment ? (
         <>
+          <div className="border-t border-warm-border-light pt-6">
+            <p className="section-label">下一步</p>
+            <h2 className="section-heading">继续生成分析结果</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              问卷已创建，你可以通过下方卡片进入各模块，或使用右侧工作流按钮逐步生成。
+            </p>
+          </div>
+
           <section
             id="section-profile-results"
             className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"

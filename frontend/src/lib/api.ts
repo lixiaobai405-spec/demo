@@ -645,3 +645,9 @@ export function clearConversation(assessmentId: string): Promise<void> {
     method: "DELETE",
   });
 }
+
+export function deleteAssessment(assessmentId: string): Promise<void> {
+  return request<void>(`/api/assessments/${assessmentId}`, {
+    method: "DELETE",
+  });
+}

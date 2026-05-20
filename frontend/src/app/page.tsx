@@ -35,15 +35,15 @@ export default function Home() {
 
             <div className="flex flex-col gap-3 lg:items-end">
               <div className="flex flex-wrap gap-3 lg:justify-end">
-                <Link href="/intake" className={buttonVariants({ variant: "outline" })}>
-                  导入课前材料
-                </Link>
                 <Link href="/assessment" className={buttonVariants()}>
-                  开始企业问卷
+                  进入主流程
+                </Link>
+                <Link href="/history" className={buttonVariants({ variant: "outline" })}>
+                  评估历史
                 </Link>
               </div>
               <p className="text-sm text-warm-muted">
-                当前已支持快速填写与导入预填两种入口
+                支持课前材料导入与快速填写，无需额外页面切换
               </p>
             </div>
           </div>

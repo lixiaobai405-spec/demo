@@ -10,9 +10,22 @@ function fmtDate(iso: string): string {
   });
 }
 
-export function AssessmentCard({ item }: { item: AssessmentCardItem }) {
+export function AssessmentCard({
+  item,
+  deleteMode,
+  onDelete,
+}: {
+  item: AssessmentCardItem;
+  deleteMode?: boolean;
+  onDelete?: (id: string) => void;
+}) {
   return (
-    <Link href={`/assessment/${item.id}`} className="block card card-clickable group">
+    <Link
+      href={`/assessment/${item.id}`}
+      className={`block card card-clickable group ${
+        deleteMode ? "border-red-300 bg-red-50/20" : ""
+      }`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="font-heading text-lg font-semibold text-warm-text truncate group-hover:text-primary transition-colors">
@@ -23,9 +36,25 @@ export function AssessmentCard({ item }: { item: AssessmentCardItem }) {
             <span className="text-xs text-muted-foreground">{item.company_size}</span>
           </div>
         </div>
-        <span className="text-xs text-muted-foreground whitespace-nowrap">
-          {fmtDate(item.created_at)}
-        </span>
+        <div className="flex items-center gap-2">
+          {deleteMode && onDelete ? (
+            <button
+              type="button"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 transition"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDelete(item.id);
+              }}
+              aria-label="删除"
+            >
+              ✕
+            </button>
+          ) : null}
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            {fmtDate(item.created_at)}
+          </span>
+        </div>
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
