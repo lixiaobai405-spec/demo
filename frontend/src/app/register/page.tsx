@@ -102,7 +102,15 @@ export default function RegisterPage() {
           </p>
         </form>
 
-        <p className="mt-6 text-center">
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          登录遇到问题？请返回
+          <Link href="/login" className="text-primary hover:underline mx-0.5">
+            登录页
+          </Link>
+          查看使用咨询
+        </p>
+
+        <p className="mt-4 text-center">
           <Link href="/" className="text-sm text-muted-foreground hover:text-warm-text transition-colors">
             返回首页
           </Link>

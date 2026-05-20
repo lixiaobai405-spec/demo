@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { useAuth } from "@/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,13 @@ export default function LoginPage() {
       router.replace(redirect);
     }
   }, [authLoading, isAuthenticated, router, redirect]);
+
+  function handleForgotPassword() {
+    toast({
+      title: "忘记密码",
+      description: "请联系使用咨询协助重置密码",
+    });
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -120,7 +128,10 @@ export default function LoginPage() {
               </Button>
 
               <p className="text-center text-sm text-muted-foreground">
-                还没有账号？{" "}
+                <button type="button" onClick={handleForgotPassword} className="hover:underline">
+                  忘记密码？
+                </button>
+                {" "}还没有账号？{" "}
                 <Link href="/register" className="text-primary hover:underline">
                   去注册
                 </Link>
@@ -155,6 +166,33 @@ export default function LoginPage() {
             </>
           )}
         </form>
+
+        {/* 二维码帮助区 */}
+        <section className="mt-6 rounded-2xl border border-warm-border bg-warm-surface p-4">
+          <p className="text-center text-sm font-medium text-warm-text">需要帮助？</p>
+          <div className="mt-4 grid grid-cols-2 gap-4">
+            <div className="text-center">
+              <Image
+                src="/qrcodes/meitai-consulting-official-account.jpg"
+                alt="美太咨询公众号"
+                width={144}
+                height={144}
+                className="mx-auto rounded-lg"
+              />
+              <p className="mt-2 text-xs text-muted-foreground">美太咨询公众号</p>
+            </div>
+            <div className="text-center">
+              <Image
+                src="/qrcodes/meitai-usage-consulting.jpg"
+                alt="使用咨询"
+                width={144}
+                height={144}
+                className="mx-auto rounded-lg"
+              />
+              <p className="mt-2 text-xs text-muted-foreground">使用咨询</p>
+            </div>
+          </div>
+        </section>
 
         <p className="mt-6 text-center">
           <Link href="/" className="text-sm text-muted-foreground hover:text-warm-text transition-colors">
