@@ -28,6 +28,8 @@ class User(Base):
     job_title: Mapped[str | None] = mapped_column(String(100), nullable=True)
     recovery_question: Mapped[str | None] = mapped_column(String(255), nullable=True)
     recovery_answer_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    reset_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    reset_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     role: Mapped[str] = mapped_column(
         String(20), nullable=False, default="student"
     )

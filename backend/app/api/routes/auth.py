@@ -7,8 +7,12 @@ from app.models.user import User
 from app.schemas.auth import (
     ForgotPasswordQuestionRequest,
     ForgotPasswordQuestionResponse,
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
     LoginRequest,
     RegisterRequest,
+    ResetPasswordByTokenRequest,
+    ResetPasswordByTokenResponse,
     ResetPasswordRequest,
     ResetPasswordResponse,
     SetupRecoveryRequest,
@@ -107,3 +111,31 @@ def setup_recovery(
         answer=payload.recovery_answer,
     )
     return SetupRecoveryResponse()
+
+
+@router.post(
+    "/forgot-password",
+    response_model=ForgotPasswordResponse,
+    status_code=status.HTTP_200_OK,
+)
+def forgot_password(
+    payload: ForgotPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    """发送密码重置邮件（当前版本生成 token 并返回，生产环境改为发送邮件）。"""
+    auth_service.request_password_reset(db, payload.email)
+    return ForgotPasswordResponse()
+
+
+@router.post(
+    "/reset-password",
+    response_model=ResetPasswordByTokenResponse,
+    status_code=status.HTTP_200_OK,
+)
+def reset_password_by_token(
+    payload: ResetPasswordByTokenRequest,
+    db: Session = Depends(get_db),
+):
+    """通过邮件中的重置 token 设置新密码。"""
+    auth_service.reset_password_by_token(db, payload.token, payload.new_password)
+    return ResetPasswordByTokenResponse()

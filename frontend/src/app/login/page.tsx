@@ -9,7 +9,6 @@ import {
   formatMutationError,
   getForgotPasswordQuestion,
   resetPassword,
-  setupRecovery,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,19 +35,6 @@ function LoginPageContent() {
   const [newPassword, setNewPassword] = useState("");
   const [questionLoading, setQuestionLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
-
-  const RECOVERY_QUESTIONS = [
-    "你的第一位直属领导姓名是？",
-    "你第一次独立负责的项目名称是？",
-    "你最常用的备用联系方式后四位是？",
-  ];
-
-  const [showSetupRecovery, setShowSetupRecovery] = useState(false);
-  const [setupEmail, setSetupEmail] = useState("");
-  const [setupPassword, setSetupPassword] = useState("");
-  const [setupQuestion, setSetupQuestion] = useState(RECOVERY_QUESTIONS[0]);
-  const [setupAnswer, setSetupAnswer] = useState("");
-  const [setupSaving, setSetupSaving] = useState(false);
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
@@ -144,37 +130,6 @@ function LoginPageContent() {
       });
     } finally {
       setResetLoading(false);
-    }
-  }
-
-  async function handleSetupRecovery(event: React.FormEvent) {
-    event.preventDefault();
-    if (!setupEmail.trim() || !setupPassword || !setupQuestion.trim() || !setupAnswer.trim()) {
-      return;
-    }
-    setSetupSaving(true);
-    try {
-      await setupRecovery({
-        email: setupEmail.trim(),
-        password: setupPassword,
-        recovery_question: setupQuestion.trim(),
-        recovery_answer: setupAnswer.trim(),
-      });
-      toast({
-        title: "找回设置已保存",
-        description: "今后可在忘记密码时通过安全问题自助找回。",
-      });
-      setShowSetupRecovery(false);
-      setSetupPassword("");
-      setSetupAnswer("");
-    } catch (error) {
-      toast({
-        title: "补录失败",
-        description: formatMutationError(error, "找回设置补录"),
-        variant: "destructive",
-      });
-    } finally {
-      setSetupSaving(false);
     }
   }
 
@@ -276,6 +231,9 @@ function LoginPageContent() {
                 >
                   忘记密码？
                 </button>{" "}
+                <Link href="/forgot-password" className="text-primary hover:underline">
+                  找回
+                </Link>{" "}
                 还没有账号？{" "}
                 <Link href="/register" className="text-primary hover:underline">
                   去注册
@@ -392,91 +350,6 @@ function LoginPageContent() {
                 </>
               ) : null}
             </form>
-          </section>
-        ) : null}
-
-        {role === "student" ? (
-          <section className="mt-4 rounded-2xl border border-warm-border bg-warm-surface p-4">
-            {showSetupRecovery ? (
-              <>
-                <div>
-                  <p className="text-sm font-medium text-warm-text">补录找回设置</p>
-                  <p className="mt-1 text-xs leading-6 text-muted-foreground">
-                    如果你还记得当前密码，可在此直接设置找回问题，无需先登录。
-                  </p>
-                </div>
-                <form onSubmit={handleSetupRecovery} className="mt-3 space-y-3">
-                  <label className="flex flex-col gap-2 text-sm">
-                    <span className="font-medium">注册邮箱</span>
-                    <Input
-                      type="email"
-                      value={setupEmail}
-                      onChange={(event) => setSetupEmail(event.target.value)}
-                      placeholder="your@email.com"
-                      required
-                    />
-                  </label>
-                  <label className="flex flex-col gap-2 text-sm">
-                    <span className="font-medium">当前密码</span>
-                    <Input
-                      type="password"
-                      value={setupPassword}
-                      onChange={(event) => setSetupPassword(event.target.value)}
-                      placeholder="输入当前密码以验证身份"
-                      required
-                    />
-                  </label>
-                  <label className="flex flex-col gap-2 text-sm">
-                    <span className="font-medium">找回问题</span>
-                    <select
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      value={setupQuestion}
-                      onChange={(e) => setSetupQuestion(e.target.value)}
-                    >
-                      {RECOVERY_QUESTIONS.map((q) => (
-                        <option key={q} value={q}>{q}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="flex flex-col gap-2 text-sm">
-                    <span className="font-medium">答案</span>
-                    <Input
-                      value={setupAnswer}
-                      onChange={(event) => setSetupAnswer(event.target.value)}
-                      placeholder="输入找回答案"
-                      required
-                    />
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    <Button type="submit" loading={setupSaving}>
-                      {setupSaving ? "保存中..." : "确认补录"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setShowSetupRecovery(false);
-                        setSetupPassword("");
-                        setSetupAnswer("");
-                      }}
-                    >
-                      取消
-                    </Button>
-                  </div>
-                </form>
-              </>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setSetupEmail(email.trim());
-                  setShowSetupRecovery(true);
-                }}
-                className="w-full text-center text-sm text-muted-foreground hover:text-warm-text hover:underline"
-              >
-                历史老账号没设过找回问题？点此补录
-              </button>
-            )}
           </section>
         ) : null}
 

@@ -782,6 +782,23 @@ export type SetupRecoveryResponse = {
   success: boolean;
 };
 
+export type ForgotPasswordRequest = {
+  email: string;
+};
+
+export type ForgotPasswordResponse = {
+  success: boolean;
+};
+
+export type ResetPasswordByTokenRequest = {
+  token: string;
+  new_password: string;
+};
+
+export type ResetPasswordByTokenResponse = {
+  success: boolean;
+};
+
 export type TokenResponse = {
   access_token: string;
   token_type: string;

@@ -54,6 +54,7 @@ def init_db() -> None:
     _migrate_generated_reports_table()
     _migrate_competitiveness_analyses_table()
     _migrate_endgame_analyses_table()
+    _migrate_users_table()
     _migrate_assessments_add_user_id()
     _migrate_assessment_intake_sessions_add_user_id()
     _migrate_scenario_recommendations_table()
@@ -200,6 +201,30 @@ def _migrate_endgame_analyses_table() -> None:
                 "ADD COLUMN three_stage_strategy_json TEXT NOT NULL DEFAULT '{}'"
             )
         )
+
+
+def _migrate_users_table() -> None:
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    if "users" not in inspector.get_table_names():
+        return
+
+    existing_columns = {c["name"] for c in inspector.get_columns("users")}
+    required_columns = {
+        "company_name": "ALTER TABLE users ADD COLUMN company_name VARCHAR(255)",
+        "job_title": "ALTER TABLE users ADD COLUMN job_title VARCHAR(100)",
+        "recovery_question": "ALTER TABLE users ADD COLUMN recovery_question VARCHAR(255)",
+        "recovery_answer_hash": "ALTER TABLE users ADD COLUMN recovery_answer_hash VARCHAR(255)",
+        "reset_token": "ALTER TABLE users ADD COLUMN reset_token VARCHAR(255)",
+        "reset_token_expires_at": "ALTER TABLE users ADD COLUMN reset_token_expires_at TIMESTAMP",
+    }
+
+    with engine.begin() as connection:
+        for column_name, ddl in required_columns.items():
+            if column_name not in existing_columns:
+                connection.execute(text(ddl))
 
 
 def _migrate_assessments_add_user_id() -> None:

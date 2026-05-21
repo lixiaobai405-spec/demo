@@ -155,6 +155,42 @@ def setup_recovery(
     db.commit()
 
 
+def request_password_reset(db: Session, email: str) -> None:
+    """生成密码重置 token，存入用户记录。"""
+    import secrets
+
+    user = db.query(User).filter(User.email == email).first()
+    if user is None:
+        return  # 不泄露邮箱是否存在
+
+    token = secrets.token_urlsafe(32)
+    user.reset_token = token
+    user.reset_token_expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+    db.add(user)
+    db.commit()
+
+
+def reset_password_by_token(db: Session, token: str, new_password: str) -> None:
+    """通过重置 token 设置新密码。"""
+    user = db.query(User).filter(User.reset_token == token).first()
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="重置链接无效或已过期，请重新申请找回。",
+        )
+    if user.reset_token_expires_at is None or user.reset_token_expires_at < datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="重置链接已过期，请重新申请找回。",
+        )
+
+    user.hashed_password = _hash_password(new_password)
+    user.reset_token = None
+    user.reset_token_expires_at = None
+    db.add(user)
+    db.commit()
+
+
 def authenticate(db: Session, request: LoginRequest) -> TokenResponse:
     # 硬编码讲师账户
     if request.email == TEACHER_EMAIL and request.password == TEACHER_PASSWORD:

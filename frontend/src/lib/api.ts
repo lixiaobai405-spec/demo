@@ -39,6 +39,10 @@ import type {
   ForgotPasswordQuestionResponse,
   ResetPasswordRequest,
   ResetPasswordResponse,
+  ForgotPasswordRequest,
+  ForgotPasswordResponse,
+  ResetPasswordByTokenRequest,
+  ResetPasswordByTokenResponse,
   SetupRecoveryRequest,
   SetupRecoveryResponse,
   UpdateRecoveryRequest,
@@ -670,6 +674,24 @@ export function setupRecovery(
   payload: SetupRecoveryRequest,
 ): Promise<SetupRecoveryResponse> {
   return request<SetupRecoveryResponse>("/api/auth/setup-recovery", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function requestPasswordReset(
+  payload: ForgotPasswordRequest,
+): Promise<ForgotPasswordResponse> {
+  return request<ForgotPasswordResponse>("/api/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function resetPasswordByToken(
+  payload: ResetPasswordByTokenRequest,
+): Promise<ResetPasswordByTokenResponse> {
+  return request<ResetPasswordByTokenResponse>("/api/auth/reset-password", {
     method: "POST",
     body: JSON.stringify(payload),
   });

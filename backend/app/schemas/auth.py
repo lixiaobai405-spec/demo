@@ -80,3 +80,20 @@ class SetupRecoveryRequest(BaseModel):
 
 class SetupRecoveryResponse(BaseModel):
     success: bool = True
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str = Field(max_length=255)
+
+
+class ForgotPasswordResponse(BaseModel):
+    success: bool = True
+
+
+class ResetPasswordByTokenRequest(BaseModel):
+    token: str
+    new_password: str = Field(min_length=6, max_length=128)
+
+
+class ResetPasswordByTokenResponse(BaseModel):
+    success: bool = True
