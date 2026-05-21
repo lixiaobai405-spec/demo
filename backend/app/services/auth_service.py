@@ -185,7 +185,7 @@ def _send_password_reset_email(recipient_email: str, token: str) -> None:
 
     reset_link = _build_password_reset_link(token)
     message = EmailMessage()
-    message["Subject"] = "美泰 AI 创新智能体密码重置"
+    message["Subject"] = "美太 AI 创新智能体密码重置"
     message["From"] = formataddr(
         (settings.smtp_from_name, settings.smtp_from_email)
     )
