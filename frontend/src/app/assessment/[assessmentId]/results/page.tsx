@@ -1,10 +1,6 @@
 import Link from "next/link";
 
-import {
-  getAssessmentDetail,
-  getCompetitiveness,
-  getEndgame,
-} from "@/lib/api";
+import { getAssessmentDetail } from "@/lib/api";
 import { BusinessCanvasGrid } from "@/components/business-canvas-grid";
 import { CompetitivenessPanel } from "@/components/competitiveness-panel";
 import { EndgamePanel } from "@/components/endgame-panel";
@@ -18,23 +14,16 @@ export default async function ResultsPage({
 }) {
   const { assessmentId } = await params;
 
-  const [detail, competitiveness, endgame] = await Promise.allSettled([
-    getAssessmentDetail(assessmentId),
-    getCompetitiveness(assessmentId),
-    getEndgame(assessmentId),
-  ]);
-
-  const detailData = detail.status === "fulfilled" ? detail.value : null;
-  const compData =
-    competitiveness.status === "fulfilled" ? competitiveness.value : null;
-  const endgameData =
-    endgame.status === "fulfilled" ? endgame.value : null;
+  const detailData = await getAssessmentDetail(assessmentId).catch(() => null);
 
   const assessment = detailData?.assessment;
   const companyName = assessment?.company_name || "企业";
   const industry = assessment?.industry || "";
-  const scenarioRecommendation = detailData?.scenario_recommendation;
-  const readyForReport = detailData?.progress.ready_for_report || false;
+  const scenarioRecommendation = detailData?.scenario_recommendation ?? null;
+  const compData = detailData?.competitiveness ?? null;
+  const endgameData = detailData?.endgame ?? null;
+  const canGenerateCompetitiveness =
+    Boolean(scenarioRecommendation) && !detailData?.progress.has_competitiveness;
 
   const hasAny =
     detailData?.canvas_diagnosis ||
@@ -45,7 +34,6 @@ export default async function ResultsPage({
   return (
     <main className="min-h-screen px-6 py-10">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-8">
-        {/* Header */}
         <section className="page-header">
           <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center gap-2">
@@ -64,7 +52,7 @@ export default async function ResultsPage({
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                画布 9 格 →
+                商业画布 9 格 →
               </Link>
             </div>
             <span className="badge badge-accent">评估结果仪表盘</span>
@@ -76,7 +64,7 @@ export default async function ResultsPage({
                 {industry}
               </p>
             ) : null}
-            {readyForReport && detailData ? (
+            {detailData?.progress.ready_for_report ? (
               <div className="mt-4 flex flex-wrap gap-3">
                 <ReportExportActions assessmentId={assessmentId} />
               </div>
@@ -84,7 +72,6 @@ export default async function ResultsPage({
           </div>
         </section>
 
-        {/* Results Grid */}
         {!hasAny ? (
           <div className="card-inset">
             <p className="section-label">评估结果</p>
@@ -94,34 +81,31 @@ export default async function ResultsPage({
                 href={`/assessment/${assessmentId}`}
                 className="ml-1 font-medium text-primary underline underline-offset-4"
               >
-                返回工作台生成
+                返回工作台继续生成
               </Link>
             </p>
           </div>
         ) : (
           <>
-            {/* 1. 点：商业画布 */}
-            {detailData?.canvas_diagnosis && (
+            {detailData?.canvas_diagnosis ? (
               <section>
                 <div className="mb-2">
                   <p className="section-label">点 · 商业画布</p>
                 </div>
                 <BusinessCanvasGrid canvasDiagnosis={detailData.canvas_diagnosis} />
-                {/* Scene recommendations embedded within canvas context */}
-                {scenarioRecommendation && detailData?.assessment && (
+                {scenarioRecommendation && (
                   <div className="mt-6 card">
                     <ScenarioRecommendationsPanel
                       assessmentId={assessmentId}
-                      readyForReport={readyForReport}
+                      readyForReport={canGenerateCompetitiveness}
                       scenarioRecommendation={scenarioRecommendation}
                     />
                   </div>
                 )}
               </section>
-            )}
+            ) : null}
 
-            {/* 2. 线：差异化竞争力 */}
-            {compData && (
+            {compData ? (
               <section>
                 <div className="mb-2">
                   <p className="section-label">线 · 差异化竞争力</p>
@@ -134,17 +118,16 @@ export default async function ResultsPage({
                     .map((item) => item.name)}
                 />
               </section>
-            )}
+            ) : null}
 
-            {/* 3. 面：商业终局 */}
-            {endgameData && (
+            {endgameData ? (
               <section>
                 <div className="mb-2">
                   <p className="section-label">面 · 商业终局</p>
                 </div>
                 <EndgamePanel data={endgameData} />
               </section>
-            )}
+            ) : null}
           </>
         )}
       </div>

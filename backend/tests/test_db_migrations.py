@@ -12,10 +12,11 @@ from app.db import session as db_session
 
 
 def test_migrate_bmc_scorings_table_from_legacy_schema(
-    tmp_path,
     monkeypatch,
 ) -> None:
-    db_path = tmp_path / "legacy_bmc.db"
+    db_path = Path(__file__).resolve().parent / "test_db_migrations.db"
+    if db_path.exists():
+        db_path.unlink()
     engine = create_engine(
         f"sqlite:///{db_path.as_posix()}",
         connect_args={"check_same_thread": False},
@@ -117,3 +118,7 @@ def test_migrate_bmc_scorings_table_from_legacy_schema(
     assert row["assessment_id"] == "assessment-1"
     assert "customer_relationships" in row["module_scores_json"]
     assert "customer_relationships" in row["selected_keys_json"]
+
+    engine.dispose()
+    if db_path.exists():
+        db_path.unlink()

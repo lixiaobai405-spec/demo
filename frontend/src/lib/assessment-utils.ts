@@ -10,6 +10,7 @@ import type {
   CompanyProfileResult,
   CompetitivenessResponse,
   DirectionSelectionResponse,
+  EndgameResponse,
   ScenarioRecommendationResult,
 } from "@/lib/types";
 
@@ -21,7 +22,7 @@ export const initialForm: AssessmentCreateRequest = {
 
 export const initialProgress: AssessmentProgress = {
   has_profile: false, has_canvas: false, has_breakthrough: false,
-  has_directions: false, has_competitiveness: false, has_scenarios: false,
+  has_directions: false, has_competitiveness: false, has_endgame: false, has_scenarios: false,
   has_report: false, ready_for_report: false,
 };
 
@@ -89,6 +90,7 @@ export function computeProgress(opts: {
   hasBreakthrough?: boolean;
   hasDirections?: boolean;
   hasCompetitiveness?: boolean;
+  hasEndgame?: boolean;
   hasScenarios: boolean;
   hasReport?: boolean;
 }): AssessmentProgress {
@@ -98,6 +100,7 @@ export function computeProgress(opts: {
     has_breakthrough: opts.hasAssessment && (opts.hasBreakthrough ?? false),
     has_directions: opts.hasAssessment && (opts.hasDirections ?? false),
     has_competitiveness: opts.hasAssessment && (opts.hasCompetitiveness ?? false),
+    has_endgame: opts.hasAssessment && (opts.hasEndgame ?? false),
     has_scenarios: opts.hasAssessment && opts.hasScenarios,
     has_report: opts.hasAssessment && (opts.hasReport ?? false),
     ready_for_report:
@@ -105,7 +108,10 @@ export function computeProgress(opts: {
       opts.hasProfile &&
       opts.hasCanvas &&
       (opts.hasBreakthrough ?? false) &&
-      opts.hasScenarios,
+      (opts.hasDirections ?? false) &&
+      opts.hasScenarios &&
+      (opts.hasCompetitiveness ?? false) &&
+      (opts.hasEndgame ?? false),
   };
 }
 
@@ -123,6 +129,7 @@ export function applyAssessmentDetailToStore(
     setDirectionSelection: (s: DirectionSelectionResponse | null) => void;
     setSelectedDirectionIds: (ids: string[]) => void;
     setCompetitivenessData: (d: CompetitivenessResponse | null) => void;
+    setEndgameData: (d: EndgameResponse | null) => void;
   },
 ) {
   store.setAssessment(detail.assessment);
@@ -179,16 +186,7 @@ export function applyAssessmentDetailToStore(
   }
 
   // Sync competitiveness if present
-  if (detail.progress.has_competitiveness) {
-    store.setCompetitivenessData({
-      assessment_id: detail.assessment.id,
-      result: null as any,
-      created_at: null,
-      updated_at: null,
-    });
-  } else {
-    store.setCompetitivenessData(null);
-  }
-
   store.setScenarioRecommendation(detail.scenario_recommendation);
+  store.setCompetitivenessData(detail.competitiveness);
+  store.setEndgameData(detail.endgame);
 }

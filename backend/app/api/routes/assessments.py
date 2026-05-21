@@ -66,10 +66,19 @@ from app.schemas.competitiveness import (
     build_line_summary,
     CompetitivenessResponse,
     CompetitivenessResult,
+    CoreAdvantage,
+    DeliveryStrategy,
+    PointToLineConnection,
+    VPReconstruction,
 )
 from app.schemas.endgame import (
+    EcosystemDesign,
     EndgameResponse,
     EndgameResult,
+    OPCDesign,
+    PrivateDomainDesign,
+    StrategicPath,
+    ThreeStageStrategy,
 )
 from app.services.breakthrough_recommender import BreakthroughRecommender
 from app.services.case_matcher import CaseMatcher
@@ -310,6 +319,25 @@ def get_assessment_detail(
     direction_selection = _load_direction_selection(db, assessment_id)
     direction_expansion = _load_direction_expansion_result(db, assessment_id)
     competitiveness = _load_competitiveness_analysis(db, assessment_id)
+    endgame = _load_endgame_analysis(db, assessment_id)
+
+    competitiveness_response = None
+    if competitiveness is not None:
+        competitiveness_response = CompetitivenessResponse(
+            assessment_id=competitiveness.assessment_id,
+            result=_build_competitiveness_result_from_record(competitiveness),
+            created_at=competitiveness.created_at,
+            updated_at=competitiveness.updated_at,
+        )
+
+    endgame_response = None
+    if endgame is not None:
+        endgame_response = EndgameResponse(
+            assessment_id=endgame.assessment_id,
+            result=_build_endgame_result_from_record(endgame, assessment.industry),
+            created_at=endgame.created_at.isoformat() if endgame.created_at else None,
+            updated_at=endgame.updated_at.isoformat() if endgame.updated_at else None,
+        )
 
     return AssessmentDetailResponse(
         assessment=AssessmentResponse.model_validate(assessment, from_attributes=True),
@@ -319,11 +347,13 @@ def get_assessment_detail(
         direction_expansion=direction_expansion,
         direction_selection=direction_selection,
         scenario_recommendation=scenarios,
+        competitiveness=competitiveness_response,
+        endgame=endgame_response,
         case_recommendation=cases,
         generated_report=report_summary,
         progress=_build_progress(
             profile, canvas, breakthrough_keys, scenarios, cases, report_summary,
-            direction_selection, competitiveness,
+            direction_selection, competitiveness, endgame,
         ),
     )
 
@@ -413,6 +443,24 @@ class UpdateCanvasRequest(BaseModel):
     blocks: list[UpdateCanvasBlockRequest]
 
 
+class UpdateCompetitivenessRequest(BaseModel):
+    vp_reconstruction: VPReconstruction
+    connections: list[PointToLineConnection]
+    advantages: list[CoreAdvantage]
+    delivery_strategy: DeliveryStrategy
+    overall_narrative: str
+
+
+class UpdateEndgameRequest(BaseModel):
+    industry_essence: str = ""
+    private_domain: PrivateDomainDesign
+    ecosystem: EcosystemDesign
+    opc: OPCDesign
+    three_stage_strategy: ThreeStageStrategy
+    strategic_paths: list[StrategicPath]
+    overall_narrative: str
+
+
 @router.put(
     "/{assessment_id}/canvas",
     response_model=AssessmentCanvasResponse,
@@ -425,10 +473,6 @@ def update_canvas(
     current_user: User = Depends(get_current_user),
 ) -> AssessmentCanvasResponse:
     """手动更新画布诊断内容，并清除下游数据以便基于新画布重新生成。"""
-    from app.models.breakthrough_selection import BreakthroughSelection
-    from app.models.direction_expansion import DirectionExpansion
-    from app.models.scenario_recommendation import ScenarioRecommendation
-
     assessment = _get_assessment_or_404(db, assessment_id)
 
     # Build updated canvas result from payload
@@ -454,15 +498,7 @@ def update_canvas(
         generation_mode="manual_edit",
     )
 
-    # Clear downstream — breakthrough, directions, direction selection, scenarios
-    from app.models.direction_selection import DirectionSelection as _DS
-    for model_cls in [BreakthroughSelection, DirectionExpansion, _DS, ScenarioRecommendation]:
-        record = db.scalar(
-            select(model_cls).where(model_cls.assessment_id == assessment_id)
-        )
-        if record is not None:
-            db.delete(record)
-    db.commit()
+    _clear_breakthrough_and_below(db, assessment_id)
 
     return AssessmentCanvasResponse(
         assessment=AssessmentResponse.model_validate(assessment, from_attributes=True),
@@ -527,18 +563,6 @@ def select_breakthrough(
         recommended_elements=recommendation.elements,
         selected_elements=selected_elements,
     )
-
-    # 清除下游：突破要素是分支结点，改变后方向、场景等需重新生成
-    from app.models.direction_expansion import DirectionExpansion
-    from app.models.direction_selection import DirectionSelection
-    from app.models.scenario_recommendation import ScenarioRecommendation
-    for model_cls in [DirectionExpansion, DirectionSelection, ScenarioRecommendation]:
-        downstream = db.scalar(
-            select(model_cls).where(model_cls.assessment_id == assessment_id)
-        )
-        if downstream is not None:
-            db.delete(downstream)
-    db.commit()
 
     return _build_breakthrough_selection_response(record)
 
@@ -676,23 +700,17 @@ def get_directions(
     assessment_id: str,
     db: Session = Depends(get_db),
 ) -> AssessmentDirectionResponse:
-    _get_assessment_or_404(db, assessment_id)
-    service = DirectionExpansionService()
-
-    # Read from persisted expansion record
+    assessment = _get_assessment_or_404(db, assessment_id)
     record = _load_direction_expansion(db, assessment_id)
-    if record is not None:
-        expansion = DirectionExpansionResult.model_validate_json(record.expansion_json)
-        expansion.generation_mode = record.generation_mode  # type: ignore[assignment]
-        expansion.llm_status = record.llm_status  # type: ignore[assignment]
-    else:
-        # Fallback: re-run rule-based for backwards compatibility
-        breakthrough_keys = _load_breakthrough_selection_keys(db, assessment_id) or []
-        expansion = service.expand(breakthrough_keys) if breakthrough_keys else DirectionExpansionResult(
-            generation_mode="rule_based",
-            elements=[],
-            total_suggestions=0,
+    if record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="请先生成创新方向延展。",
         )
+
+    expansion = DirectionExpansionResult.model_validate_json(record.expansion_json)
+    expansion.generation_mode = record.generation_mode  # type: ignore[assignment]
+    expansion.llm_status = record.llm_status  # type: ignore[assignment]
 
     selection_response = _load_direction_selection(db, assessment_id)
 
@@ -712,8 +730,9 @@ def generate_competitiveness(
     assessment_id: str,
     db: Session = Depends(get_db),
 ) -> CompetitivenessResponse:
-    _get_assessment_or_404(db, assessment_id)
+    assessment = _get_assessment_or_404(db, assessment_id)
     canvas = _require_canvas(db, assessment_id)
+    _require_scenarios(db, assessment_id)
     breakthrough_keys = _load_breakthrough_selection_keys(db, assessment_id)
     if not breakthrough_keys or len(breakthrough_keys) < 2:
         raise HTTPException(
@@ -722,6 +741,11 @@ def generate_competitiveness(
         )
 
     selected_directions = _load_selected_directions(db, assessment_id)
+    if not selected_directions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="请先确认创新方向，再生成竞争力分析。",
+        )
 
     result = None
     enhancer = LLMEnhancer()
@@ -755,28 +779,52 @@ def get_competitiveness(
     assessment_id: str,
     db: Session = Depends(get_db),
 ) -> CompetitivenessResponse:
-    _get_assessment_or_404(db, assessment_id)
-    canvas = _require_canvas(db, assessment_id)
-    breakthrough_keys = _load_breakthrough_selection_keys(db, assessment_id) or []
-    selected_directions = _load_selected_directions(db, assessment_id)
-
+    assessment = _get_assessment_or_404(db, assessment_id)
     existing = _load_competitiveness_analysis(db, assessment_id)
-    if existing is not None:
-        result = _build_competitiveness_result_from_record(existing)
-        return CompetitivenessResponse(
-            assessment_id=existing.assessment_id,
-            result=result,
-            created_at=existing.created_at,
-            updated_at=existing.updated_at,
+    if existing is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="请先生成差异化竞争力分析。",
         )
 
-    analyzer = CompetitivenessAnalyzer()
-    result = analyzer.analyze(canvas, breakthrough_keys, selected_directions)
+    result = _build_competitiveness_result_from_record(existing)
     return CompetitivenessResponse(
+        assessment_id=existing.assessment_id,
+        result=result,
+        created_at=existing.created_at,
+        updated_at=existing.updated_at,
+    )
+
+
+@router.put(
+    "/{assessment_id}/competitiveness",
+    response_model=CompetitivenessResponse,
+    status_code=status.HTTP_200_OK,
+)
+def update_competitiveness(
+    assessment_id: str,
+    payload: UpdateCompetitivenessRequest,
+    db: Session = Depends(get_db),
+) -> CompetitivenessResponse:
+    _get_assessment_or_404(db, assessment_id)
+    result = CompetitivenessResult(
+        generation_mode="manual_edit",
+        vp_reconstruction=payload.vp_reconstruction,
+        connections=payload.connections,
+        advantages=payload.advantages,
+        delivery_strategy=payload.delivery_strategy,
+        overall_narrative=payload.overall_narrative,
+    )
+    record = _upsert_competitiveness_analysis(
+        db=db,
         assessment_id=assessment_id,
         result=result,
-        created_at=None,
-        updated_at=None,
+    )
+    return CompetitivenessResponse(
+        assessment_id=record.assessment_id,
+        result=result,
+        created_at=record.created_at,
+        updated_at=record.updated_at,
     )
 
 
@@ -793,11 +841,19 @@ def generate_endgame(
     canvas = _require_canvas(db, assessment_id)
     breakthrough_keys = _load_breakthrough_selection_keys(db, assessment_id) or []
     selected_directions = _load_selected_directions(db, assessment_id)
+    if not selected_directions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="请先确认创新方向，再生成商业终局设计。",
+        )
 
-    competitiveness_result = None
     comp_record = _load_competitiveness_analysis(db, assessment_id)
-    if comp_record is not None:
-        competitiveness_result = _build_competitiveness_result_from_record(comp_record)
+    if comp_record is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="请先生成差异化竞争力分析，再生成商业终局设计。",
+        )
+    competitiveness_result = _build_competitiveness_result_from_record(comp_record)
 
     analyzer = EndgameAnalyzer()
     result = analyzer.analyze(
@@ -828,38 +884,50 @@ def get_endgame(
     db: Session = Depends(get_db),
 ) -> EndgameResponse:
     assessment = _get_assessment_or_404(db, assessment_id)
-    canvas = _require_canvas(db, assessment_id)
-    breakthrough_keys = _load_breakthrough_selection_keys(db, assessment_id) or []
-    selected_directions = _load_selected_directions(db, assessment_id)
-
     existing = _load_endgame_analysis(db, assessment_id)
-    if existing is not None:
-        result = _build_endgame_result_from_record(existing)
-        return EndgameResponse(
-            assessment_id=existing.assessment_id,
-            result=result,
-            created_at=existing.created_at.isoformat() if existing.created_at else None,
-            updated_at=existing.updated_at.isoformat() if existing.updated_at else None,
+    if existing is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="请先生成商业终局设计。",
         )
 
-    competitiveness_result = None
-    comp_record = _load_competitiveness_analysis(db, assessment_id)
-    if comp_record is not None:
-        competitiveness_result = _build_competitiveness_result_from_record(comp_record)
-
-    analyzer = EndgameAnalyzer()
-    result = analyzer.analyze(
-        industry=assessment.industry,
-        canvas_diagnosis=canvas,
-        breakthrough_keys=breakthrough_keys,
-        selected_directions=selected_directions,
-        competitiveness_result=competitiveness_result,
-    )
+    result = _build_endgame_result_from_record(existing, assessment.industry)
     return EndgameResponse(
-        assessment_id=assessment_id,
+        assessment_id=existing.assessment_id,
         result=result,
-        created_at=None,
-        updated_at=None,
+        created_at=existing.created_at.isoformat() if existing.created_at else None,
+        updated_at=existing.updated_at.isoformat() if existing.updated_at else None,
+    )
+
+
+@router.put(
+    "/{assessment_id}/endgame",
+    response_model=EndgameResponse,
+    status_code=status.HTTP_200_OK,
+)
+def update_endgame(
+    assessment_id: str,
+    payload: UpdateEndgameRequest,
+    db: Session = Depends(get_db),
+) -> EndgameResponse:
+    assessment = _get_assessment_or_404(db, assessment_id)
+    result = EndgameResult(
+        generation_mode="manual_edit",
+        industry_essence=payload.industry_essence
+        or _derive_industry_essence(assessment.industry),
+        private_domain=payload.private_domain,
+        ecosystem=payload.ecosystem,
+        opc=payload.opc,
+        three_stage_strategy=payload.three_stage_strategy,
+        strategic_paths=payload.strategic_paths,
+        overall_narrative=payload.overall_narrative,
+    )
+    record = _upsert_endgame_analysis(db, assessment_id, result)
+    return EndgameResponse(
+        assessment_id=record.assessment_id,
+        result=result,
+        created_at=record.created_at.isoformat() if record.created_at else None,
+        updated_at=record.updated_at.isoformat() if record.updated_at else None,
     )
 
 
@@ -886,6 +954,12 @@ def recommend_scenarios(
     """
     assessment = _get_assessment_or_404(db, assessment_id)
     profile = _load_profile_from_assessment(assessment)
+    selected_directions = _load_selected_directions(db, assessment_id)
+    if not selected_directions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="请先确认创新方向，再生成 AI 场景推荐。",
+        )
     direction_categories = _load_direction_categories(db, assessment_id)
     recommender = ScenarioRecommender()
 
@@ -943,6 +1017,12 @@ def recommend_scenarios_with_priority(
     - priority_recommendation: 推荐话术模板
     """
     assessment = _get_assessment_or_404(db, assessment_id)
+    selected_directions = _load_selected_directions(db, assessment_id)
+    if not selected_directions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="请先确认创新方向，再生成 AI 场景推荐。",
+        )
     profile = _load_profile_from_assessment(assessment)
     direction_categories = _load_direction_categories(db, assessment_id)
     recommender = ScenarioRecommender()
@@ -1070,12 +1150,8 @@ def save_scenario_calibrations(
     db.commit()
     db.refresh(record)
 
-    # 清理下游依赖：案例推荐、竞争力分析、报告等（PRD §3 item 6）
-    _clear_cases_and_reports(db, assessment_id)
-    _delete_records(
-        db,
-        [db.scalar(select(CompetitivenessAnalysis).where(CompetitivenessAnalysis.assessment_id == assessment_id))],
-    )
+    # 清理下游依赖：场景变动后，竞争力、终局和报告都需要重算
+    _clear_competitiveness_outputs(db, assessment_id)
 
     return AssessmentScenarioRecommendationResponse(
         assessment=AssessmentResponse.model_validate(assessment, from_attributes=True),
@@ -1155,7 +1231,11 @@ def generate_report(
     )
 
     endgame_record = _load_endgame_analysis(db, assessment_id)
-    endgame_result = _build_endgame_result_from_record(endgame_record) if endgame_record else None
+    endgame_result = (
+        _build_endgame_result_from_record(endgame_record, assessment.industry)
+        if endgame_record
+        else None
+    )
 
     # Validate mode
     valid_modes = ("template", "llm", "template_fallback")
@@ -1674,7 +1754,7 @@ def _upsert_direction_selection(
     db.add(record)
     db.commit()
     db.refresh(record)
-    _clear_competitiveness_and_below(db, assessment_id)
+    _clear_scenarios_and_below(db, assessment_id)
 
     return record
 
@@ -1867,7 +1947,7 @@ def _upsert_competitiveness_analysis(
             strategy_json="{}",
         )
 
-    record.generation_mode = "rule_based"
+    record.generation_mode = result.generation_mode
     record.vp_json = json.dumps(result.vp_reconstruction.model_dump(), ensure_ascii=False)
     record.connections_json = json.dumps(
         [c.model_dump() for c in result.connections], ensure_ascii=False
@@ -1876,6 +1956,7 @@ def _upsert_competitiveness_analysis(
         [a.model_dump() for a in result.advantages], ensure_ascii=False
     )
     record.strategy_json = json.dumps(result.delivery_strategy.model_dump(), ensure_ascii=False)
+    record.overall_narrative = result.overall_narrative
 
     db.add(record)
     db.commit()
@@ -1913,12 +1994,17 @@ def _build_competitiveness_result_from_record(
 
 
 def _normalize_connection_summary(item: dict) -> dict:
-    """将旧版线路摘要兼容为只表达逻辑和预期效果的一句话。"""
+    """兼容历史线路结构，但不覆盖现有手工编辑内容。"""
     normalized = dict(item)
     line_name = str(normalized.get("line_name", "")).strip()
     competitive_impact = str(normalized.get("competitive_impact", "")).strip()
-    normalized["strategic_narrative"] = build_line_summary(line_name, competitive_impact)
-    normalized["competitive_moat"] = ""
+    if not str(normalized.get("strategic_narrative", "")).strip():
+        normalized["strategic_narrative"] = build_line_summary(
+            line_name,
+            competitive_impact,
+        )
+    normalized.setdefault("competitive_moat", "")
+    normalized.setdefault("linkage_logic", "")
     return normalized
 
 
@@ -1950,7 +2036,7 @@ def _upsert_endgame_analysis(
             strategic_paths_json="[]",
         )
 
-    record.generation_mode = "rule_based"
+    record.generation_mode = result.generation_mode
     record.private_domain_json = json.dumps(result.private_domain.model_dump(), ensure_ascii=False)
     record.ecosystem_json = json.dumps(result.ecosystem.model_dump(), ensure_ascii=False)
     record.opc_json = json.dumps(result.opc.model_dump(), ensure_ascii=False)
@@ -1965,13 +2051,20 @@ def _upsert_endgame_analysis(
     db.add(record)
     db.commit()
     db.refresh(record)
-    _clear_cases_and_reports(db, assessment_id)
+    _clear_reports_only(db, assessment_id)
 
     return record
 
 
+def _derive_industry_essence(industry: str | None) -> str:
+    analyzer = EndgameAnalyzer()
+    industry_type = analyzer._detect_industry(industry or "")
+    return analyzer._build_industry_essence(industry_type)
+
+
 def _build_endgame_result_from_record(
     record: EndgameAnalysis,
+    industry: str | None = None,
 ) -> EndgameResult:
     from app.schemas.endgame import (
         PrivateDomainDesign,
@@ -1992,6 +2085,7 @@ def _build_endgame_result_from_record(
 
     return EndgameResult(
         generation_mode=record.generation_mode,
+        industry_essence=_derive_industry_essence(industry),
         private_domain=PrivateDomainDesign.model_validate(pd_raw),
         ecosystem=EcosystemDesign.model_validate(eco_raw),
         opc=OPCDesign.model_validate(opc_raw),
@@ -2038,14 +2132,23 @@ def _require_report_prerequisites(
     profile = _load_profile_from_assessment(assessment)
     canvas = _load_canvas_diagnosis(db, assessment.id)
     scenarios = _load_scenario_recommendation(db, assessment.id)
+    direction_selection = _load_direction_selection(db, assessment.id)
+    competitiveness = _load_competitiveness_analysis(db, assessment.id)
+    endgame = _load_endgame_analysis(db, assessment.id)
 
     missing_steps: list[str] = []
     if profile is None:
         missing_steps.append("company profile")
     if canvas is None:
         missing_steps.append("canvas diagnosis")
+    if direction_selection is None or not direction_selection.selected_directions:
+        missing_steps.append("direction selection")
     if scenarios is None:
         missing_steps.append("scenario recommendation")
+    if competitiveness is None:
+        missing_steps.append("competitiveness analysis")
+    if endgame is None:
+        missing_steps.append("endgame design")
 
     if missing_steps:
         raise HTTPException(
@@ -2233,7 +2336,7 @@ def _upsert_scenario_recommendation(
     db.add(record)
     db.commit()
     db.refresh(record)
-    _clear_cases_and_reports(db, assessment_id)
+    _clear_reports_only(db, assessment_id)
 
     return ScenarioRecommendationResult(
         scoring_method=scoring_method,
@@ -2316,6 +2419,7 @@ def _build_progress(
     report_summary,
     direction_selection: object | None = None,
     competitiveness: object | None = None,
+    endgame: object | None = None,
 ) -> AssessmentProgress:
     has_profile = profile is not None
     has_canvas = canvas is not None
@@ -2327,6 +2431,7 @@ def _build_progress(
             or getattr(direction_selection, "directions_json", None)
         )
     has_competitiveness = competitiveness is not None
+    has_endgame = endgame is not None
     has_scenarios = scenarios is not None
     has_cases = cases is not None
     has_report = report_summary is not None
@@ -2336,10 +2441,19 @@ def _build_progress(
         has_breakthrough=has_breakthrough,
         has_directions=has_directions,
         has_competitiveness=has_competitiveness,
+        has_endgame=has_endgame,
         has_scenarios=has_scenarios,
         has_cases=has_cases,
         has_report=has_report,
-        ready_for_report=has_profile and has_canvas and has_breakthrough and has_scenarios,
+        ready_for_report=(
+            has_profile
+            and has_canvas
+            and has_breakthrough
+            and has_directions
+            and has_scenarios
+            and has_competitiveness
+            and has_endgame
+        ),
     )
 
 
@@ -2350,6 +2464,7 @@ def _clear_canvas_and_below(db: Session, assessment_id: str) -> None:
             db.scalar(select(CanvasDiagnosis).where(CanvasDiagnosis.assessment_id == assessment_id)),
             db.scalar(select(BreakthroughSelection).where(BreakthroughSelection.assessment_id == assessment_id)),
             db.scalar(select(DirectionExpansion).where(DirectionExpansion.assessment_id == assessment_id)),
+            db.scalar(select(DirectionSelection).where(DirectionSelection.assessment_id == assessment_id)),
             db.scalar(select(CompetitivenessAnalysis).where(CompetitivenessAnalysis.assessment_id == assessment_id)),
             db.scalar(select(EndgameAnalysis).where(EndgameAnalysis.assessment_id == assessment_id)),
             db.scalar(
@@ -2363,21 +2478,35 @@ def _clear_canvas_and_below(db: Session, assessment_id: str) -> None:
     )
 
 
-def _clear_competitiveness_and_below(db: Session, assessment_id: str) -> None:
-    """Clear competitiveness analysis, endgame, and everything downstream (scenarios, cases, reports).
-
-    Used after direction re-selection, which invalidates competitiveness and below.
-    """
+def _clear_scenarios_and_below(db: Session, assessment_id: str) -> None:
+    """Clear scenarios and all downstream outputs after direction changes."""
     _delete_records(
         db,
         [
-            db.scalar(select(CompetitivenessAnalysis).where(CompetitivenessAnalysis.assessment_id == assessment_id)),
-            db.scalar(select(EndgameAnalysis).where(EndgameAnalysis.assessment_id == assessment_id)),
             db.scalar(
                 select(ScenarioRecommendation).where(
                     ScenarioRecommendation.assessment_id == assessment_id
                 )
             ),
+            db.scalar(select(CompetitivenessAnalysis).where(CompetitivenessAnalysis.assessment_id == assessment_id)),
+            db.scalar(select(EndgameAnalysis).where(EndgameAnalysis.assessment_id == assessment_id)),
+            db.scalar(select(CaseRecommendation).where(CaseRecommendation.assessment_id == assessment_id)),
+            db.scalar(select(GeneratedReport).where(GeneratedReport.assessment_id == assessment_id)),
+        ],
+    )
+
+
+def _clear_competitiveness_outputs(db: Session, assessment_id: str) -> None:
+    """Clear competitiveness, endgame, case and report outputs after scenario edits."""
+    _delete_records(
+        db,
+        [
+            db.scalar(
+                select(CompetitivenessAnalysis).where(
+                    CompetitivenessAnalysis.assessment_id == assessment_id
+                )
+            ),
+            db.scalar(select(EndgameAnalysis).where(EndgameAnalysis.assessment_id == assessment_id)),
             db.scalar(select(CaseRecommendation).where(CaseRecommendation.assessment_id == assessment_id)),
             db.scalar(select(GeneratedReport).where(GeneratedReport.assessment_id == assessment_id)),
         ],
@@ -2385,21 +2514,11 @@ def _clear_competitiveness_and_below(db: Session, assessment_id: str) -> None:
 
 
 def _clear_endgame_and_below(db: Session, assessment_id: str) -> None:
-    """Clear endgame analysis and everything downstream (scenarios, cases, reports).
-
-    Used after competitiveness re-generation, which invalidates endgame and below.
-    Does NOT clear competitiveness itself.
-    """
+    """Clear endgame and report outputs after competitiveness changes."""
     _delete_records(
         db,
         [
             db.scalar(select(EndgameAnalysis).where(EndgameAnalysis.assessment_id == assessment_id)),
-            db.scalar(
-                select(ScenarioRecommendation).where(
-                    ScenarioRecommendation.assessment_id == assessment_id
-                )
-            ),
-            db.scalar(select(CaseRecommendation).where(CaseRecommendation.assessment_id == assessment_id)),
             db.scalar(select(GeneratedReport).where(GeneratedReport.assessment_id == assessment_id)),
         ],
     )
@@ -2435,6 +2554,7 @@ def _clear_breakthrough_and_below(db: Session, assessment_id: str) -> None:
         [
             db.scalar(select(BreakthroughSelection).where(BreakthroughSelection.assessment_id == assessment_id)),
             db.scalar(select(DirectionExpansion).where(DirectionExpansion.assessment_id == assessment_id)),
+            db.scalar(select(DirectionSelection).where(DirectionSelection.assessment_id == assessment_id)),
             db.scalar(select(CompetitivenessAnalysis).where(CompetitivenessAnalysis.assessment_id == assessment_id)),
             db.scalar(select(EndgameAnalysis).where(EndgameAnalysis.assessment_id == assessment_id)),
             db.scalar(

@@ -62,7 +62,7 @@ const initialForm: AssessmentCreateRequest = {
 
 const initialProgress: AssessmentProgress = {
   has_profile: false, has_canvas: false, has_breakthrough: false,
-  has_directions: false, has_competitiveness: false, has_scenarios: false,
+  has_directions: false, has_competitiveness: false, has_endgame: false, has_scenarios: false,
   has_cases: false, has_report: false, ready_for_report: false,
 };
 
@@ -181,6 +181,8 @@ export function AssessmentWorkbench({
       setSelectedBreakthroughKeys(detail.breakthrough_selection);
     } else { setSelectedBreakthroughKeys([]); }
     setScenarioRecommendation(detail.scenario_recommendation);
+    setCompetitivenessData(detail.competitiveness);
+    setEndgameData(detail.endgame);
     setProgress(detail.progress);
   }
 
@@ -506,8 +508,8 @@ export function AssessmentWorkbench({
               <StepItem title="企业画像" status={progress.has_profile ? "done" : assessment ? "current" : "pending"} description={companyProfile ? `画像已存在，模式：${profileMode ?? "mock"}` : "尚未生成企业画像。"} />
               <StepItem title="商业画布诊断" status={progress.has_canvas ? "done" : progress.has_profile ? "current" : "pending"} description={canvasDiagnosis ? `已生成 9 格诊断，总体分：${canvasDiagnosis.overall_score}` : "尚未生成商业画布。"} />
               <StepItem title="突破要素选择" status={progress.has_breakthrough ? "done" : progress.has_canvas ? "current" : "pending"} description={breakthroughSelection ? `已选择 ${breakthroughSelection.selected_elements.length} 个要素` : "尚未选择突破要素。"} />
-              <StepItem title="场景推荐" status={progress.has_scenarios ? "done" : progress.has_breakthrough ? "current" : "pending"} description={scenarioRecommendation ? `已生成 Top 3，评分方法：${scenarioRecommendation.scoring_method}` : "尚未生成 AI 场景推荐。"} />
-              <StepItem title="报告草稿" status={progress.ready_for_report ? "current" : "pending"} description={progress.ready_for_report ? "上下文已齐备，可以进入报告草稿页。" : "需补齐画像、画布、突破要素和场景推荐后才可进入。"} />
+              <StepItem title="场景推荐" status={progress.has_scenarios ? "done" : progress.has_directions ? "current" : "pending"} description={scenarioRecommendation ? `已生成 Top 3，评分方法：${scenarioRecommendation.scoring_method}` : "尚未生成 AI 场景推荐。"} />
+              <StepItem title="报告草稿" status={progress.ready_for_report ? "current" : "pending"} description={progress.ready_for_report ? "上下文已齐备，可以进入报告草稿页。" : "需补齐画像、画布、方向、场景、竞争力和终局后才可进入。"} />
             </div>
           </div>
 
@@ -599,7 +601,11 @@ export function AssessmentWorkbench({
       */}
 
       {scenarioRecommendation && assessment ? (
-        <ScenarioRecommendationsPanel assessmentId={assessment.id} readyForReport={progress.ready_for_report} scenarioRecommendation={scenarioRecommendation} />
+        <ScenarioRecommendationsPanel
+          assessmentId={assessment.id}
+          readyForReport={!progress.has_competitiveness}
+          scenarioRecommendation={scenarioRecommendation}
+        />
       ) : (
         <EmptyCard title="Top 3 AI 场景推荐" text="尚未生成场景推荐。商业画布完成后可开始生成；若历史结果已存在，刷新页面会自动回看。" />
       )}
@@ -650,6 +656,7 @@ function countPrefillFields(prefill: AssessmentPrefillDraft): number {
 function computeProgress(opts: {
   hasAssessment: boolean; hasProfile: boolean; hasCanvas: boolean;
   hasBreakthrough?: boolean; hasDirections?: boolean; hasCompetitiveness?: boolean;
+  hasEndgame?: boolean;
   hasScenarios: boolean; hasCases?: boolean; hasReport?: boolean;
 }): AssessmentProgress {
   return {
@@ -658,10 +665,19 @@ function computeProgress(opts: {
     has_breakthrough: opts.hasAssessment && (opts.hasBreakthrough ?? false),
     has_directions: opts.hasAssessment && (opts.hasDirections ?? false),
     has_competitiveness: opts.hasAssessment && (opts.hasCompetitiveness ?? false),
+    has_endgame: opts.hasAssessment && (opts.hasEndgame ?? false),
     has_scenarios: opts.hasAssessment && opts.hasScenarios,
     has_cases: opts.hasAssessment && (opts.hasCases ?? false),
     has_report: opts.hasAssessment && (opts.hasReport ?? false),
-    ready_for_report: opts.hasAssessment && opts.hasProfile && opts.hasCanvas && (opts.hasBreakthrough ?? false) && opts.hasScenarios,
+    ready_for_report:
+      opts.hasAssessment &&
+      opts.hasProfile &&
+      opts.hasCanvas &&
+      (opts.hasBreakthrough ?? false) &&
+      (opts.hasDirections ?? false) &&
+      opts.hasScenarios &&
+      (opts.hasCompetitiveness ?? false) &&
+      (opts.hasEndgame ?? false),
   };
 }
 

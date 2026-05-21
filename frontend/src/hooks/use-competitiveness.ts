@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { generateCompetitiveness, getCompetitiveness } from "@/lib/api";
+import {
+  generateCompetitiveness,
+  getCompetitiveness,
+  updateCompetitiveness,
+} from "@/lib/api";
+import type { UpdateCompetitivenessPayload } from "@/lib/types";
 import { assessmentKeys } from "./use-assessment";
 
 /**
@@ -29,6 +34,31 @@ export function useGenerateCompetitiveness() {
       });
       queryClient.invalidateQueries({
         queryKey: assessmentKeys.competitiveness(assessmentId),
+      });
+    },
+  });
+}
+
+export function useUpdateCompetitiveness() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      assessmentId,
+      payload,
+    }: {
+      assessmentId: string;
+      payload: UpdateCompetitivenessPayload;
+    }) => updateCompetitiveness(assessmentId, payload),
+    onSuccess: (_data, { assessmentId }) => {
+      queryClient.invalidateQueries({
+        queryKey: assessmentKeys.detail(assessmentId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: assessmentKeys.competitiveness(assessmentId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: assessmentKeys.endgame(assessmentId),
       });
     },
   });

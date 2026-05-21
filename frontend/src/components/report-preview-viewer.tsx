@@ -74,7 +74,7 @@ export function ReportPreviewViewer({ assessmentId }: { assessmentId: string }) 
             <p className="section-label">报告生成</p>
             <h2 className="section-heading">报告生成页</h2>
             <p className="mt-2 max-w-3xl text-sm leading-7 text-warm-secondary">
-              当前页面会基于已完成的企业画像、商业画布和 AI 场景推荐生成统一的结构化报告。
+              当前页面会基于完整串行链路结果生成统一报告，包括方向确认、场景推荐、竞争力分析和商业终局。
             </p>
           </div>
           <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-6 py-4 text-sm text-amber-800">
@@ -91,11 +91,14 @@ export function ReportPreviewViewer({ assessmentId }: { assessmentId: string }) 
           <div className="mt-6 space-y-3 text-sm">
             <StatusRow label="企业画像" ready={detail.progress.has_profile} text={profile ? "已生成，可直接纳入报告。" : "尚未生成，当前无法进入报告。"} />
             <StatusRow label="商业画布诊断" ready={detail.progress.has_canvas} text={canvas ? `已生成，整体评分 ${canvas.overall_score}。` : "尚未生成，当前无法进入报告。"} />
+            <StatusRow label="创新方向确认" ready={detail.progress.has_directions} text={detail.progress.has_directions ? "已确认，可作为后续推导依据。" : "尚未确认，当前无法进入报告。"} />
             <StatusRow label="AI 场景推荐" ready={detail.progress.has_scenarios} text={scenarios ? `已生成 Top ${scenarios.top_scenarios.length} 推荐。` : "尚未生成，当前无法进入报告。"} />
+            <StatusRow label="差异化竞争力" ready={detail.progress.has_competitiveness} text={detail.progress.has_competitiveness ? "已生成，将直接进入报告结论。" : "尚未生成，当前无法进入报告。"} />
+            <StatusRow label="商业终局设计" ready={detail.progress.has_endgame} text={detail.progress.has_endgame ? "已生成，可进入最终报告。" : "尚未生成，当前无法进入报告。"} />
             <StatusRow label="已有报告" ready={detail.progress.has_report} text={existingReport ? `已存在报告：${existingReport.title}` : "尚未生成报告。"} />
           </div>
           {!detail.progress.ready_for_report ? (
-            <div className="mt-6 rounded-xl msg-warning p-6 text-sm leading-7">还不能生成报告。请先完成企业画像、商业画布和 AI 场景推荐。</div>
+            <div className="mt-6 rounded-xl msg-warning p-6 text-sm leading-7">还不能生成报告。请先按顺序完成企业画像、商业画布、方向确认、场景推荐、竞争力分析和商业终局。</div>
           ) : null}
         </div>
 
@@ -159,7 +162,7 @@ function StatusRow({ label, ready, text }: { label: string; ready: boolean; text
 
 function formatReportError(error: unknown, reportMode: "template" | "llm"): string {
   if (error instanceof ApiError) {
-    if (error.status === 400) return "报告前置步骤未完成。请先在 Assessment 工作台依次生成企业画像、商业画布和 AI 场景推荐，再回来生成报告。";
+    if (error.status === 400) return "报告前置步骤未完成。请先在 Assessment 工作台依次完成企业画像、商业画布、方向确认、场景推荐、竞争力分析和商业终局，再回来生成报告。";
     if (error.status >= 500) return "报告生成时后端发生异常。请稍后重试；如果问题持续存在，请检查后端日志与报告配置。";
     return error.message;
   }

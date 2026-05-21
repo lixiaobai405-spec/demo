@@ -191,6 +191,7 @@ export function AssessmentWorkspace({
           hasBreakthrough: false,
           hasDirections: false,
           hasCompetitiveness: false,
+          hasEndgame: false,
           hasScenarios: false,
           hasReport: false,
         }),
@@ -233,6 +234,7 @@ export function AssessmentWorkspace({
           hasBreakthrough: false,
           hasDirections: false,
           hasCompetitiveness: false,
+          hasEndgame: false,
           hasScenarios: false,
           hasReport: false,
         }),
@@ -277,8 +279,9 @@ export function AssessmentWorkspace({
           hasProfile: progress.has_profile,
           hasCanvas: progress.has_canvas,
           hasBreakthrough: progress.has_breakthrough,
-          hasDirections: true,
+          hasDirections: false,
           hasCompetitiveness: false,
+          hasEndgame: false,
           hasScenarios: false,
           hasReport: false,
         }),
@@ -316,6 +319,7 @@ export function AssessmentWorkspace({
           hasBreakthrough: progress.has_breakthrough,
           hasDirections: true,
           hasCompetitiveness: false,
+          hasEndgame: false,
           hasScenarios: false,
           hasReport: false,
         }),
@@ -355,6 +359,7 @@ export function AssessmentWorkspace({
           hasBreakthrough: progress.has_breakthrough,
           hasDirections: progress.has_directions,
           hasCompetitiveness: false,
+          hasEndgame: false,
           hasScenarios: true,
           hasReport: false,
         }),
@@ -393,6 +398,7 @@ export function AssessmentWorkspace({
           hasBreakthrough: progress.has_breakthrough,
           hasDirections: progress.has_directions,
           hasCompetitiveness: true,
+          hasEndgame: false,
           hasScenarios: progress.has_scenarios,
           hasReport: false,
         }),
@@ -422,6 +428,19 @@ export function AssessmentWorkspace({
       );
 
       store.setEndgameData(result);
+      setProgress((prev) =>
+        computeProgress({
+          hasAssessment: true,
+          hasProfile: progress.has_profile,
+          hasCanvas: progress.has_canvas,
+          hasBreakthrough: progress.has_breakthrough,
+          hasDirections: progress.has_directions,
+          hasCompetitiveness: progress.has_competitiveness,
+          hasEndgame: true,
+          hasScenarios: progress.has_scenarios,
+          hasReport: false,
+        }),
+      );
       toast({ title: "商业终局设计已生成" });
       new BroadcastChannel("ai-chat-context").postMessage({
         type: "context-updated",

@@ -4,6 +4,8 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.direction import DirectionExpansionResult, DirectionSelectionResponse
+from app.schemas.competitiveness import CompetitivenessResponse
+from app.schemas.endgame import EndgameResponse
 
 
 class AssessmentCardItem(BaseModel):
@@ -303,6 +305,7 @@ class AssessmentProgress(BaseModel):
     has_breakthrough: bool
     has_directions: bool
     has_competitiveness: bool
+    has_endgame: bool
     has_scenarios: bool
     has_cases: bool
     has_report: bool
@@ -317,6 +320,8 @@ class AssessmentDetailResponse(BaseModel):
     direction_expansion: DirectionExpansionResult | None = None
     direction_selection: DirectionSelectionResponse | None = None
     scenario_recommendation: ScenarioRecommendationResult | None
+    competitiveness: CompetitivenessResponse | None = None
+    endgame: EndgameResponse | None = None
     case_recommendation: CaseRecommendationResult | None
     generated_report: ReportSummaryResponse | None
     progress: AssessmentProgress

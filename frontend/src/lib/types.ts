@@ -230,6 +230,7 @@ export type AssessmentProgress = {
   has_breakthrough: boolean;
   has_directions: boolean;
   has_competitiveness: boolean;
+  has_endgame: boolean;
   has_scenarios: boolean;
   has_cases?: boolean;
   has_report: boolean;
@@ -244,6 +245,8 @@ export type AssessmentDetailResponse = {
   direction_expansion: DirectionExpansionResult | null;
   direction_selection: DirectionSelectionResponse | null;
   scenario_recommendation: ScenarioRecommendationResult | null;
+  competitiveness: CompetitivenessResponse | null;
+  endgame: EndgameResponse | null;
   case_recommendation: CaseRecommendationResult | null;
   generated_report: ReportSummaryResponse | null;
   progress: AssessmentProgress;
@@ -445,7 +448,7 @@ export type DeliveryStrategy = {
 };
 
 export type CompetitivenessResult = {
-  generation_mode: "rule_based";
+  generation_mode: "rule_based" | "llm" | "manual_edit";
   vp_reconstruction: VPReconstruction;
   connections: PointToLineConnection[];
   advantages: CoreAdvantage[];
@@ -552,7 +555,7 @@ export type StrategicPath = {
 };
 
 export type EndgameResult = {
-  generation_mode: "rule_based" | "llm";
+  generation_mode: "rule_based" | "llm" | "manual_edit";
   industry_essence: string;
   private_domain: PrivateDomainDesign;
   ecosystem: EcosystemDesign;
@@ -567,6 +570,18 @@ export type EndgameResponse = {
   result: EndgameResult;
   created_at: string | null;
   updated_at: string | null;
+};
+
+export type UpdateCompetitivenessPayload = Omit<
+  CompetitivenessResult,
+  "generation_mode"
+>;
+
+export type UpdateEndgamePayload = Omit<
+  EndgameResult,
+  "generation_mode" | "industry_essence"
+> & {
+  industry_essence?: string;
 };
 
 export type QualityFlag = {

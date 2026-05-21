@@ -77,6 +77,8 @@ export function ScenariosPageContent({
   const companyName = detail.assessment.company_name;
   const industry = detail.assessment.industry;
   const scenarios = detail.scenario_recommendation;
+  const canGenerateCompetitiveness =
+    Boolean(scenarios) && !detail.progress.has_competitiveness;
 
   return (
     <main className="min-h-screen px-6 py-10">
@@ -119,7 +121,7 @@ export function ScenariosPageContent({
               assessmentId={assessmentId}
             />
             {/* Next step */}
-            {detail.progress.ready_for_report && (
+            {canGenerateCompetitiveness && (
               <section className="card mt-8">
                 <p className="section-label">下一步</p>
                 <h2 className="section-heading">差异化竞争力分析</h2>

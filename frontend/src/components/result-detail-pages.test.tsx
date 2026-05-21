@@ -1,5 +1,6 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Mock } from "vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -46,6 +47,8 @@ vi.mock("@/hooks", () => ({
   useCompetitiveness: (...args: unknown[]) => useCompetitivenessMock(...args),
   useGenerateCompetitiveness: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useGenerateEndgame: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateCompetitiveness: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateEndgame: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 /**
@@ -93,6 +96,8 @@ function buildDetail() {
       created_at: null,
       updated_at: null,
     },
+    competitiveness: buildCompetitiveness(),
+    endgame: null,
     case_recommendation: null,
     generated_report: null,
     progress: {
@@ -101,9 +106,10 @@ function buildDetail() {
       has_breakthrough: true,
       has_directions: true,
       has_competitiveness: true,
+      has_endgame: false,
       has_scenarios: true,
       has_report: false,
-      ready_for_report: true,
+      ready_for_report: false,
     },
   };
 }
@@ -153,6 +159,20 @@ function buildCompetitiveness() {
   };
 }
 
+function renderWithQueryClient(node: React.ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+
+  return render(
+    <QueryClientProvider client={queryClient}>{node}</QueryClientProvider>,
+  );
+}
+
 describe("result detail page content", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -167,13 +187,15 @@ describe("result detail page content", () => {
       refetch: vi.fn(),
     });
 
-    render(<ScenariosPageContent assessmentId="assessment-1" />);
+    renderWithQueryClient(
+      <ScenariosPageContent assessmentId="assessment-1" />,
+    );
 
     expect(screen.getByText("测试企业 AI 场景推荐")).toBeInTheDocument();
     expect(screen.getAllByText("门店知识助手").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("renders the competitiveness page with client-fetched queries", () => {
+  it("renders the competitiveness page with client-fetched detail data", () => {
     (useAssessmentDetailMock as Mock).mockReturnValue({
       isLoading: false,
       isError: false,
@@ -181,15 +203,10 @@ describe("result detail page content", () => {
       error: null,
       refetch: vi.fn(),
     });
-    (useCompetitivenessMock as Mock).mockReturnValue({
-      isLoading: false,
-      isError: false,
-      data: buildCompetitiveness(),
-      error: null,
-      refetch: vi.fn(),
-    });
 
-    render(<CompetitivenessPageContent assessmentId="assessment-1" />);
+    renderWithQueryClient(
+      <CompetitivenessPageContent assessmentId="assessment-1" />,
+    );
 
     expect(screen.getByText("测试企业 差异化竞争力分析")).toBeInTheDocument();
     expect(screen.getByText("竞争力方向清晰。")).toBeInTheDocument();

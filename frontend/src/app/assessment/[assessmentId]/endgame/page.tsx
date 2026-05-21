@@ -1,13 +1,17 @@
 "use client";
 
-import { use } from "react";
+import { use, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { useAssessmentDetail, useEndgame } from "@/hooks";
+import { useAssessmentDetail, useUpdateEndgame } from "@/hooks";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EndgamePanel } from "@/components/endgame-panel";
+import { GeneratedJsonEditor } from "@/components/generated-json-editor";
+import { toast } from "@/hooks/use-toast";
+import { formatMutationError } from "@/lib/api";
+import type { UpdateEndgamePayload } from "@/lib/types";
 
 export default function EndgamePage({
   params,
@@ -17,12 +21,31 @@ export default function EndgamePage({
   const { assessmentId } = use(params);
   const router = useRouter();
   const detailQuery = useAssessmentDetail(assessmentId);
-  const endgameQuery = useEndgame(assessmentId);
+  const updateEndgame = useUpdateEndgame();
 
-  const isLoading = detailQuery.isLoading || endgameQuery.isLoading;
+  const handleSaveEndgame = useCallback(
+    async (payload: unknown) => {
+      try {
+        await updateEndgame.mutateAsync({
+          assessmentId,
+          payload: payload as UpdateEndgamePayload,
+        });
+        toast({
+          title: "商业终局设计已更新",
+          description: "报告已失效，请重新生成最终报告。",
+        });
+      } catch (error) {
+        toast({
+          title: "保存失败",
+          description: formatMutationError(error, "商业终局设计保存"),
+          variant: "destructive",
+        });
+      }
+    },
+    [assessmentId, updateEndgame],
+  );
 
-  // Loading
-  if (isLoading) {
+  if (detailQuery.isLoading) {
     return (
       <main className="min-h-screen px-6 py-10">
         <div className="mx-auto max-w-7xl space-y-6">
@@ -33,7 +56,6 @@ export default function EndgamePage({
     );
   }
 
-  // Error — detail query failed
   if (detailQuery.isError || !detailQuery.data) {
     return (
       <main className="min-h-screen px-6 py-10">
@@ -61,12 +83,20 @@ export default function EndgamePage({
   const detail = detailQuery.data;
   const companyName = detail.assessment.company_name;
   const industry = detail.assessment.industry;
-  const endgameData = endgameQuery.data;
+  const endgameData = detail.endgame;
+  const editableEndgame = endgameData
+    ? (({
+        generation_mode: _generationMode,
+        industry_essence: _industryEssence,
+        ...rest
+      }) => rest)(
+        endgameData.result,
+      )
+    : null;
 
   return (
     <main className="min-h-screen px-6 py-10">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-8">
-        {/* Header */}
         <section className="page-header">
           <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center gap-2">
@@ -98,37 +128,41 @@ export default function EndgamePage({
           </div>
         </section>
 
-        {/* Endgame Content */}
         {endgameData ? (
-          <EndgamePanel data={endgameData} />
+          <>
+            <EndgamePanel data={endgameData} />
+            <GeneratedJsonEditor
+              title="商业终局 JSON"
+              description="适合手动修订私域、生态、OPC、三阶段策略和多路径推演。"
+              value={editableEndgame}
+              isSaving={updateEndgame.isPending}
+              onSave={handleSaveEndgame}
+            />
+          </>
         ) : (
           <div className="card-inset">
             <p className="section-label">商业终局设计</p>
             <p className="mt-4 text-sm leading-7 text-muted-foreground">
-              尚未生成商业终局设计。请先在画布诊断、创新方向和竞争力分析之后生成终局。
+              尚未生成商业终局设计。请先完成差异化竞争力分析后再查看。
             </p>
             <Link
-              href={`/assessment/${assessmentId}`}
+              href={`/assessment/${assessmentId}/competitiveness`}
               className="inline-block mt-3 btn-primary text-xs"
             >
-              返回工作台
+              前往差异化竞争力页 →
             </Link>
           </div>
         )}
 
-        {/* Next step */}
         <section className="card">
           <p className="section-label">下一步</p>
           <h2 className="section-heading">结果仪表盘</h2>
           <p className="mt-2 text-sm leading-7 text-muted-foreground">
-            在结果仪表盘中查看所有评估产出的全景视图，包括企业画像、画布诊断、
-            场景推荐、竞争力分析和商业终局设计，并生成完整报告。
+            进入结果仪表盘查看全链路结果，并在终局完成后生成最终报告。
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Button
-              onClick={() =>
-                router.push(`/assessment/${assessmentId}/results`)
-              }
+              onClick={() => router.push(`/assessment/${assessmentId}/results`)}
             >
               查看结果仪表盘 →
             </Button>

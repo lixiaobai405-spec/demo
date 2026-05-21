@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useCallback, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { ScenarioRecommendationItem, ScenarioRecommendationResult } from "@/lib/types";
+import { assessmentKeys } from "@/hooks/use-assessment";
 
 // ── PRD 算法常量 ──────────────────────────────────────
 const QUADRANT_THRESHOLD = 3.5;
@@ -145,6 +147,7 @@ export function ScenarioQuadrantView({
   scenarioRecommendation: ScenarioRecommendationResult;
   assessmentId: string;
 }) {
+  const queryClient = useQueryClient();
   const isFullPool = scenarioRecommendation.all_scores != null && scenarioRecommendation.all_scores.length > 0;
 
   const [scenarios, setScenarios] = useState<EditableScenario[]>(() =>
@@ -228,10 +231,24 @@ export function ScenarioQuadrantView({
       setScenarios(buildDisplayScenarios(nextRecommendation));
       setHasUnsavedChanges(false);
       setSaveStatus("saved");
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: assessmentKeys.detail(assessmentId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: assessmentKeys.scenarios(assessmentId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: assessmentKeys.competitiveness(assessmentId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: assessmentKeys.endgame(assessmentId),
+        }),
+      ]);
     } catch {
       setSaveStatus("error");
     }
-  }, [assessmentId, scenarios]);
+  }, [assessmentId, queryClient, scenarios]);
 
   return (
     <div className="space-y-10">

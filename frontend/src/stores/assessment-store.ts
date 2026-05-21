@@ -109,7 +109,7 @@ export const useAssessmentStore = create<AssessmentState>((set, get) => ({
     }),
 
   resetDownstream: (fromStep) => {
-    const steps = ["profile", "canvas", "breakthrough", "directions", "competitiveness", "endgame", "scenarios"];
+    const steps = ["profile", "canvas", "breakthrough", "directions", "scenarios", "competitiveness", "endgame"];
     const fromIdx = steps.indexOf(fromStep);
     if (fromIdx === -1) return;
 
@@ -154,6 +154,7 @@ export const useAssessmentStore = create<AssessmentState>((set, get) => ({
       breakthroughData: null,
       breakthroughSelection: null,
       scenarioRecommendation: null,
+      directionData: null,
       directionSelection: null,
       competitivenessData: null,
       endgameData: null,

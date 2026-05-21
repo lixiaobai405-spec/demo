@@ -83,7 +83,7 @@ export function WorkflowSidebar({
           />
           <StepItem
             title="Top 3 AI 场景推荐"
-            status={progress.has_scenarios ? "done" : progress.has_breakthrough ? "current" : "pending"}
+            status={progress.has_scenarios ? "done" : progress.has_directions ? "current" : "pending"}
             description={
               scenarioRecommendation
                 ? `已生成 Top 3，评分方式：${scenarioRecommendation.scoring_method ?? "rule"}`
@@ -96,7 +96,7 @@ export function WorkflowSidebar({
             description={
               progress.ready_for_report
                 ? "上下文已齐备，可以进入报告生成。"
-                : "需补齐画像、画布、突破要素和场景推荐后进入。"
+                : "需补齐画像、画布、方向、场景、竞争力和终局后进入。"
             }
           />
         </div>

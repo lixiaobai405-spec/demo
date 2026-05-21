@@ -37,7 +37,7 @@ class DeliveryStrategy(BaseModel):
 
 
 class CompetitivenessResult(BaseModel):
-    generation_mode: Literal["rule_based"]
+    generation_mode: Literal["rule_based", "llm", "manual_edit"]
     vp_reconstruction: VPReconstruction
     connections: list[PointToLineConnection] = Field(default_factory=list)
     advantages: list[CoreAdvantage] = Field(default_factory=list)

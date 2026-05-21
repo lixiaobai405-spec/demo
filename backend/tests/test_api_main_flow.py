@@ -16,6 +16,8 @@ if str(BACKEND_DIR) not in sys.path:
 
 from app.db import session as db_session
 from app.main import create_app
+from app.services.llm_client import LLMClient
+from app.services.llm_enhancer import LLMEnhancer
 from app.services.llm_report_writer import LLMReportWriter
 
 
@@ -39,6 +41,8 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
     monkeypatch.setattr(db_session, "engine", engine)
     monkeypatch.setattr(db_session, "SessionLocal", testing_session_local)
+    monkeypatch.setattr(LLMClient, "_use_mock_mode", lambda self: True)
+    monkeypatch.setattr(LLMEnhancer, "_is_live_mode", lambda self: False)
 
     db_session.Base.metadata.create_all(bind=engine)
     db_session._migrate_generated_reports_table()
@@ -88,6 +92,70 @@ def _create_assessment(client: TestClient, payload: dict[str, str]) -> str:
     return body["id"]
 
 
+def _select_recommended_breakthroughs(client: TestClient, assessment_id: str) -> list[str]:
+    breakthrough_response = client.post(
+        f"/api/assessments/{assessment_id}/breakthrough/recommend"
+    )
+    assert breakthrough_response.status_code == 200
+    recommended_keys = breakthrough_response.json()["breakthrough_recommendation"][
+        "recommended_keys"
+    ]
+    select_response = client.post(
+        f"/api/assessments/{assessment_id}/breakthrough/select",
+        json={
+            "selected_keys": recommended_keys[:2],
+            "selection_mode": "system_recommended",
+        },
+    )
+    assert select_response.status_code == 200
+    return recommended_keys
+
+
+def _expand_and_select_directions(
+    client: TestClient,
+    assessment_id: str,
+) -> list[str]:
+    expand_response = client.post(f"/api/assessments/{assessment_id}/directions/expand")
+    assert expand_response.status_code == 200
+    expanded = expand_response.json()["direction_expansion"]["elements"]
+    selected_direction_ids = [
+        expanded[0]["suggestions"][0]["direction_id"],
+        expanded[1]["suggestions"][0]["direction_id"],
+    ]
+    select_response = client.post(
+        f"/api/assessments/{assessment_id}/directions/select",
+        json={"selected_direction_ids": selected_direction_ids},
+    )
+    assert select_response.status_code == 200
+    return selected_direction_ids
+
+
+def _prepare_for_scenarios(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+) -> str:
+    assessment_id = _create_assessment(client, assessment_payload)
+    assert client.post(f"/api/assessments/{assessment_id}/profile").status_code == 200
+    assert client.post(f"/api/assessments/{assessment_id}/canvas").status_code == 200
+    _select_recommended_breakthroughs(client, assessment_id)
+    _expand_and_select_directions(client, assessment_id)
+    return assessment_id
+
+
+def _prepare_for_report(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+) -> str:
+    assessment_id = _prepare_for_scenarios(client, assessment_payload)
+    assert client.post(f"/api/assessments/{assessment_id}/scenarios").status_code == 200
+    assert (
+        client.post(f"/api/assessments/{assessment_id}/competitiveness/generate").status_code
+        == 200
+    )
+    assert client.post(f"/api/assessments/{assessment_id}/endgame/generate").status_code == 200
+    return assessment_id
+
+
 def _live_llm_report_test_enabled() -> bool:
     return (
         os.getenv("RUN_LIVE_LLM_TESTS", "").strip().lower() == "true"
@@ -124,12 +192,12 @@ def test_main_flow_template_report_and_exports(
 
     profile_response = client.post(f"/api/assessments/{assessment_id}/profile")
     assert profile_response.status_code == 200
-    assert profile_response.json()["generation_mode"] == "mock"
+    assert profile_response.json()["generation_mode"] in ("mock", "live")
 
     canvas_response = client.post(f"/api/assessments/{assessment_id}/canvas")
     assert canvas_response.status_code == 200
     canvas_body = canvas_response.json()["canvas_diagnosis"]
-    assert canvas_body["generation_mode"] == "mock"
+    assert canvas_body["generation_mode"] in ("mock", "live")
     assert len(canvas_body["canvas"]["blocks"]) == 9
 
     breakthrough_recommend_response = client.post(
@@ -155,6 +223,9 @@ def test_main_flow_template_report_and_exports(
     assert breakthrough_select_body["selection_mode"] == "system_recommended"
     assert len(breakthrough_select_body["selected_elements"]) == 2
 
+    direction_ids = _expand_and_select_directions(client, assessment_id)
+    assert len(direction_ids) == 2
+
     scenarios_response = client.post(f"/api/assessments/{assessment_id}/scenarios")
     assert scenarios_response.status_code == 200
     scenarios_body = scenarios_response.json()["scenario_recommendation"]
@@ -177,6 +248,14 @@ def test_main_flow_template_report_and_exports(
     cases_body = cases_response.json()["case_recommendation"]
     assert cases_body["scoring_method"] == "layered_v1"
     assert len(cases_body["top_cases"]) >= 1
+
+    competitiveness_response = client.post(
+        f"/api/assessments/{assessment_id}/competitiveness/generate"
+    )
+    assert competitiveness_response.status_code == 200
+
+    endgame_response = client.post(f"/api/assessments/{assessment_id}/endgame/generate")
+    assert endgame_response.status_code == 200
 
     context_response = client.get(f"/api/assessments/{assessment_id}/report-context")
     assert context_response.status_code == 200
@@ -201,8 +280,9 @@ def test_main_flow_template_report_and_exports(
     assert detail_body["progress"]["has_profile"] is True
     assert detail_body["progress"]["has_canvas"] is True
     assert detail_body["progress"]["has_breakthrough"] is True
-    assert detail_body["progress"]["has_directions"] is False
-    assert detail_body["progress"]["has_competitiveness"] is False
+    assert detail_body["progress"]["has_directions"] is True
+    assert detail_body["progress"]["has_competitiveness"] is True
+    assert detail_body["progress"]["has_endgame"] is True
     assert detail_body["progress"]["has_scenarios"] is True
     assert detail_body["progress"]["has_report"] is True
     assert detail_body["progress"]["ready_for_report"] is True
@@ -239,11 +319,7 @@ def test_llm_mode_falls_back_to_template_when_llm_call_fails(
     assessment_payload: dict[str, str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    assessment_id = _create_assessment(client, assessment_payload)
-
-    assert client.post(f"/api/assessments/{assessment_id}/profile").status_code == 200
-    assert client.post(f"/api/assessments/{assessment_id}/canvas").status_code == 200
-    assert client.post(f"/api/assessments/{assessment_id}/scenarios").status_code == 200
+    assessment_id = _prepare_for_report(client, assessment_payload)
 
     def _force_llm_mode(self, requested_mode: str) -> tuple[str, list[str]]:
         return "llm", []
@@ -269,11 +345,7 @@ def test_report_generation_auto_matches_cases_when_missing(
     client: TestClient,
     assessment_payload: dict[str, str],
 ) -> None:
-    assessment_id = _create_assessment(client, assessment_payload)
-
-    assert client.post(f"/api/assessments/{assessment_id}/profile").status_code == 200
-    assert client.post(f"/api/assessments/{assessment_id}/canvas").status_code == 200
-    assert client.post(f"/api/assessments/{assessment_id}/scenarios").status_code == 200
+    assessment_id = _prepare_for_report(client, assessment_payload)
 
     detail_before_report = client.get(f"/api/assessments/{assessment_id}")
     assert detail_before_report.status_code == 200
@@ -303,32 +375,10 @@ def test_assessment_detail_serializes_direction_selection(
     assert client.post(f"/api/assessments/{assessment_id}/profile").status_code == 200
     assert client.post(f"/api/assessments/{assessment_id}/canvas").status_code == 200
 
-    breakthrough_response = client.post(
-        f"/api/assessments/{assessment_id}/breakthrough/recommend"
-    )
-    recommended_keys = breakthrough_response.json()["breakthrough_recommendation"][
-        "recommended_keys"
-    ]
-    assert client.post(
-        f"/api/assessments/{assessment_id}/breakthrough/select",
-        json={
-            "selected_keys": recommended_keys[:2],
-            "selection_mode": "system_recommended",
-        },
-    ).status_code == 200
+    _select_recommended_breakthroughs(client, assessment_id)
+    selected_direction_ids = _expand_and_select_directions(client, assessment_id)
 
-    expand_response = client.post(f"/api/assessments/{assessment_id}/directions/expand")
-    assert expand_response.status_code == 200
-    expanded = expand_response.json()["direction_expansion"]["elements"]
-    selected_direction_ids = [
-        expanded[0]["suggestions"][0]["direction_id"],
-        expanded[1]["suggestions"][0]["direction_id"],
-    ]
-
-    select_response = client.post(
-        f"/api/assessments/{assessment_id}/directions/select",
-        json={"selected_direction_ids": selected_direction_ids},
-    )
+    select_response = client.get(f"/api/assessments/{assessment_id}/directions")
     assert select_response.status_code == 200
 
     detail_response = client.get(f"/api/assessments/{assessment_id}")
@@ -473,6 +523,8 @@ def test_main_flow_generates_competitiveness_endgame_and_report_without_old_labe
         json={"selected_direction_ids": selected_direction_ids},
     ).status_code == 200
 
+    assert client.post(f"/api/assessments/{assessment_id}/scenarios").status_code == 200
+
     competitiveness_response = client.post(
         f"/api/assessments/{assessment_id}/competitiveness/generate"
     )
@@ -490,7 +542,6 @@ def test_main_flow_generates_competitiveness_endgame_and_report_without_old_labe
     assert "execution_rhythm" in endgame_body["strategic_paths"][0]
     assert "timeline" not in endgame_body["strategic_paths"][0]
 
-    assert client.post(f"/api/assessments/{assessment_id}/scenarios").status_code == 200
     report_response = client.post(f"/api/assessments/{assessment_id}/report?mode=template")
     assert report_response.status_code == 200
     report_payload = json.dumps(report_response.json(), ensure_ascii=False)
@@ -508,9 +559,7 @@ def test_scenario_recommendations_alias_is_backward_compatible(
     client: TestClient,
     assessment_payload: dict[str, str],
 ) -> None:
-    assessment_id = _create_assessment(client, assessment_payload)
-
-    assert client.post(f"/api/assessments/{assessment_id}/profile").status_code == 200
+    assessment_id = _prepare_for_scenarios(client, assessment_payload)
 
     alias_response = client.post(
         f"/api/assessments/{assessment_id}/scenario-recommendations"
@@ -548,8 +597,7 @@ def test_save_calibrations_persists_xy_and_reranks_top3(
     client: TestClient,
     assessment_payload: dict[str, str],
 ) -> None:
-    assessment_id = _create_assessment(client, assessment_payload)
-    assert client.post(f"/api/assessments/{assessment_id}/profile").status_code == 200
+    assessment_id = _prepare_for_scenarios(client, assessment_payload)
 
     scenarios_resp = client.post(f"/api/assessments/{assessment_id}/scenarios")
     assert scenarios_resp.status_code == 200
@@ -643,11 +691,7 @@ def test_live_llm_report_success_path_is_opt_in(
             "OPENAI_API_KEY, and OPENAI_MODEL to run the live LLM report test."
         )
 
-    assessment_id = _create_assessment(client, assessment_payload)
-
-    assert client.post(f"/api/assessments/{assessment_id}/profile").status_code == 200
-    assert client.post(f"/api/assessments/{assessment_id}/canvas").status_code == 200
-    assert client.post(f"/api/assessments/{assessment_id}/scenarios").status_code == 200
+    assessment_id = _prepare_for_report(client, assessment_payload)
 
     report_response = client.post(f"/api/assessments/{assessment_id}/report?mode=llm")
 

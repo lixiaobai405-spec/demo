@@ -1,17 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useAuth } from "@/providers/auth-provider";
+import { useRouter, useSearchParams } from "next/navigation";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/providers/auth-provider";
 
 type Role = "student" | "teacher";
 
-export default function LoginPage() {
+function LoginPageContent() {
   const { login, isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -26,26 +27,31 @@ export default function LoginPage() {
     if (!authLoading && isAuthenticated) {
       router.replace(redirect);
     }
-  }, [authLoading, isAuthenticated, router, redirect]);
+  }, [authLoading, isAuthenticated, redirect, router]);
 
   function handleForgotPassword() {
     toast({
       title: "忘记密码",
-      description: "请联系使用咨询协助重置密码",
+      description: "请联系使用咨询协助重置密码。",
     });
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
     if (!password) return;
+
     setSubmitting(true);
     try {
       const loginEmail = role === "teacher" ? "teacher" : email.trim();
       if (role === "student" && !loginEmail) return;
       await login(loginEmail, password);
-      // useEffect above handles redirect when isAuthenticated becomes true
-    } catch (err) {
-      toast({ title: "登录失败", description: err instanceof Error ? err.message : "请检查账户和密码", variant: "destructive" });
+    } catch (error) {
+      toast({
+        title: "登录失败",
+        description:
+          error instanceof Error ? error.message : "请检查账户和密码",
+        variant: "destructive",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -56,7 +62,7 @@ export default function LoginPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-warm-accent border-t-transparent" />
-          <p className="text-sm text-muted-foreground">验证登录状态...</p>
+          <p className="text-sm text-muted-foreground">验证登录状态中...</p>
         </div>
       </div>
     );
@@ -66,15 +72,22 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="page-header text-center mb-6">
-          <h1 className="font-heading text-2xl font-bold text-warm-text">登录</h1>
-          <p className="mt-2 text-sm text-muted-foreground">美太 AI 商业创新智能体</p>
+          <h1 className="font-heading text-2xl font-bold text-warm-text">
+            登录
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            美态 AI 商业创新智能体
+          </p>
         </div>
 
-        {/* 角色切换 Tab */}
         <div className="flex gap-1 mb-6 p-1 bg-muted rounded-lg">
           <button
             type="button"
-            onClick={() => { setRole("student"); setEmail(""); setPassword(""); }}
+            onClick={() => {
+              setRole("student");
+              setEmail("");
+              setPassword("");
+            }}
             className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
               role === "student"
                 ? "bg-background text-warm-text shadow-sm"
@@ -85,7 +98,10 @@ export default function LoginPage() {
           </button>
           <button
             type="button"
-            onClick={() => { setRole("teacher"); setPassword(""); }}
+            onClick={() => {
+              setRole("teacher");
+              setPassword("");
+            }}
             className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
               role === "teacher"
                 ? "bg-background text-warm-text shadow-sm"
@@ -104,7 +120,7 @@ export default function LoginPage() {
                 <Input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(event) => setEmail(event.target.value)}
                   placeholder="your@email.com"
                   required
                   autoFocus
@@ -116,7 +132,7 @@ export default function LoginPage() {
                 <Input
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(event) => setPassword(event.target.value)}
                   placeholder="输入密码"
                   required
                   minLength={6}
@@ -128,10 +144,14 @@ export default function LoginPage() {
               </Button>
 
               <p className="text-center text-sm text-muted-foreground">
-                <button type="button" onClick={handleForgotPassword} className="hover:underline">
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="hover:underline"
+                >
                   忘记密码？
-                </button>
-                {" "}还没有账号？{" "}
+                </button>{" "}
+                还没有账户？{" "}
                 <Link href="/register" className="text-primary hover:underline">
                   去注册
                 </Link>
@@ -153,7 +173,7 @@ export default function LoginPage() {
                 <Input
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(event) => setPassword(event.target.value)}
                   placeholder="输入讲师密码"
                   required
                   autoFocus
@@ -167,19 +187,22 @@ export default function LoginPage() {
           )}
         </form>
 
-        {/* 二维码帮助区 */}
         <section className="mt-6 rounded-2xl border border-warm-border bg-warm-surface p-4">
-          <p className="text-center text-sm font-medium text-warm-text">需要帮助？</p>
+          <p className="text-center text-sm font-medium text-warm-text">
+            需要帮助？
+          </p>
           <div className="mt-4 grid grid-cols-2 gap-4">
             <div className="text-center">
               <Image
                 src="/qrcodes/meitai-consulting-official-account.jpg"
-                alt="美太咨询公众号"
+                alt="美态咨询公众号"
                 width={144}
                 height={144}
                 className="mx-auto rounded-lg"
               />
-              <p className="mt-2 text-xs text-muted-foreground">美太咨询公众号</p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                美态咨询公众号
+              </p>
             </div>
             <div className="text-center">
               <Image
@@ -195,11 +218,33 @@ export default function LoginPage() {
         </section>
 
         <p className="mt-6 text-center">
-          <Link href="/" className="text-sm text-muted-foreground hover:text-warm-text transition-colors">
+          <Link
+            href="/"
+            className="text-sm text-muted-foreground hover:text-warm-text transition-colors"
+          >
             返回首页
           </Link>
         </p>
       </div>
     </div>
+  );
+}
+
+function LoginPageFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center px-4">
+      <div className="w-full max-w-md text-center space-y-4">
+        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-warm-accent border-t-transparent" />
+        <p className="text-sm text-muted-foreground">登录页加载中...</p>
+      </div>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginPageFallback />}>
+      <LoginPageContent />
+    </Suspense>
   );
 }

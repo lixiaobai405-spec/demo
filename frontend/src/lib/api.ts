@@ -11,6 +11,7 @@ import type {
   BreakthroughSelectionRequest,
   BreakthroughSelectionResponse,
   CompetitivenessResponse,
+  UpdateCompetitivenessPayload,
   DirectionSelectionRequest,
   DirectionSelectionResponse,
   IntakeCreateAssessmentRequest,
@@ -22,6 +23,7 @@ import type {
   ReportDocumentResponse,
   ReportEnrichmentResult,
   EndgameResponse,
+  UpdateEndgamePayload,
   OverallQualityReport,
   FollowUpPlan,
   FollowUpTaskItem,
@@ -445,6 +447,16 @@ export function getCompetitiveness(
   );
 }
 
+export function updateCompetitiveness(
+  assessmentId: string,
+  payload: UpdateCompetitivenessPayload,
+): Promise<CompetitivenessResponse> {
+  return request<CompetitivenessResponse>(
+    `/api/assessments/${assessmentId}/competitiveness`,
+    { method: "PUT", body: JSON.stringify(payload) },
+  );
+}
+
 export function getReportEnrichment(
   reportId: string,
 ): Promise<ReportEnrichmentResult> {
@@ -480,6 +492,16 @@ export function getEndgame(
 ): Promise<EndgameResponse> {
   return request<EndgameResponse>(
     `/api/assessments/${assessmentId}/endgame`,
+  );
+}
+
+export function updateEndgame(
+  assessmentId: string,
+  payload: UpdateEndgamePayload,
+): Promise<EndgameResponse> {
+  return request<EndgameResponse>(
+    `/api/assessments/${assessmentId}/endgame`,
+    { method: "PUT", body: JSON.stringify(payload) },
   );
 }
 

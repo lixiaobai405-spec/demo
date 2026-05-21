@@ -4,12 +4,18 @@ import React, { useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { useAssessmentDetail, useCompetitiveness, useGenerateEndgame } from "@/hooks";
+import {
+  useAssessmentDetail,
+  useGenerateEndgame,
+  useUpdateCompetitiveness,
+} from "@/hooks";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CompetitivenessPanel } from "@/components/competitiveness-panel";
+import { GeneratedJsonEditor } from "@/components/generated-json-editor";
 import { toast } from "@/hooks/use-toast";
 import { formatMutationError } from "@/lib/api";
+import type { UpdateCompetitivenessPayload } from "@/lib/types";
 
 /**
  * 在客户端加载差异化竞争力详情，避免服务端请求拿不到本地登录态。
@@ -21,9 +27,9 @@ export function CompetitivenessPageContent({
 }) {
   const router = useRouter();
   const detailQuery = useAssessmentDetail(assessmentId);
-  const competitivenessQuery = useCompetitiveness(assessmentId);
   const generateEndgame = useGenerateEndgame();
-  const isLoading = detailQuery.isLoading || competitivenessQuery.isLoading;
+  const updateCompetitiveness = useUpdateCompetitiveness();
+  const isLoading = detailQuery.isLoading;
 
   const handleGenerateEndgame = useCallback(async () => {
     try {
@@ -38,6 +44,28 @@ export function CompetitivenessPageContent({
       });
     }
   }, [assessmentId, generateEndgame, router]);
+
+  const handleSaveCompetitiveness = useCallback(
+    async (payload: unknown) => {
+      try {
+        await updateCompetitiveness.mutateAsync({
+          assessmentId,
+          payload: payload as UpdateCompetitivenessPayload,
+        });
+        toast({
+          title: "差异化竞争力分析已更新",
+          description: "下游终局与报告已失效，请按顺序重新生成。",
+        });
+      } catch (error) {
+        toast({
+          title: "保存失败",
+          description: formatMutationError(error, "差异化竞争力保存"),
+          variant: "destructive",
+        });
+      }
+    },
+    [assessmentId, updateCompetitiveness],
+  );
 
   if (isLoading) {
     return (
@@ -74,34 +102,15 @@ export function CompetitivenessPageContent({
     );
   }
 
-  if (competitivenessQuery.isError) {
-    return (
-      <main className="min-h-screen px-6 py-10">
-        <div className="mx-auto max-w-7xl">
-          <div className="space-y-4 rounded-xl msg-error p-6 text-sm">
-            <p className="font-medium">加载失败</p>
-            <p>
-              {competitivenessQuery.error instanceof Error
-                ? competitivenessQuery.error.message
-                : "无法加载差异化竞争力分析。"}
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => competitivenessQuery.refetch()}
-            >
-              重试
-            </Button>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
   const detail = detailQuery.data;
   const companyName = detail.assessment.company_name;
   const industry = detail.assessment.industry;
-  const competitiveness = competitivenessQuery.data;
+  const competitiveness = detail.competitiveness;
+  const editableCompetitiveness = competitiveness
+    ? (({ generation_mode: _generationMode, ...rest }) => rest)(
+        competitiveness.result,
+      )
+    : null;
 
   return (
     <main className="min-h-screen px-6 py-10">
@@ -145,6 +154,13 @@ export function CompetitivenessPageContent({
               topScenarioNames={(detail.scenario_recommendation?.top_scenarios ?? [])
                 .slice(0, 3)
                 .map((item) => item.name)}
+            />
+            <GeneratedJsonEditor
+              title="差异化竞争力 JSON"
+              description="适合手动修订系统方案命名、VP 重构、竞争力线路、核心优势和三阶段路径。"
+              value={editableCompetitiveness}
+              isSaving={updateCompetitiveness.isPending}
+              onSave={handleSaveCompetitiveness}
             />
             {/* Next step */}
             <section className="card">

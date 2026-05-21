@@ -227,8 +227,8 @@ def test_build_endgame_result_from_record_rehydrates_three_stage_strategy() -> N
     assert result.three_stage_strategy.key_risks == ["组织协同不足"]
 
 
-def test_build_competitiveness_result_from_record_normalizes_legacy_summary() -> None:
-    """确认读取旧版竞争力结果时，会兼容成纯一句话摘要。"""
+def test_build_competitiveness_result_from_record_preserves_existing_summary_fields() -> None:
+    """确认读取旧版竞争力结果时，会保留已有叙事字段，仅在缺省时回填。"""
     record = SimpleNamespace(
         generation_mode="rule_based",
         vp_json=json.dumps(
@@ -281,8 +281,7 @@ def test_build_competitiveness_result_from_record_normalizes_legacy_summary() ->
     result = _build_competitiveness_result_from_record(record)
 
     assert result.connections[0].strategic_narrative == (
-        "形成从客户洞察到快速响应的协同闭环，"
-        "缩短从需求识别到价值交付的周期，提升客户满意度和复购率。"
+        "将客户健康度评分串联为客户响应速度线，这不仅是单点提效。"
     )
     assert result.connections[0].linkage_logic == "AI不再只是辅助工具。"
-    assert result.connections[0].competitive_moat == ""
+    assert result.connections[0].competitive_moat == "旧护城河文案"
