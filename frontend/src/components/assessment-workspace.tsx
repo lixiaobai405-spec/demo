@@ -436,17 +436,13 @@ export function AssessmentWorkspace({
     }
   }, [generateEndgame, store]);
 
-  const activeGenStep: number | null = generateProfile.isPending
-    ? 2
-    : generateCanvas.isPending
-      ? 3
-      : expandDirections.isPending || selectDirections.isPending
-        ? 5
-        : generateScenarios.isPending
-          ? 6
-          : generateCompetitiveness.isPending
-            ? 7
-            : null;
+  const currentAssessment = store.assessment ?? null;
+
+  useEffect(() => {
+    if (currentAssessment) {
+      setIsQuestionnaireExpanded(false);
+    }
+  }, [currentAssessment]);
 
   const currentAssessment = store.assessment ?? null;
 

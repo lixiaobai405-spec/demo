@@ -4,114 +4,199 @@ import React from "react";
 
 import type { CompetitivenessResponse } from "@/lib/types";
 
-/**
- * 根据壁垒等级返回对应的标签样式。
- */
-const barrierColor = (level: string): string => {
-  if (level === "高") return "badge badge-success";
-  if (level === "中") return "badge badge-warning";
-  return "badge badge-muted";
+type TemplateField = {
+  label: string;
+  value: string;
 };
 
-/**
- * 展示差异化竞争力分析，并将三阶段推进策略的展示职责移交给商业终局页。
- */
-export function CompetitivenessPanel({ data }: { data: CompetitivenessResponse }) {
-  const { result } = data;
-  const { vp_reconstruction, connections, advantages, overall_narrative } = result;
+type TemplateRow = {
+  module: string;
+  intro: string;
+  fields: TemplateField[];
+};
+
+export function CompetitivenessPanel({
+  data,
+  companyName = "企业",
+  topScenarioNames = [],
+}: {
+  data: CompetitivenessResponse;
+  companyName?: string;
+  topScenarioNames?: string[];
+}) {
+  const rows = buildTemplateRows(data.result, topScenarioNames);
 
   return (
     <div className="card">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="section-label">竞争力分析</p>
-          <h2 className="section-heading">差异化竞争力分析</h2>
+          <p className="section-label">差异化竞争力</p>
+          <h2 className="section-heading">内容输出结构（Output Template）</h2>
         </div>
-        <span className="badge badge-warning">规则分析</span>
+        <span className="badge badge-accent">固定模板版式</span>
       </div>
 
-      <div className="mt-6 rounded-xl border border-warm-warning/15 bg-warm-warning/5 p-6">
-        <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">总体判断</p>
-        <p className="mt-3 text-sm leading-7 text-warm-text">{overall_narrative}</p>
-      </div>
-
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-warm-border-light bg-warm-inset p-6">
-          <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">当前价值主张</p>
-          <p className="mt-3 text-sm leading-7 text-warm-secondary">{vp_reconstruction.current_vp}</p>
-        </div>
-        <div className="rounded-xl border border-warm-warning/15 bg-warm-warning/5 p-6">
-          <p className="text-xs uppercase tracking-[0.14em] text-warm-warning">增强型价值主张</p>
-          <p className="mt-3 text-sm leading-7 text-warm-text">{vp_reconstruction.enhanced_vp}</p>
+      <div className="mt-6 space-y-3">
+        <p className="text-sm font-medium text-primary">输出文档标题：</p>
+        <div className="rounded-2xl border border-[rgba(212,168,83,0.18)] bg-[linear-gradient(135deg,rgba(212,168,83,0.08),rgba(246,242,235,0.92))] px-6 py-4 font-heading text-xl text-foreground shadow-sm">
+          # 《{companyName}·差异化竞争力策略概要》
         </div>
       </div>
 
-      <div className="mt-4 rounded-xl border border-warm-border-light bg-warm-inset p-6">
-        <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">客户价值转移路径</p>
-        <p className="mt-3 text-sm leading-7 text-warm-text">{vp_reconstruction.customer_value_shift}</p>
-        {vp_reconstruction.differentiation_points.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {vp_reconstruction.differentiation_points.map((point) => (
-              <span key={point} className="badge badge-warning">{point}</span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="mt-6">
-        <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">Point → Line 串联</p>
-        <p className="mt-2 text-sm leading-7 text-warm-secondary">以下展示如何将选定的创新方向（点）串联为系统性竞争力线路：</p>
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          {connections.map((conn) => (
-            <div key={conn.line_name} className="rounded-xl border border-warm-border-light bg-warm-inset p-6">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-warm-text">{conn.line_name}</span>
-                <span className="badge badge-muted text-xs">{conn.point_titles.length} 个方向</span>
-              </div>
-              <p className="mt-3 text-sm leading-7 text-warm-secondary">{conn.strategic_narrative}</p>
-              {conn.linkage_logic && (
-                <div className="mt-3 rounded-lg bg-warm-accent/5 p-3">
-                  <p className="text-[10px] uppercase text-warm-accent">联动逻辑</p>
-                  <p className="mt-1 text-xs leading-5 text-warm-secondary">{conn.linkage_logic}</p>
-                </div>
-              )}
-              {conn.point_titles.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {conn.point_titles.map((title) => <span key={title} className="badge badge-muted text-xs">{title}</span>)}
-                </div>
-              )}
-              {conn.key_metrics.length > 0 && (
-                <div className="mt-3">
-                  <p className="text-[11px] uppercase tracking-[0.12em] text-warm-muted">核心指标</p>
-                  <div className="mt-1.5 flex flex-wrap gap-1">
-                    {conn.key_metrics.map((m) => <span key={m} className="rounded-full bg-warm-success/10 px-2 py-0.5 text-[10px] text-warm-success">{m}</span>)}
+      <div className="mt-8 overflow-x-auto rounded-[22px] border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-[0_10px_30px_rgba(61,52,40,0.06)]">
+        <table className="min-w-[920px] w-full border-collapse">
+          <thead>
+            <tr className="bg-[linear-gradient(135deg,#4A3728,#6A513A)] text-left text-[#FFF8EE]">
+              <th className="w-[240px] border border-[rgba(255,248,238,0.12)] px-5 py-4 font-heading text-lg font-semibold tracking-[0.01em]">
+                字段模块
+              </th>
+              <th className="border border-[rgba(255,248,238,0.12)] px-5 py-4 font-heading text-lg font-semibold tracking-[0.01em]">
+                输出内容说明
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr
+                key={row.module}
+                className="align-top transition-colors odd:bg-[rgba(246,242,235,0.66)] even:bg-[rgba(255,253,249,0.96)] hover:bg-[rgba(212,168,83,0.06)]"
+              >
+                <td className="border border-[hsl(var(--border))] bg-[rgba(241,236,226,0.72)] px-5 py-5 font-heading text-[1.05rem] font-semibold leading-8 text-foreground">
+                  {row.module}
+                </td>
+                <td className="border border-[hsl(var(--border))] px-5 py-5">
+                  <div className="space-y-3 text-[1.02rem] leading-8 text-foreground">
+                    <p className="font-medium text-foreground">{row.intro}</p>
+                    {row.fields.map((field) => (
+                      <div key={`${row.module}-${field.label}`}>
+                        <span className="font-semibold text-primary">{field.label}：</span>
+                        <span className="text-foreground">{field.value}</span>
+                      </div>
+                    ))}
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="mt-6">
-        <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">核心优势</p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {advantages.map((adv) => (
-            <div key={adv.advantage_name} className="rounded-xl border border-warm-border-light bg-warm-inset p-6">
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-sm font-semibold text-warm-text">{adv.advantage_name}</p>
-                <span className={barrierColor(adv.barrier_level)}>壁垒{adv.barrier_level}</span>
-              </div>
-              <p className="mt-3 text-xs leading-5 text-warm-muted">{adv.description}</p>
-              {adv.source_elements.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-1">
-                  {adv.source_elements.map((el) => <span key={el} className="badge badge-muted text-xs">{el}</span>)}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
+}
+
+function buildTemplateRows(
+  result: CompetitivenessResponse["result"],
+  topScenarioNames: string[],
+): TemplateRow[] {
+  const scenarios = topScenarioNames.length > 0 ? topScenarioNames : collectPointTitles(result);
+
+  return [
+    {
+      module: "① AI 点优势串联叙述",
+      intro: `将选定的 Top 3 AI 场景（${joinOrFallback(scenarios)}）串联为系统性方案命名：`,
+      fields: [
+        { label: "系统方案名称", value: buildSystemSolutionName(result, scenarios) },
+        { label: "串联逻辑描述", value: buildSolutionChainLogic(result) },
+        { label: "各 AI 点如何协同增效", value: buildSynergyDescription(result) },
+      ],
+    },
+    {
+      module: "② VP 重构输出",
+      intro: "基于 AI 系统方案，重构价值主张（VP）：",
+      fields: [
+        { label: "旧 VP", value: result.vp_reconstruction.current_vp },
+        { label: "新 VP（AI 重构）", value: result.vp_reconstruction.enhanced_vp },
+        { label: "VP 交付逻辑变化", value: result.vp_reconstruction.customer_value_shift },
+      ],
+    },
+    {
+      module: "③ 竞争优势差异化定位",
+      intro: "与行业竞争对手的差异化优势描述：",
+      fields: [
+        { label: "差异化优势描述", value: buildDifferentiationOverview(result) },
+        { label: "差异化定位语", value: buildDifferentiationPositioning(result) },
+        { label: "AI 原生竞争者的威胁应对策略", value: buildAiNativeThreatResponse(result) },
+      ],
+    },
+    {
+      module: "④ 核心竞争力提升路径",
+      intro: "3 个阶段的竞争力提升路径（短中长期）：",
+      fields: [
+        { label: "短期", value: result.delivery_strategy.phase_1_quick_win },
+        { label: "中期", value: result.delivery_strategy.phase_2_scale },
+        { label: "长期", value: result.delivery_strategy.phase_3_moat },
+      ],
+    },
+  ];
+}
+
+function buildSystemSolutionName(
+  result: CompetitivenessResponse["result"],
+  topScenarioNames: string[],
+): string {
+  const connections = result.connections.slice(0, 2);
+  if (connections.length > 0) {
+    const primary = stripLineSuffix(connections[0].line_name);
+    if (connections.length > 1) {
+      const secondary = stripLineSuffix(connections[1].line_name);
+      if (secondary && secondary !== primary) {
+        return `${primary}×${secondary}智能协同系统`;
+      }
+    }
+    return `${primary}智能协同系统`;
+  }
+  if (topScenarioNames.length > 0) {
+    return `${topScenarioNames[0]}智能协同系统`;
+  }
+  return "AI 差异化竞争力协同系统";
+}
+
+function buildSolutionChainLogic(result: CompetitivenessResponse["result"]): string {
+  const parts = result.connections.slice(0, 3)
+    .map((conn) => {
+      const logic = conn.linkage_logic || conn.strategic_narrative || conn.competitive_impact;
+      return logic ? `${conn.line_name}：${logic}` : "";
+    })
+    .filter(Boolean);
+  return parts.join("；") || result.overall_narrative;
+}
+
+function buildSynergyDescription(result: CompetitivenessResponse["result"]): string {
+  const parts = result.connections.slice(0, 3)
+    .map((conn) => {
+      const pointTitles = joinOrFallback(conn.point_titles);
+      return `${pointTitles}共同支撑${conn.line_name}，带来${conn.competitive_impact || "竞争力增益"}`;
+    })
+    .filter(Boolean);
+  return parts.join("；") || result.overall_narrative;
+}
+
+function buildDifferentiationOverview(result: CompetitivenessResponse["result"]): string {
+  return result.overall_narrative?.trim() || buildDifferentiationPositioning(result);
+}
+
+function buildDifferentiationPositioning(result: CompetitivenessResponse["result"]): string {
+  const advantages = result.advantages.slice(0, 2).map((item) => item.advantage_name);
+  return `围绕“${result.vp_reconstruction.enhanced_vp}”，以${joinOrFallback(advantages)}构建不可替代的客户价值定位。`;
+}
+
+function buildAiNativeThreatResponse(result: CompetitivenessResponse["result"]): string {
+  const lineNames = result.connections.slice(0, 2).map((item) => item.line_name);
+  return `不与 AI 原生竞争者比拼单点模型能力，而是把${joinOrFallback(lineNames)}所需的数据、流程与知识沉淀为组织标准；先通过“${result.delivery_strategy.phase_1_quick_win}”快速验证，再以“${result.delivery_strategy.phase_3_moat}”形成持续迭代与交付壁垒。`;
+}
+
+function collectPointTitles(result: CompetitivenessResponse["result"]): string[] {
+  return result.connections
+    .flatMap((item) => item.point_titles)
+    .filter((value, index, self) => Boolean(value) && self.indexOf(value) === index)
+    .slice(0, 3);
+}
+
+function joinOrFallback(values: string[]): string {
+  const filtered = values.map((item) => item.trim()).filter(Boolean);
+  return filtered.length > 0 ? filtered.join("、") : "当前已选 AI 方向";
+}
+
+function stripLineSuffix(value: string): string {
+  return value.replace(/线$/, "").trim() || value;
 }

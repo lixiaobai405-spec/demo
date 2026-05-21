@@ -338,6 +338,14 @@ export function AssessmentWorkbench({
       const result = await selectDirections(assessment.id, { selected_direction_ids: selectedDirectionIds });
       setDirectionSelection(result);
       setDirectionData((prev) => prev ? { ...prev, direction_selection: result } : null);
+      setProgress(computeProgress({
+        hasAssessment: true,
+        hasProfile: companyProfile !== null,
+        hasCanvas: canvasDiagnosis !== null,
+        hasBreakthrough: breakthroughSelection !== null && breakthroughSelection.selected_elements.length >= 2,
+        hasDirections: true,
+        hasScenarios: scenarioRecommendation !== null,
+      }));
     } catch (error) {
       setDirectionError(error instanceof Error ? error.message : "方向选择保存失败，请稍后重试。");
     } finally { setIsSelectingDirections(false); }
@@ -567,10 +575,18 @@ export function AssessmentWorkbench({
       ) : null}
 
       {directionData ? (
-        <DirectionExpansionPanel data={directionData} selectedIds={selectedDirectionIds} isSelecting={isSelectingDirections} onToggleDirection={handleToggleDirectionId} onConfirmSelection={handleSelectDirections} />
+        <DirectionExpansionPanel data={directionData} selectedIds={selectedDirectionIds} isSelecting={isSelectingDirections} onToggleDirection={handleToggleDirectionId} onConfirmSelection={handleSelectDirections} onNextStep={directionData.direction_selection && directionData.direction_selection.selected_directions.length > 0 && !competitivenessData ? handleGenerateCompetitiveness : undefined} />
       ) : null}
 
-      {competitivenessData ? <CompetitivenessPanel data={competitivenessData} /> : null}
+      {competitivenessData ? (
+        <CompetitivenessPanel
+          data={competitivenessData}
+          companyName={assessment?.company_name}
+          topScenarioNames={(scenarioRecommendation?.top_scenarios ?? [])
+            .slice(0, 3)
+            .map((item) => item.name)}
+        />
+      ) : null}
       {endgameData ? <EndgamePanel data={endgameData} /> : null}
 
       {/* 课后30天跟进暂时隐藏

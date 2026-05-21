@@ -90,6 +90,21 @@ class CompanyProfileResult(BaseModel):
     priority_ai_directions: list[str] = Field(default_factory=list)
     missing_information: list[str] = Field(default_factory=list)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_llm_types(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        # LLM sometimes returns customer_and_market as a list — join to str
+        cam = data.get("customer_and_market")
+        if isinstance(cam, list):
+            data["customer_and_market"] = "、".join(str(x) for x in cam)
+        # LLM sometimes returns missing_information as a plain str — wrap in list
+        mi = data.get("missing_information")
+        if isinstance(mi, str):
+            data["missing_information"] = [mi] if mi.strip() else []
+        return data
+
 
 class AssessmentProfileResponse(BaseModel):
     assessment: AssessmentResponse

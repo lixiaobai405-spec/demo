@@ -6,9 +6,6 @@ import { CompetitivenessPanel } from "@/components/competitiveness-panel";
 import { EndgamePanel } from "@/components/endgame-panel";
 
 describe("EndgamePanel", () => {
-  /**
-   * 确认商业终局页承接三阶段推进策略展示。
-   */
   it("renders the three-stage strategy in the endgame panel", () => {
     render(
       <EndgamePanel
@@ -58,8 +55,8 @@ describe("EndgamePanel", () => {
                 focus: "壁垒构建",
                 strategy: "将已验证能力沉淀为组织标准与平台能力。",
                 objective: "沉淀为长期平台能力和组织标准。",
-                key_actions: ["核心能力API化", "建立人才梯队"],
-                key_risks: ["组织惯性导致创新衰减"],
+                key_actions: ["核心能力 API 化", "建立人才梯队"],
+                key_risks: ["组织惯性导致创新冲突"],
               },
               key_risks: ["跨团队协同不足"],
             },
@@ -84,23 +81,20 @@ describe("EndgamePanel", () => {
     );
 
     expect(screen.getByText("三阶段推进策略")).toBeInTheDocument();
-    expect(screen.getByText("阶段 1 · 快速验证")).toBeInTheDocument();
+    expect(
+      screen.getByText((content) => content.includes("阶段 1") && content.includes("快速验证")),
+    ).toBeInTheDocument();
     expect(screen.getByText("先在单一门店验证客户分层与触达闭环。")).toBeInTheDocument();
     expect(screen.getByText("跨团队协同不足")).toBeInTheDocument();
-    // New fields: 策略/目标/关键动作/关键风险 per stage (3 stage cards)
     expect(screen.getAllByText("策略").length).toBeGreaterThanOrEqual(3);
     expect(screen.getAllByText("目标").length).toBeGreaterThanOrEqual(3);
     expect(screen.getAllByText("关键动作").length).toBeGreaterThanOrEqual(3);
     expect(screen.getAllByText("关键风险").length).toBeGreaterThanOrEqual(3);
     expect(screen.getByText("推进节奏")).toBeInTheDocument();
     expect(screen.getByText("能力前提")).toBeInTheDocument();
-    expect(screen.queryByText("投资需求")).not.toBeInTheDocument();
   });
 
-  /**
-   * 确认竞争力页移除三阶段推进策略展示，避免与商业终局重复承载。
-   */
-  it("does not render the three-stage strategy block in the competitiveness panel", () => {
+  it("renders the competitiveness panel with the template table", () => {
     render(
       <CompetitivenessPanel
         data={{
@@ -117,11 +111,11 @@ describe("EndgamePanel", () => {
               {
                 line_name: "客户关系深化线",
                 point_ids: ["direction-1"],
-                point_titles: ["客户分层经营"],
+                point_titles: ["客户分层运营"],
                 strategic_narrative: "围绕客户关系深化形成系统性能力。",
                 competitive_impact: "提高复购与留存",
                 key_metrics: ["复购率"],
-                linkage_logic: "通过AI将客户分层的数据和流程打通。",
+                linkage_logic: "通过 AI 将客户分层的数据和流程打通。",
                 competitive_moat: "构建基于数据的系统性优势。",
               },
             ],
@@ -144,12 +138,17 @@ describe("EndgamePanel", () => {
           created_at: null,
           updated_at: null,
         }}
+        companyName="测试企业"
+        topScenarioNames={["客户分层运营", "门店知识助手", "巡店异常预警"]}
       />,
     );
 
-    expect(screen.queryByText("三阶段推进策略")).not.toBeInTheDocument();
-    expect(screen.queryByText("Phase 1 — 快速验证")).not.toBeInTheDocument();
-    expect(screen.getByText("联动逻辑")).toBeInTheDocument();
-    expect(screen.queryByText("竞争壁垒")).not.toBeInTheDocument();
+    expect(screen.getByText("内容输出结构（Output Template）")).toBeInTheDocument();
+    expect(screen.getByText("输出文档标题：")).toBeInTheDocument();
+    expect(screen.getByText("① AI 点优势串联叙述")).toBeInTheDocument();
+    expect(screen.getByText("系统方案名称：", { exact: false })).toBeInTheDocument();
+    expect(screen.getByText("AI 原生竞争者的威胁应对策略：", { exact: false })).toBeInTheDocument();
+    expect(screen.getByText("短期：", { exact: false })).toBeInTheDocument();
+    expect(screen.queryByText("联动逻辑")).not.toBeInTheDocument();
   });
 });

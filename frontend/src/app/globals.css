@@ -566,3 +566,25 @@ button:not([disabled]) .stepper-dot:hover {
 .stagger > *:nth-child(4) { animation-delay: 0.18s; }
 .stagger > *:nth-child(5) { animation-delay: 0.24s; }
 .stagger > *:nth-child(6) { animation-delay: 0.30s; }
+
+/* ── Homepage landing page animations ── */
+.hp-fade {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.hp-fade.hp-vis {
+  opacity: 1;
+  transform: none;
+}
+@keyframes hp-hero-reveal {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes hp-seal-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%       { transform: translateY(-12px) rotate(3deg); }
+}
+.hp-hero-anim       { animation: hp-hero-reveal 1s ease-out both; }
+.hp-hero-anim-delay { animation: hp-hero-reveal 1s 0.3s ease-out both; }
+.hp-seal-anim       { animation: hp-seal-float 6s ease-in-out infinite; }

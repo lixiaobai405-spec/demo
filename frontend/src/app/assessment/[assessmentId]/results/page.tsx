@@ -126,7 +126,13 @@ export default async function ResultsPage({
                 <div className="mb-2">
                   <p className="section-label">线 · 差异化竞争力</p>
                 </div>
-                <CompetitivenessPanel data={compData} />
+                <CompetitivenessPanel
+                  data={compData}
+                  companyName={companyName}
+                  topScenarioNames={(scenarioRecommendation?.top_scenarios ?? [])
+                    .slice(0, 3)
+                    .map((item) => item.name)}
+                />
               </section>
             )}
 

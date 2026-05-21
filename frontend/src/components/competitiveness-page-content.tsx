@@ -139,7 +139,13 @@ export function CompetitivenessPageContent({
 
         {competitiveness ? (
           <>
-            <CompetitivenessPanel data={competitiveness} />
+            <CompetitivenessPanel
+              data={competitiveness}
+              companyName={companyName}
+              topScenarioNames={(detail.scenario_recommendation?.top_scenarios ?? [])
+                .slice(0, 3)
+                .map((item) => item.name)}
+            />
             {/* Next step */}
             <section className="card">
               <p className="section-label">下一步</p>

@@ -5,7 +5,7 @@ import React from "react";
 import type { AssessmentDirectionResponse, DirectionSuggestion } from "@/lib/types";
 
 export function DirectionExpansionPanel({
-  data, selectedIds, isSelecting, isLLMPending, onToggleDirection, onConfirmSelection,
+  data, selectedIds, isSelecting, isLLMPending, onToggleDirection, onConfirmSelection, onNextStep,
 }: {
   data: AssessmentDirectionResponse;
   selectedIds: string[];
@@ -13,6 +13,7 @@ export function DirectionExpansionPanel({
   isLLMPending?: boolean;
   onToggleDirection: (id: string) => void;
   onConfirmSelection: () => void;
+  onNextStep?: () => void;
 }) {
   const { direction_expansion, direction_selection } = data;
   const hasExistingSelection = direction_selection !== null && direction_selection.selected_directions.length > 0;
@@ -71,6 +72,17 @@ export function DirectionExpansionPanel({
             ))}
           </div>
           <p className="mt-4 text-sm text-warm-muted">若需重新选择，请重新提交突破要素以清空当前选择。</p>
+          {onNextStep && (
+            <div className="mt-6 rounded-xl border border-warm-accent/20 bg-warm-accent/5 p-5">
+              <p className="text-sm font-medium text-warm-text">创新方向已确认，可继续下一步</p>
+              <p className="mt-2 text-sm leading-7 text-warm-secondary">
+                基于已选方向，可生成差异化竞争力分析，进一步明确企业的核心竞争优势与落地路径。
+              </p>
+              <button type="button" onClick={onNextStep} className="btn-primary mt-4">
+                生成差异化竞争力分析 →
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <>

@@ -156,7 +156,7 @@ class HtmlExporter:
         if section.table:
             table_html = (
                 "<div style='margin-top:20px;overflow-x:auto;border-radius:14px;border:1px solid " + c["border"] + ";'>"
-                + self._render_table(section.table)
+                + self._render_table(section.table, section.key)
                 + "</div>"
             )
 
@@ -219,13 +219,28 @@ class HtmlExporter:
 </article>
 """.strip()
 
-    def _render_table(self, table: ReportTableData) -> str:
+    def _render_table(self, table: ReportTableData, section_key: str | None = None) -> str:
+        if section_key == "competitiveness":
+            header_style = (
+                "padding:12px 14px;background:linear-gradient(135deg,#4A3728,#6A513A);color:#FFF8EE;"
+                "font-weight:700;border-color:rgba(255,248,238,0.16);"
+            )
+            cell_style = "padding:14px;vertical-align:top;background:#FFFDF9;color:#2D2218;"
+        else:
+            header_style = "padding:10px 14px;"
+            cell_style = "padding:10px 14px;"
+
         header_html = "".join(
-            f"<th style='padding:10px 14px;'>{escape(col)}</th>"
+            f"<th style='{header_style}'>{escape(col)}</th>"
             for col in table.columns
         )
         body_html = "".join(
-            "<tr>" + "".join(f"<td style='padding:10px 14px;'>{escape(cell)}</td>" for cell in row) + "</tr>"
+            "<tr>"
+            + "".join(
+                f"<td style='{cell_style}'>{escape(cell).replace(chr(10), '<br />')}</td>"
+                for cell in row
+            )
+            + "</tr>"
             for row in table.rows
         )
         return f"<table><thead><tr>{header_html}</tr></thead><tbody>{body_html}</tbody></table>"

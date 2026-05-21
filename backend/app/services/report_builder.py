@@ -313,6 +313,20 @@ class ReportBuilder:
     ) -> ReportSectionData:
         if competitiveness_result is not None:
             cr = competitiveness_result
+            return ReportSectionData(
+                key="competitiveness",
+                title="宸紓鍖栫珵浜夊姏璁捐",
+                content=f"输出文档标题：《{profile.company_name}·差异化竞争力策略概要》",
+                bullets=["模板摘要：围绕系统方案命名、VP 重构、差异化定位与三阶段提升路径展开。"],
+                table=ReportTableData(
+                    columns=["字段模块", "输出内容说明"],
+                    rows=self._build_competitiveness_template_rows(
+                        scenario_recommendation=scenario_recommendation,
+                        competitiveness_result=cr,
+                    ),
+                ),
+                note="该章节已按固定输出模板整理，可直接用于讲师批注、方案汇报或二次编辑。",
+            )
             vp = cr.vp_reconstruction
             connections_text = "；".join(
                 [f"{c.line_name}（{c.competitive_impact}）" for c in cr.connections[:3]]
@@ -374,6 +388,108 @@ class ReportBuilder:
                 "把知识和数据沉淀为组织资产，减少对个人经验的依赖。",
                 "把试点经验映射到客户价值和经营指标，形成持续扩展基础。",
             ],
+        )
+
+    def _build_competitiveness_template_rows(
+        self,
+        scenario_recommendation: ScenarioRecommendationResult,
+        competitiveness_result,
+    ) -> list[list[str]]:
+        vp = competitiveness_result.vp_reconstruction
+        top_scenarios = [item.name for item in scenario_recommendation.top_scenarios[:3]]
+
+        return [
+            [
+                "① AI 点优势串联叙述",
+                "\n".join([
+                    f"将选定的 Top 3 AI 场景（{self._join_or_todo(top_scenarios, '、')}）串联为系统性方案命名：",
+                    f"系统方案名称：{self._build_system_solution_name(competitiveness_result, top_scenarios)}",
+                    f"串联逻辑描述：{self._build_solution_chain_logic(competitiveness_result)}",
+                    f"各 AI 点如何协同增效：{self._build_synergy_description(competitiveness_result)}",
+                ]),
+            ],
+            [
+                "② VP 重构输出",
+                "\n".join([
+                    "基于 AI 系统方案，重构价值主张（VP）：",
+                    f"旧 VP：{vp.current_vp}",
+                    f"新 VP（AI 重构）：{vp.enhanced_vp}",
+                    f"VP 交付逻辑变化：{vp.customer_value_shift}",
+                ]),
+            ],
+            [
+                "③ 竞争优势差异化定位",
+                "\n".join([
+                    "与行业竞争对手的差异化优势描述：",
+                    f"差异化优势描述：{self._build_differentiation_overview(competitiveness_result)}",
+                    f"差异化定位语：{self._build_differentiation_positioning(competitiveness_result)}",
+                    f"AI 原生竞争者的威胁应对策略：{self._build_ai_native_threat_response(competitiveness_result)}",
+                ]),
+            ],
+            [
+                "④ 核心竞争力提升路径",
+                "\n".join([
+                    "3 个阶段的竞争力提升路径（短中长期）：",
+                    f"短期：{competitiveness_result.delivery_strategy.phase_1_quick_win}",
+                    f"中期：{competitiveness_result.delivery_strategy.phase_2_scale}",
+                    f"长期：{competitiveness_result.delivery_strategy.phase_3_moat}",
+                ]),
+            ],
+        ]
+
+    def _build_system_solution_name(
+        self,
+        competitiveness_result,
+        top_scenarios: list[str],
+    ) -> str:
+        connections = competitiveness_result.connections[:2]
+        if connections:
+            primary = connections[0].line_name.replace("线", "").strip() or connections[0].line_name
+            if len(connections) > 1:
+                secondary = connections[1].line_name.replace("线", "").strip() or connections[1].line_name
+                if secondary and secondary != primary:
+                    return f"{primary}×{secondary}智能协同系统"
+            return f"{primary}智能协同系统"
+        if top_scenarios:
+            return f"{top_scenarios[0]}智能协同系统"
+        return "AI 差异化竞争力协同系统"
+
+    def _build_solution_chain_logic(self, competitiveness_result) -> str:
+        parts: list[str] = []
+        for conn in competitiveness_result.connections[:3]:
+            logic = conn.linkage_logic or conn.strategic_narrative or conn.competitive_impact
+            if logic:
+                parts.append(f"{conn.line_name}：{logic}")
+        return "；".join(parts) if parts else competitiveness_result.overall_narrative
+
+    def _build_synergy_description(self, competitiveness_result) -> str:
+        parts: list[str] = []
+        for conn in competitiveness_result.connections[:3]:
+            point_titles = self._join_or_todo(conn.point_titles[:3], "、")
+            parts.append(
+                f"{point_titles}共同支撑{conn.line_name}，带来{conn.competitive_impact or '竞争力增益'}"
+            )
+        return "；".join(parts) if parts else competitiveness_result.overall_narrative
+
+    def _build_differentiation_overview(self, competitiveness_result) -> str:
+        if getattr(competitiveness_result, "overall_narrative", "").strip():
+            return competitiveness_result.overall_narrative.strip()
+        return self._build_differentiation_positioning(competitiveness_result)
+
+    def _build_differentiation_positioning(self, competitiveness_result) -> str:
+        vp = competitiveness_result.vp_reconstruction
+        advantage_names = [item.advantage_name for item in competitiveness_result.advantages[:2]]
+        joined_advantages = self._join_or_todo(advantage_names, "、")
+        return f"围绕“{vp.enhanced_vp}”，以{joined_advantages}构建不可替代的客户价值定位。"
+
+    def _build_ai_native_threat_response(self, competitiveness_result) -> str:
+        line_names = [item.line_name for item in competitiveness_result.connections[:2]]
+        joined_lines = self._join_or_todo(line_names, "、")
+        phase_1 = competitiveness_result.delivery_strategy.phase_1_quick_win
+        phase_3 = competitiveness_result.delivery_strategy.phase_3_moat
+        return (
+            f"不与 AI 原生竞争者比拼单点模型能力，而是把{joined_lines}所需的数据、流程与知识沉淀为组织标准；"
+            f"先通过“{phase_1}”快速验证，再以“{phase_3}”形成持续迭代与交付壁垒。"
         )
 
     def _build_cases_section(
