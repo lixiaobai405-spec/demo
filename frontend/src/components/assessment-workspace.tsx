@@ -463,14 +463,6 @@ export function AssessmentWorkspace({
     }
   }, [currentAssessment]);
 
-  const currentAssessment = store.assessment ?? null;
-
-  useEffect(() => {
-    if (currentAssessment) {
-      setIsQuestionnaireExpanded(false);
-    }
-  }, [currentAssessment]);
-
   if (detailQuery.isLoading) return <AssessmentSkeleton />;
 
   if (detailQuery.isError) {
