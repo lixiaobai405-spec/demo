@@ -69,3 +69,14 @@ class UpdateRecoveryRequest(BaseModel):
 
 class UpdateRecoveryResponse(BaseModel):
     success: bool = True
+
+
+class SetupRecoveryRequest(BaseModel):
+    email: str = Field(max_length=255)
+    password: str = Field(min_length=1, max_length=128)
+    recovery_question: str = Field(min_length=1, max_length=255)
+    recovery_answer: str = Field(min_length=1, max_length=255)
+
+
+class SetupRecoveryResponse(BaseModel):
+    success: bool = True

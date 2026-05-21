@@ -11,6 +11,8 @@ from app.schemas.auth import (
     RegisterRequest,
     ResetPasswordRequest,
     ResetPasswordResponse,
+    SetupRecoveryRequest,
+    SetupRecoveryResponse,
     TokenResponse,
     UpdateRecoveryRequest,
     UpdateRecoveryResponse,
@@ -85,3 +87,23 @@ def update_my_recovery(
     """已登录用户补充或更新找回密码设置。"""
     auth_service.update_recovery(db, current_user, payload.recovery_question, payload.recovery_answer)
     return UpdateRecoveryResponse()
+
+
+@router.post(
+    "/setup-recovery",
+    response_model=SetupRecoveryResponse,
+    status_code=status.HTTP_200_OK,
+)
+def setup_recovery(
+    payload: SetupRecoveryRequest,
+    db: Session = Depends(get_db),
+):
+    """用邮箱+当前密码验证身份，为历史老账号补录找回问题。无需已登录。"""
+    auth_service.setup_recovery(
+        db,
+        email=payload.email,
+        password=payload.password,
+        question=payload.recovery_question,
+        answer=payload.recovery_answer,
+    )
+    return SetupRecoveryResponse()

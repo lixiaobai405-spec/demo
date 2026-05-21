@@ -1,10 +1,16 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 
+import {
+  formatMutationError,
+  getForgotPasswordQuestion,
+  resetPassword,
+  setupRecovery,
+} from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
@@ -23,37 +29,152 @@ function LoginPageContent() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [recoveryQuestion, setRecoveryQuestion] = useState("");
+  const [recoveryAnswer, setRecoveryAnswer] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [questionLoading, setQuestionLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+
+  const RECOVERY_QUESTIONS = [
+    "你的第一位直属领导姓名是？",
+    "你第一次独立负责的项目名称是？",
+    "你最常用的备用联系方式后四位是？",
+  ];
+
+  const [showSetupRecovery, setShowSetupRecovery] = useState(false);
+  const [setupEmail, setSetupEmail] = useState("");
+  const [setupPassword, setSetupPassword] = useState("");
+  const [setupQuestion, setSetupQuestion] = useState(RECOVERY_QUESTIONS[0]);
+  const [setupAnswer, setSetupAnswer] = useState("");
+  const [setupSaving, setSetupSaving] = useState(false);
+
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
       router.replace(redirect);
     }
   }, [authLoading, isAuthenticated, redirect, router]);
 
-  function handleForgotPassword() {
-    toast({
-      title: "忘记密码",
-      description: "请联系使用咨询协助重置密码。",
-    });
-  }
+  const loginEmail = useMemo(() => {
+    if (role === "teacher") {
+      return "teacher";
+    }
+    return email.trim();
+  }, [email, role]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!password) return;
+    if (role === "student" && !loginEmail) return;
 
     setSubmitting(true);
     try {
-      const loginEmail = role === "teacher" ? "teacher" : email.trim();
-      if (role === "student" && !loginEmail) return;
       await login(loginEmail, password);
     } catch (error) {
       toast({
         title: "登录失败",
         description:
-          error instanceof Error ? error.message : "请检查账户和密码",
+          error instanceof Error ? error.message : "请检查账号和密码后重试。",
         variant: "destructive",
       });
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleLoadQuestion() {
+    const targetEmail = recoveryEmail.trim() || email.trim();
+    if (!targetEmail) {
+      toast({
+        title: "请输入邮箱",
+        description: "请先输入注册邮箱，再获取找回问题。",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setQuestionLoading(true);
+    try {
+      const result = await getForgotPasswordQuestion({ email: targetEmail });
+      setRecoveryEmail(result.email);
+      setRecoveryQuestion(result.recovery_question);
+      toast({
+        title: "找回问题已加载",
+        description: "请输入答案并设置新密码。",
+      });
+    } catch (error) {
+      toast({
+        title: "获取失败",
+        description: formatMutationError(error, "找回问题获取"),
+        variant: "destructive",
+      });
+    } finally {
+      setQuestionLoading(false);
+    }
+  }
+
+  async function handleResetPassword(event: React.FormEvent) {
+    event.preventDefault();
+    if (!recoveryEmail.trim() || !recoveryQuestion || !recoveryAnswer.trim() || !newPassword) {
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      await resetPassword({
+        email: recoveryEmail.trim(),
+        recovery_answer: recoveryAnswer.trim(),
+        new_password: newPassword,
+      });
+      setPassword(newPassword);
+      setShowForgotPassword(false);
+      setRecoveryQuestion("");
+      setRecoveryAnswer("");
+      setNewPassword("");
+      toast({
+        title: "密码已重置",
+        description: "请使用新密码重新登录。",
+      });
+    } catch (error) {
+      toast({
+        title: "重置失败",
+        description: formatMutationError(error, "密码重置"),
+        variant: "destructive",
+      });
+    } finally {
+      setResetLoading(false);
+    }
+  }
+
+  async function handleSetupRecovery(event: React.FormEvent) {
+    event.preventDefault();
+    if (!setupEmail.trim() || !setupPassword || !setupQuestion.trim() || !setupAnswer.trim()) {
+      return;
+    }
+    setSetupSaving(true);
+    try {
+      await setupRecovery({
+        email: setupEmail.trim(),
+        password: setupPassword,
+        recovery_question: setupQuestion.trim(),
+        recovery_answer: setupAnswer.trim(),
+      });
+      toast({
+        title: "找回设置已保存",
+        description: "今后可在忘记密码时通过安全问题自助找回。",
+      });
+      setShowSetupRecovery(false);
+      setSetupPassword("");
+      setSetupAnswer("");
+    } catch (error) {
+      toast({
+        title: "补录失败",
+        description: formatMutationError(error, "找回设置补录"),
+        variant: "destructive",
+      });
+    } finally {
+      setSetupSaving(false);
     }
   }
 
@@ -62,7 +183,7 @@ function LoginPageContent() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-warm-accent border-t-transparent" />
-          <p className="text-sm text-muted-foreground">验证登录状态中...</p>
+          <p className="text-sm text-muted-foreground">正在验证登录状态...</p>
         </div>
       </div>
     );
@@ -76,11 +197,11 @@ function LoginPageContent() {
             登录
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            美态 AI 商业创新智能体
+            美太 AI 商业创新智能体
           </p>
         </div>
 
-        <div className="flex gap-1 mb-6 p-1 bg-muted rounded-lg">
+        <div className="mb-6 flex gap-1 rounded-lg bg-muted p-1">
           <button
             type="button"
             onClick={() => {
@@ -88,7 +209,7 @@ function LoginPageContent() {
               setEmail("");
               setPassword("");
             }}
-            className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
+            className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
               role === "student"
                 ? "bg-background text-warm-text shadow-sm"
                 : "text-muted-foreground hover:text-warm-text"
@@ -101,8 +222,9 @@ function LoginPageContent() {
             onClick={() => {
               setRole("teacher");
               setPassword("");
+              setShowForgotPassword(false);
             }}
-            className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
+            className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
               role === "teacher"
                 ? "bg-background text-warm-text shadow-sm"
                 : "text-muted-foreground hover:text-warm-text"
@@ -146,12 +268,15 @@ function LoginPageContent() {
               <p className="text-center text-sm text-muted-foreground">
                 <button
                   type="button"
-                  onClick={handleForgotPassword}
+                  onClick={() => {
+                    setRecoveryEmail(email.trim());
+                    setShowForgotPassword((current) => !current);
+                  }}
                   className="hover:underline"
                 >
                   忘记密码？
                 </button>{" "}
-                还没有账户？{" "}
+                还没有账号？{" "}
                 <Link href="/register" className="text-primary hover:underline">
                   去注册
                 </Link>
@@ -160,11 +285,11 @@ function LoginPageContent() {
           ) : (
             <>
               <label className="flex flex-col gap-2 text-sm">
-                <span className="font-medium">账户</span>
+                <span className="font-medium">账号</span>
                 <Input
                   value="teacher"
                   disabled
-                  className="bg-muted text-muted-foreground cursor-not-allowed"
+                  className="cursor-not-allowed bg-muted text-muted-foreground"
                 />
               </label>
 
@@ -187,21 +312,192 @@ function LoginPageContent() {
           )}
         </form>
 
+        {role === "student" && showForgotPassword ? (
+          <section className="mt-4 space-y-4 rounded-2xl border border-warm-border bg-warm-surface p-4">
+            <div>
+              <p className="text-sm font-medium text-warm-text">自助找回密码</p>
+              <p className="mt-1 text-xs leading-6 text-muted-foreground">
+                输入注册邮箱，回答安全问题后即可重置密码。
+              </p>
+            </div>
+
+            <form onSubmit={handleResetPassword} className="space-y-3">
+              <label className="flex flex-col gap-2 text-sm">
+                <span className="font-medium">注册邮箱</span>
+                <div className="flex gap-2">
+                  <Input
+                    type="email"
+                    value={recoveryEmail}
+                    onChange={(event) => setRecoveryEmail(event.target.value)}
+                    placeholder="your@email.com"
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    loading={questionLoading}
+                    onClick={handleLoadQuestion}
+                  >
+                    获取问题
+                  </Button>
+                </div>
+              </label>
+
+              {recoveryQuestion ? (
+                <>
+                  <div className="rounded-xl border border-warm-border-light bg-warm-inset px-4 py-3">
+                    <p className="text-xs text-warm-muted">找回问题</p>
+                    <p className="mt-1 text-sm text-warm-text">{recoveryQuestion}</p>
+                  </div>
+
+                  <label className="flex flex-col gap-2 text-sm">
+                    <span className="font-medium">答案</span>
+                    <Input
+                      value={recoveryAnswer}
+                      onChange={(event) => setRecoveryAnswer(event.target.value)}
+                      placeholder="输入找回答案"
+                      required
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-2 text-sm">
+                    <span className="font-medium">新密码</span>
+                    <Input
+                      type="password"
+                      value={newPassword}
+                      onChange={(event) => setNewPassword(event.target.value)}
+                      placeholder="至少 6 位"
+                      minLength={6}
+                      required
+                    />
+                  </label>
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="submit" loading={resetLoading}>
+                      {resetLoading ? "重置中..." : "确认重置"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setShowForgotPassword(false);
+                        setRecoveryQuestion("");
+                        setRecoveryAnswer("");
+                        setNewPassword("");
+                      }}
+                    >
+                      取消
+                    </Button>
+                  </div>
+                </>
+              ) : null}
+            </form>
+          </section>
+        ) : null}
+
+        {role === "student" ? (
+          <section className="mt-4 rounded-2xl border border-warm-border bg-warm-surface p-4">
+            {showSetupRecovery ? (
+              <>
+                <div>
+                  <p className="text-sm font-medium text-warm-text">补录找回设置</p>
+                  <p className="mt-1 text-xs leading-6 text-muted-foreground">
+                    如果你还记得当前密码，可在此直接设置找回问题，无需先登录。
+                  </p>
+                </div>
+                <form onSubmit={handleSetupRecovery} className="mt-3 space-y-3">
+                  <label className="flex flex-col gap-2 text-sm">
+                    <span className="font-medium">注册邮箱</span>
+                    <Input
+                      type="email"
+                      value={setupEmail}
+                      onChange={(event) => setSetupEmail(event.target.value)}
+                      placeholder="your@email.com"
+                      required
+                    />
+                  </label>
+                  <label className="flex flex-col gap-2 text-sm">
+                    <span className="font-medium">当前密码</span>
+                    <Input
+                      type="password"
+                      value={setupPassword}
+                      onChange={(event) => setSetupPassword(event.target.value)}
+                      placeholder="输入当前密码以验证身份"
+                      required
+                    />
+                  </label>
+                  <label className="flex flex-col gap-2 text-sm">
+                    <span className="font-medium">找回问题</span>
+                    <select
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      value={setupQuestion}
+                      onChange={(e) => setSetupQuestion(e.target.value)}
+                    >
+                      {RECOVERY_QUESTIONS.map((q) => (
+                        <option key={q} value={q}>{q}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-2 text-sm">
+                    <span className="font-medium">答案</span>
+                    <Input
+                      value={setupAnswer}
+                      onChange={(event) => setSetupAnswer(event.target.value)}
+                      placeholder="输入找回答案"
+                      required
+                    />
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="submit" loading={setupSaving}>
+                      {setupSaving ? "保存中..." : "确认补录"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setShowSetupRecovery(false);
+                        setSetupPassword("");
+                        setSetupAnswer("");
+                      }}
+                    >
+                      取消
+                    </Button>
+                  </div>
+                </form>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setSetupEmail(email.trim());
+                  setShowSetupRecovery(true);
+                }}
+                className="w-full text-center text-sm text-muted-foreground hover:text-warm-text hover:underline"
+              >
+                历史老账号没设过找回问题？点此补录
+              </button>
+            )}
+          </section>
+        ) : null}
+
         <section className="mt-6 rounded-2xl border border-warm-border bg-warm-surface p-4">
           <p className="text-center text-sm font-medium text-warm-text">
             需要帮助？
+          </p>
+          <p className="mt-2 text-center text-xs leading-6 text-muted-foreground">
+            登录问题优先走上方自助找回；使用问题可联系下方咨询入口。
           </p>
           <div className="mt-4 grid grid-cols-2 gap-4">
             <div className="text-center">
               <Image
                 src="/qrcodes/meitai-consulting-official-account.jpg"
-                alt="美态咨询公众号"
+                alt="美太咨询公众号"
                 width={144}
                 height={144}
                 className="mx-auto rounded-lg"
               />
               <p className="mt-2 text-xs text-muted-foreground">
-                美态咨询公众号
+                美太咨询公众号
               </p>
             </div>
             <div className="text-center">
@@ -220,7 +516,7 @@ function LoginPageContent() {
         <p className="mt-6 text-center">
           <Link
             href="/"
-            className="text-sm text-muted-foreground hover:text-warm-text transition-colors"
+            className="text-sm text-muted-foreground transition-colors hover:text-warm-text"
           >
             返回首页
           </Link>
@@ -233,7 +529,7 @@ function LoginPageContent() {
 function LoginPageFallback() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="w-full max-w-md text-center space-y-4">
+      <div className="w-full max-w-md space-y-4 text-center">
         <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-warm-accent border-t-transparent" />
         <p className="text-sm text-muted-foreground">登录页加载中...</p>
       </div>

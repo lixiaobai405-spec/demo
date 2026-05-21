@@ -771,6 +771,17 @@ export type UpdateRecoveryResponse = {
   success: boolean;
 };
 
+export type SetupRecoveryRequest = {
+  email: string;
+  password: string;
+  recovery_question: string;
+  recovery_answer: string;
+};
+
+export type SetupRecoveryResponse = {
+  success: boolean;
+};
+
 export type TokenResponse = {
   access_token: string;
   token_type: string;

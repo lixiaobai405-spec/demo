@@ -135,6 +135,26 @@ def update_recovery(
     db.commit()
 
 
+def setup_recovery(
+    db: Session,
+    email: str,
+    password: str,
+    question: str,
+    answer: str,
+) -> None:
+    """用邮箱+密码验证身份后设置找回问题，适用于未登录的老账号补录。"""
+    user = db.query(User).filter(User.email == email).first()
+    if user is None or not _verify_password(password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="邮箱或密码错误，无法补录找回设置。",
+        )
+    user.recovery_question = question.strip()
+    user.recovery_answer_hash = _hash_recovery_answer(answer)
+    db.add(user)
+    db.commit()
+
+
 def authenticate(db: Session, request: LoginRequest) -> TokenResponse:
     # 硬编码讲师账户
     if request.email == TEACHER_EMAIL and request.password == TEACHER_PASSWORD:
