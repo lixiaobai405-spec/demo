@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
-import { ApiError, getReport, getReportDocxExportUrl, getReportMarkdownExportUrl, getReportPrintUrl } from "@/lib/api";
+import {
+  ApiError,
+  getReport,
+  getReportDocxExportUrl,
+  getReportMarkdownExportUrl,
+  getReportPdfUrl,
+  getReportPrintUrl,
+} from "@/lib/api";
 import type { ReportDocumentResponse } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -35,39 +42,64 @@ export function ReportDocumentViewer({ reportId }: { reportId: string }) {
 
   const loadReport = useCallback(() => {
     let active = true;
-    setIsLoading(true); setError(null);
+    setIsLoading(true);
+    setError(null);
+
     getReport(reportId)
-      .then((payload) => { if (active) setReport(payload); })
-      .catch((nextError) => { if (active) setError(formatReportLoadError(nextError)); })
-      .finally(() => { if (active) setIsLoading(false); });
-    return () => { active = false; };
+      .then((payload) => {
+        if (active) {
+          setReport(payload);
+        }
+      })
+      .catch((nextError) => {
+        if (active) {
+          setError(formatReportLoadError(nextError));
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
   }, [reportId]);
 
   useEffect(() => {
     const cleanup = loadReport();
-    return () => { cleanup(); };
+    return () => {
+      cleanup();
+    };
   }, [loadReport]);
 
-  if (isLoading) return <ReportSkeleton />;
+  if (isLoading) {
+    return <ReportSkeleton />;
+  }
 
-  if (error) return (
-    <div className="rounded-xl msg-error p-6 text-sm space-y-4">
-      <div>
-        <p className="font-medium">报告加载失败</p>
-        <p className="mt-2 opacity-90">{error}</p>
+  if (error) {
+    return (
+      <div className="space-y-4 rounded-xl p-6 text-sm msg-error">
+        <div>
+          <p className="font-medium">报告加载失败</p>
+          <p className="mt-2 opacity-90">{error}</p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Button variant="outline" size="sm" onClick={loadReport}>
+            重试加载
+          </Button>
+          <Link href="/assessment" className="btn-secondary text-xs">
+            返回主流程工作台
+          </Link>
+        </div>
       </div>
-      <div className="flex flex-wrap gap-3">
-        <Button variant="outline" size="sm" onClick={loadReport}>重试加载</Button>
-        <Link href="/assessment" className="btn-secondary text-xs">返回工作台</Link>
-      </div>
-    </div>
-  );
+    );
+  }
 
-  if (!report) return null;
-
-  const markdownUrl = getReportMarkdownExportUrl(report.report_id);
-  const docxUrl = getReportDocxExportUrl(report.report_id);
-  const printUrl = getReportPrintUrl(report.report_id);
+  if (!report) {
+    return null;
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -76,62 +108,60 @@ export function ReportDocumentViewer({ reportId }: { reportId: string }) {
           <div>
             <p className="section-label">报告预览</p>
             <h2 className="section-heading">{report.title}</h2>
-            <p className="mt-2 text-sm leading-7 text-warm-secondary">该页面展示后端渲染后的 HTML 富文本版本，并保留 Markdown、Word 和打印版导出能力。</p>
+            <p className="mt-2 text-sm leading-7 text-warm-secondary">
+              当前展示的是后端渲染后的 HTML 报告，可直接导出 PDF、Word、Markdown 或打开打印版。
+            </p>
           </div>
           <div className="rounded-xl border border-green-200 bg-green-50/50 px-6 py-4 text-sm text-green-800">
             <p className="font-medium">Report ID</p>
-            <p className="mt-2 break-all font-mono text-green-700/90">{report.report_id}</p>
+            <p className="mt-2 break-all font-mono text-green-700/90">
+              {report.report_id}
+            </p>
           </div>
         </div>
 
         <div className="mt-6 flex flex-wrap gap-3">
-          <a href={markdownUrl} className="btn-primary">下载 Markdown</a>
-          <a href={docxUrl} className="btn-success">下载 Word</a>
-          <a href={printUrl} target="_blank" rel="noreferrer" className="btn-secondary">打开打印版</a>
-          <Link href={`/report/${report.assessment_id}`} className="btn-secondary">返回报告生成页</Link>
-          <Link href={`/assessment/${report.assessment_id}`} className="btn-secondary">返回 Assessment</Link>
-        </div>
-
-        <div className="mt-6 rounded-xl border border-warm-border-light bg-warm-inset p-6 text-sm leading-7 text-warm-secondary">
-          <p>导出说明：Markdown 适合二次编辑，Word 适合提交或批注，打印版适合浏览器打印与 PDF 另存。</p>
-          <p className="mt-3">如果导出按钮打开后无响应，请先确认后端服务在线，再重新进入当前报告页面触发导出文件生成。</p>
+          <a href={getReportPdfUrl(report.report_id)} className="btn-primary">
+            下载 PDF
+          </a>
+          <a href={getReportDocxExportUrl(report.report_id)} className="btn-success">
+            下载 Word
+          </a>
+          <a href={getReportMarkdownExportUrl(report.report_id)} className="btn-secondary">
+            下载 Markdown
+          </a>
+          <a
+            href={getReportPrintUrl(report.report_id)}
+            target="_blank"
+            rel="noreferrer"
+            className="btn-secondary"
+          >
+            打开打印版
+          </a>
+          <Link href={`/report/${report.assessment_id}`} className="btn-secondary">
+            返回报告生成页
+          </Link>
+          <Link href={`/assessment/${report.assessment_id}`} className="btn-secondary">
+            返回主流程工作台
+          </Link>
         </div>
       </div>
 
-      {/* Executive summary card — progressive disclosure: conclusion first */}
       <div className="card shadow-card-hover">
         <p className="section-label">执行摘要</p>
         <h2 className="section-heading">报告结论</h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <SummaryBadge label="企业" value={report.content_json.company_name} />
           <SummaryBadge label="行业" value={report.content_json.industry} />
-          <SummaryBadge label="AI 就绪度" value={`${report.content_json.ai_readiness_score} 分`} />
-          <SummaryBadge label="报告模式" value={report.generation_mode === "llm" ? "LLM 增强" : "模板生成"} />
+          <SummaryBadge
+            label="AI 就绪度"
+            value={`${report.content_json.ai_readiness_score} 分`}
+          />
+          <SummaryBadge
+            label="报告模式"
+            value={report.generation_mode === "llm" ? "LLM 增强" : "模板生成"}
+          />
         </div>
-        <details className="mt-6 group">
-          <summary className="cursor-pointer text-sm font-medium text-primary hover:text-primary/80 transition-colors select-none">
-            ▸ 查看报告章节结构（{report.sections.length} 章）
-          </summary>
-          <ul className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
-            {report.sections.map((section, index) => (
-              <li key={section.key} className="rounded-xl border border-border bg-secondary px-3 py-2">
-                {index + 1}. {section.title}
-              </li>
-            ))}
-          </ul>
-        </details>
-        {report.warnings.length > 0 && (
-          <details className="mt-3 group">
-            <summary className="cursor-pointer text-sm font-medium text-destructive hover:text-destructive/80 transition-colors select-none">
-              ▸ 查看 {report.warnings.length} 条告警信息
-            </summary>
-            <ul className="mt-3 space-y-2">
-              {report.warnings.map((item, index) => (
-                <li key={index} className="rounded-xl msg-warning p-3 text-sm">{item}</li>
-              ))}
-            </ul>
-          </details>
-        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
@@ -167,14 +197,21 @@ export function ReportDocumentViewer({ reportId }: { reportId: string }) {
             {report.warnings.length > 0 ? (
               <ul className="mt-4 space-y-2 text-sm leading-7">
                 {report.warnings.map((item, index) => (
-                  <li key={`${item}-${index}`} className="rounded-xl msg-warning p-4 text-sm">{item}</li>
+                  <li key={`${item}-${index}`} className="rounded-xl p-4 text-sm msg-warning">
+                    {item}
+                  </li>
                 ))}
               </ul>
-            ) : <p className="mt-4 text-sm leading-7 text-warm-muted">当前无告警。</p>}
+            ) : (
+              <p className="mt-4 text-sm leading-7 text-warm-muted">当前无告警。</p>
+            )}
           </div>
           <ul className="mt-6 grid gap-3 text-sm leading-7">
             {report.sections.map((section, index) => (
-              <li key={section.key} className="rounded-xl border border-warm-border-light bg-warm-inset px-4 py-3 text-warm-text">
+              <li
+                key={section.key}
+                className="rounded-xl border border-warm-border-light bg-warm-inset px-4 py-3 text-warm-text"
+              >
                 {index + 1}. {section.title}
               </li>
             ))}
@@ -186,7 +223,10 @@ export function ReportDocumentViewer({ reportId }: { reportId: string }) {
         <div className="border-b border-warm-border-light bg-warm-inset px-6 py-4">
           <p className="text-sm font-medium text-warm-text">HTML 富文本预览</p>
         </div>
-        <div className="report-html-preview px-6 py-8" dangerouslySetInnerHTML={{ __html: report.content_html }} />
+        <div
+          className="report-html-preview px-6 py-8"
+          dangerouslySetInnerHTML={{ __html: report.content_html }}
+        />
       </div>
     </div>
   );
@@ -212,12 +252,18 @@ function MetaItem({ label, value }: { label: string; value: string }) {
 
 function formatReportLoadError(error: unknown): string {
   if (error instanceof ApiError) {
-    if (error.status === 404) return "未找到对应报告。请确认报告已生成，或从 Assessment 工作台重新进入。";
-    if (error.status >= 500) return "报告内容读取失败，可能是已保存内容损坏或后端暂时异常。请稍后重试。";
+    if (error.status === 404) {
+      return "未找到对应报告。请确认报告已生成，或从主流程工作台重新进入。";
+    }
+    if (error.status >= 500) {
+      return "报告内容读取失败，可能是后端暂时异常。请稍后重试。";
+    }
     return error.message;
   }
   if (error instanceof Error) {
-    if (error.message.toLowerCase().includes("failed to fetch")) return "无法连接后端服务，当前无法加载报告。请确认后端已启动。";
+    if (error.message.toLowerCase().includes("failed to fetch")) {
+      return "无法连接后端服务，请确认后端已启动。";
+    }
     return error.message;
   }
   return "报告加载失败。";

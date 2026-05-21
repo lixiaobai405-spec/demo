@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AuthGuard } from "@/components/auth-guard";
 import { AssessmentCard } from "@/components/assessment-card";
 import {
@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { deleteAssessment, listMyAssessments } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
+import type { AssessmentListResponse } from "@/lib/types";
 
 function HistoryContent() {
   const [filters, setFilters] = useState<HistoryFilters>({
@@ -23,12 +24,41 @@ function HistoryContent() {
   });
   const [page, setPage] = useState(1);
   const [deleteMode, setDeleteMode] = useState(false);
+  const queryClient = useQueryClient();
 
   const handleDelete = async (id: string) => {
     if (!window.confirm("确认删除这条评估记录吗？删除后将无法恢复。")) return;
     try {
       await deleteAssessment(id);
+      queryClient.setQueriesData(
+        { queryKey: ["my-assessments"] },
+        (current: AssessmentListResponse | undefined) => {
+          if (!current) {
+            return current;
+          }
+          const removed = current.items.some((item) => item.id === id);
+          if (!removed) {
+            return current;
+          }
+          const nextItems = current.items.filter((item) => item.id !== id);
+          const nextTotal = Math.max(0, current.total - 1);
+          return {
+            ...current,
+            items: nextItems,
+            total: nextTotal,
+            total_pages: Math.max(
+              1,
+              Math.ceil(nextTotal / Math.max(1, current.page_size)),
+            ),
+          };
+        },
+      );
+      queryClient.removeQueries({ queryKey: ["assessment", id] });
+      queryClient.invalidateQueries({ queryKey: ["my-assessments"] });
       toast({ title: "已删除", variant: "success" });
+      if (data?.items.length === 1 && page > 1) {
+        setPage((current) => Math.max(1, current - 1));
+      }
       refetch();
     } catch (error) {
       toast({
@@ -50,6 +80,9 @@ function HistoryContent() {
         page,
         page_size: 20,
       }),
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   return (

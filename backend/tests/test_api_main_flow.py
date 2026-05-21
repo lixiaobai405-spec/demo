@@ -487,6 +487,171 @@ def test_direction_selection_accepts_llm_enhanced_direction_ids(
     } == set(custom_ids)
 
 
+def test_expand_directions_clears_existing_selection_and_downstream_outputs(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+) -> None:
+    assessment_id = _prepare_for_report(client, assessment_payload)
+
+    response = client.post(f"/api/assessments/{assessment_id}/directions/expand")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["direction_selection"] is None
+
+    detail_response = client.get(f"/api/assessments/{assessment_id}")
+    assert detail_response.status_code == 200
+    detail = detail_response.json()
+    assert detail["direction_selection"] is None
+    assert detail["scenario_recommendation"] is None
+    assert detail["competitiveness"] is None
+    assert detail["endgame"] is None
+    assert detail["progress"]["has_directions"] is False
+    assert detail["progress"]["has_scenarios"] is False
+    assert detail["progress"]["has_competitiveness"] is False
+    assert detail["progress"]["has_endgame"] is False
+
+
+def test_get_directions_normalizes_duplicate_ids_and_total_count(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+) -> None:
+    assessment_id = _create_assessment(client, assessment_payload)
+
+    assert client.post(f"/api/assessments/{assessment_id}/profile").status_code == 200
+    assert client.post(f"/api/assessments/{assessment_id}/canvas").status_code == 200
+
+    breakthrough_response = client.post(
+        f"/api/assessments/{assessment_id}/breakthrough/recommend"
+    )
+    recommended_keys = breakthrough_response.json()["breakthrough_recommendation"][
+        "recommended_keys"
+    ]
+    assert client.post(
+        f"/api/assessments/{assessment_id}/breakthrough/select",
+        json={
+            "selected_keys": recommended_keys[:2],
+            "selection_mode": "system_recommended",
+        },
+    ).status_code == 200
+
+    expand_response = client.post(f"/api/assessments/{assessment_id}/directions/expand")
+    assert expand_response.status_code == 200
+
+    from sqlalchemy import select
+
+    from app.models.direction_expansion import DirectionExpansion
+
+    duplicate_expansion = {
+        "generation_mode": "llm",
+        "llm_status": "completed",
+        "total_suggestions": 7,
+        "elements": [
+            {
+                "element_key": recommended_keys[0],
+                "element_title": "收入来源",
+                "suggestions": [
+                    {
+                        "direction_id": "direction-1",
+                        "element_key": recommended_keys[0],
+                        "title": "方向 1",
+                        "description": "描述 1",
+                        "expected_impact": "影响 1",
+                        "data_needed": ["数据 1"],
+                        "related_scenario_categories": ["销售增长"],
+                    },
+                    {
+                        "direction_id": "direction-2",
+                        "element_key": recommended_keys[0],
+                        "title": "方向 2",
+                        "description": "描述 2",
+                        "expected_impact": "影响 2",
+                        "data_needed": ["数据 2"],
+                        "related_scenario_categories": ["销售增长"],
+                    },
+                    {
+                        "direction_id": "direction-3",
+                        "element_key": recommended_keys[0],
+                        "title": "方向 3",
+                        "description": "描述 3",
+                        "expected_impact": "影响 3",
+                        "data_needed": ["数据 3"],
+                        "related_scenario_categories": ["销售增长"],
+                    },
+                    {
+                        "direction_id": "direction-4",
+                        "element_key": recommended_keys[0],
+                        "title": "方向 4",
+                        "description": "描述 4",
+                        "expected_impact": "影响 4",
+                        "data_needed": ["数据 4"],
+                        "related_scenario_categories": ["销售增长"],
+                    },
+                ],
+            },
+            {
+                "element_key": recommended_keys[1],
+                "element_title": "客户关系",
+                "suggestions": [
+                    {
+                        "direction_id": "direction-4",
+                        "element_key": recommended_keys[1],
+                        "title": "重复方向 4",
+                        "description": "重复描述",
+                        "expected_impact": "重复影响",
+                        "data_needed": ["重复数据"],
+                        "related_scenario_categories": ["客户服务"],
+                    },
+                    {
+                        "direction_id": "direction-5",
+                        "element_key": recommended_keys[1],
+                        "title": "方向 5",
+                        "description": "描述 5",
+                        "expected_impact": "影响 5",
+                        "data_needed": ["数据 5"],
+                        "related_scenario_categories": ["客户服务"],
+                    },
+                    {
+                        "direction_id": "direction-6",
+                        "element_key": recommended_keys[1],
+                        "title": "方向 6",
+                        "description": "描述 6",
+                        "expected_impact": "影响 6",
+                        "data_needed": ["数据 6"],
+                        "related_scenario_categories": ["客户服务"],
+                    },
+                ],
+            },
+        ],
+    }
+
+    with db_session.SessionLocal() as session:
+        record = session.scalar(
+            select(DirectionExpansion).where(
+                DirectionExpansion.assessment_id == assessment_id
+            )
+        )
+        assert record is not None
+        record.generation_mode = "llm"
+        record.llm_status = "completed"
+        record.expansion_json = json.dumps(duplicate_expansion, ensure_ascii=False)
+        session.add(record)
+        session.commit()
+
+    response = client.get(f"/api/assessments/{assessment_id}/directions")
+
+    assert response.status_code == 200
+    expansion = response.json()["direction_expansion"]
+    all_ids = [
+        suggestion["direction_id"]
+        for element in expansion["elements"]
+        for suggestion in element["suggestions"]
+    ]
+    assert expansion["total_suggestions"] == 6
+    assert len(all_ids) == 6
+    assert len(set(all_ids)) == 6
+
+
 def test_main_flow_generates_competitiveness_endgame_and_report_without_old_labels(
     client: TestClient,
     assessment_payload: dict[str, str],

@@ -529,7 +529,7 @@ export function AssessmentWorkbench({
               {/* 课后30天跟进暂时隐藏 <ActionBtn onClick={handleLoadFollowUp} disabled={!assessment || isLoadingFollowUp} color="success" loading={isLoadingFollowUp} hasResult={!!followUpPlan} label="课后 30 天跟进" /> */}
             </div>
             <p className="mt-4 text-sm leading-7 text-warm-muted">
-              刷新页面后会自动从后端恢复当前 Assessment 状态。重新生成上游模块时，下游结果会被自动失效并需要重新生成。
+              刷新页面后会自动从后端恢复当前 Assessment 状态。重新生成上游模块时，下游结果会自动失效并需要重新生成。
             </p>
             {profileError ? <div className="mt-4 rounded-xl msg-error p-3 text-sm">{profileError}</div> : null}
             {canvasError ? <div className="mt-4 rounded-xl msg-error p-3 text-sm">{canvasError}</div> : null}

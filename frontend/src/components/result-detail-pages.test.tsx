@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Mock } from "vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -51,23 +51,64 @@ vi.mock("@/hooks", () => ({
   useUpdateEndgame: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
-/**
- * 构造结果页测试所需的最小评估详情数据。
- */
+function buildCompetitiveness() {
+  return {
+    assessment_id: "assessment-1",
+    result: {
+      generation_mode: "rule_based",
+      vp_reconstruction: {
+        current_vp: "Current value proposition",
+        enhanced_vp: "Enhanced AI-led proposition",
+        differentiation_points: ["Customer operations depth"],
+        customer_value_shift: "Shift from efficiency to sustained growth",
+      },
+      connections: [
+        {
+          line_name: "Customer growth line",
+          point_ids: ["direction-1"],
+          point_titles: ["Customer lifecycle operations"],
+          strategic_narrative: "Connect customer touchpoints into a repeatable system.",
+          competitive_impact: "Increase retention and repurchase rate.",
+          key_metrics: ["Retention"],
+          linkage_logic: "Use AI to connect customer data and response flows.",
+          competitive_moat: "Data-driven operating moat",
+        },
+      ],
+      advantages: [
+        {
+          advantage_name: "Customer operations moat",
+          source_elements: ["customer_relationships"],
+          description: "Forms a stronger closed-loop operating system.",
+          barrier_level: "高",
+        },
+      ],
+      delivery_strategy: {
+        phase_1_quick_win: "Pilot one scenario first",
+        phase_2_scale: "Scale after validation",
+        phase_3_moat: "沉淀为长期能力",
+        key_risks: ["Cross-team coordination"],
+      },
+      overall_narrative: "Competitive direction is clear.",
+    },
+    created_at: null,
+    updated_at: null,
+  };
+}
+
 function buildDetail() {
   return {
     assessment: {
       id: "assessment-1",
-      company_name: "测试企业",
-      industry: "零售",
-      company_size: "100-499人",
-      region: "华东",
-      annual_revenue_range: "5000万-1亿元",
-      core_products: "会员服务",
-      target_customers: "会员用户",
-      current_challenges: "复购波动",
-      ai_goals: "提升运营效率",
-      available_data: "POS、会员系统",
+      company_name: "Test Company",
+      industry: "Retail",
+      company_size: "100-499",
+      region: "East China",
+      annual_revenue_range: "50M-100M",
+      core_products: "Membership services",
+      target_customers: "Members",
+      current_challenges: "Repurchase fluctuation",
+      ai_goals: "Improve operating efficiency",
+      available_data: "POS and member systems",
       notes: null,
       created_at: null,
       updated_at: null,
@@ -85,12 +126,12 @@ function buildDetail() {
       top_scenarios: [
         {
           scenario_id: "scenario-1",
-          name: "门店知识助手",
-          category: "运营提效",
-          summary: "帮助门店快速调用标准知识。",
-          score: 92,
-          reasons: ["降低培训成本"],
-          data_requirements: ["POS 数据"],
+          name: "Store knowledge copilot",
+          category: "Operations",
+          summary: "Help frontline staff answer store questions quickly.",
+          canvas_elements: "Key activities",
+          expected_effects: "Reduce training cost",
+          core_data_requirements: "POS data",
         },
       ],
       created_at: null,
@@ -111,51 +152,6 @@ function buildDetail() {
       has_report: false,
       ready_for_report: false,
     },
-  };
-}
-
-/**
- * 构造竞争力分析页测试所需的最小数据。
- */
-function buildCompetitiveness() {
-  return {
-    assessment_id: "assessment-1",
-    result: {
-      generation_mode: "rule_based",
-      vp_reconstruction: {
-        current_vp: "帮助门店提升经营效率",
-        enhanced_vp: "通过客户经营和知识复用形成差异化竞争力",
-        differentiation_points: ["客户经营深化"],
-        customer_value_shift: "从单点提效升级为持续经营。",
-      },
-      connections: [
-        {
-          line_name: "客户关系深化线",
-          point_ids: ["direction-1"],
-          point_titles: ["客户分层经营"],
-          strategic_narrative: "围绕客户关系深化形成系统性能力。",
-          competitive_impact: "提高复购与留存",
-          key_metrics: ["复购率"],
-        },
-      ],
-      advantages: [
-        {
-          advantage_name: "客户经营优势",
-          source_elements: ["客户关系"],
-          description: "形成更强的客户经营闭环。",
-          barrier_level: "高",
-        },
-      ],
-      delivery_strategy: {
-        phase_1_quick_win: "先试点",
-        phase_2_scale: "再扩展",
-        phase_3_moat: "最后沉淀壁垒",
-        key_risks: ["跨团队协同不足"],
-      },
-      overall_narrative: "竞争力方向清晰。",
-    },
-    created_at: null,
-    updated_at: null,
   };
 }
 
@@ -191,11 +187,13 @@ describe("result detail page content", () => {
       <ScenariosPageContent assessmentId="assessment-1" />,
     );
 
-    expect(screen.getByText("测试企业 AI 场景推荐")).toBeInTheDocument();
-    expect(screen.getAllByText("门店知识助手").length).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getByRole("heading", { name: "Test Company AI 推荐场景" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Store knowledge copilot").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("renders the competitiveness page with client-fetched detail data", () => {
+  it("renders the competitiveness page and allows opening manual edit mode", () => {
     (useAssessmentDetailMock as Mock).mockReturnValue({
       isLoading: false,
       isError: false,
@@ -208,7 +206,15 @@ describe("result detail page content", () => {
       <CompetitivenessPageContent assessmentId="assessment-1" />,
     );
 
-    expect(screen.getByText("测试企业 差异化竞争力分析")).toBeInTheDocument();
-    expect(screen.getByText("竞争力方向清晰。")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Test Company 差异化竞争力分析" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Competitive direction is clear.")).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /手动编辑竞争力报告/ }),
+    );
+
+    expect(screen.getByRole("textbox")).toBeInTheDocument();
   });
 });

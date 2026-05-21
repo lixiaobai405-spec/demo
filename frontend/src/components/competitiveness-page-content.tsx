@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -13,13 +13,11 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CompetitivenessPanel } from "@/components/competitiveness-panel";
 import { GeneratedJsonEditor } from "@/components/generated-json-editor";
+import { SyncFeedbackPanel } from "@/components/sync-feedback-panel";
 import { toast } from "@/hooks/use-toast";
 import { formatMutationError } from "@/lib/api";
 import type { UpdateCompetitivenessPayload } from "@/lib/types";
 
-/**
- * 在客户端加载差异化竞争力详情，避免服务端请求拿不到本地登录态。
- */
 export function CompetitivenessPageContent({
   assessmentId,
 }: {
@@ -29,17 +27,17 @@ export function CompetitivenessPageContent({
   const detailQuery = useAssessmentDetail(assessmentId);
   const generateEndgame = useGenerateEndgame();
   const updateCompetitiveness = useUpdateCompetitiveness();
-  const isLoading = detailQuery.isLoading;
+  const [isEditing, setIsEditing] = useState(false);
 
   const handleGenerateEndgame = useCallback(async () => {
     try {
       await generateEndgame.mutateAsync(assessmentId);
       toast({ title: "商业终局设计已生成" });
       router.push(`/assessment/${assessmentId}/endgame`);
-    } catch (e) {
+    } catch (error) {
       toast({
         title: "生成失败",
-        description: formatMutationError(e, "商业终局设计"),
+        description: formatMutationError(error, "商业终局设计"),
         variant: "destructive",
       });
     }
@@ -53,9 +51,11 @@ export function CompetitivenessPageContent({
           payload: payload as UpdateCompetitivenessPayload,
         });
         toast({
-          title: "差异化竞争力分析已更新",
-          description: "下游终局与报告已失效，请按顺序重新生成。",
+          title: "差异化竞争力已更新",
+          description: "下游终局和综合报告已自动失效，请按顺序重新生成。",
         });
+        setIsEditing(false);
+        await detailQuery.refetch();
       } catch (error) {
         toast({
           title: "保存失败",
@@ -64,10 +64,10 @@ export function CompetitivenessPageContent({
         });
       }
     },
-    [assessmentId, updateCompetitiveness],
+    [assessmentId, detailQuery, updateCompetitiveness],
   );
 
-  if (isLoading) {
+  if (detailQuery.isLoading) {
     return (
       <main className="min-h-screen px-6 py-10">
         <div className="mx-auto max-w-7xl space-y-6">
@@ -82,7 +82,7 @@ export function CompetitivenessPageContent({
     return (
       <main className="min-h-screen px-6 py-10">
         <div className="mx-auto max-w-7xl">
-          <div className="space-y-4 rounded-xl msg-error p-6 text-sm">
+          <div className="space-y-4 rounded-xl p-6 text-sm msg-error">
             <p className="font-medium">加载失败</p>
             <p>
               {detailQuery.error instanceof Error
@@ -119,19 +119,13 @@ export function CompetitivenessPageContent({
           <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center gap-2">
               <Link href="/" className="btn-secondary text-xs">
-                ← 返回首页
+                返回首页
               </Link>
               <Link
                 href={`/assessment/${assessmentId}`}
                 className="btn-secondary text-xs"
               >
-                ← 返回工作台
-              </Link>
-              <Link
-                href={`/assessment/${assessmentId}/results`}
-                className="btn-secondary text-xs"
-              >
-                结果仪表盘 →
+                返回主流程工作台
               </Link>
             </div>
             <span className="badge badge-warning">差异化竞争力</span>
@@ -148,27 +142,47 @@ export function CompetitivenessPageContent({
 
         {competitiveness ? (
           <>
-            <CompetitivenessPanel
-              data={competitiveness}
-              companyName={companyName}
-              topScenarioNames={(detail.scenario_recommendation?.top_scenarios ?? [])
-                .slice(0, 3)
-                .map((item) => item.name)}
-            />
-            <GeneratedJsonEditor
-              title="差异化竞争力 JSON"
-              description="适合手动修订系统方案命名、VP 重构、竞争力线路、核心优势和三阶段路径。"
-              value={editableCompetitiveness}
-              isSaving={updateCompetitiveness.isPending}
-              onSave={handleSaveCompetitiveness}
-            />
-            {/* Next step */}
+            <div className="flex items-center gap-3">
+              <Button
+                variant={isEditing ? "default" : "outline"}
+                size="sm"
+                onClick={() => setIsEditing((current) => !current)}
+              >
+                {isEditing ? "退出编辑" : "✏️ 手动编辑竞争力报告"}
+              </Button>
+              {isEditing ? (
+                <span className="text-xs text-warm-accent">
+                  编辑模式下可直接修订系统方案命名、VP 重构、差异化定位和竞争力提升路径。
+                </span>
+              ) : null}
+            </div>
+
+            {isEditing ? (
+              <GeneratedJsonEditor
+                title="差异化竞争力 JSON"
+                description="适合手动修订系统方案命名、VP 重构、竞争力串联逻辑和三阶段提升路径。"
+                value={editableCompetitiveness}
+                isSaving={updateCompetitiveness.isPending}
+                onSave={handleSaveCompetitiveness}
+                isEditing={isEditing}
+                onEditingChange={setIsEditing}
+                showToggleButton={false}
+              />
+            ) : (
+              <CompetitivenessPanel
+                data={competitiveness}
+                companyName={companyName}
+                topScenarioNames={(detail.scenario_recommendation?.top_scenarios ?? [])
+                  .slice(0, 3)
+                  .map((item) => item.name)}
+              />
+            )}
+
             <section className="card">
               <p className="section-label">下一步</p>
               <h2 className="section-heading">商业终局设计</h2>
               <p className="mt-2 text-sm leading-7 text-muted-foreground">
-                基于差异化竞争力分析，生成商业终局设计，包括私域、生态、数据能力体系
-                和三阶段推进策略。
+                基于当前竞争力结构，生成私域、生态、数据能力和三阶段推进策略。
               </p>
               <div className="mt-4 flex flex-wrap gap-3">
                 <Button
@@ -176,14 +190,10 @@ export function CompetitivenessPageContent({
                   disabled={generateEndgame.isPending}
                   loading={generateEndgame.isPending}
                 >
-                  {generateEndgame.isPending ? "正在生成..." : "生成商业终局设计 →"}
+                  {generateEndgame.isPending
+                    ? "生成中..."
+                    : "生成商业终局设计"}
                 </Button>
-                <Link
-                  href={`/assessment/${assessmentId}/results`}
-                  className="btn-secondary text-xs"
-                >
-                  查看结果仪表盘
-                </Link>
               </div>
             </section>
           </>
@@ -191,17 +201,19 @@ export function CompetitivenessPageContent({
           <div className="card-inset">
             <p className="section-label">差异化竞争力</p>
             <p className="mt-4 text-sm leading-7 text-muted-foreground">
-              尚未生成差异化竞争力分析。请先完成前置步骤后再查看。
+              尚未生成差异化竞争力分析。请先完成候选场景与 Top 3 场景确认。
             </p>
             <Link
               href={`/assessment/${assessmentId}`}
               className="mt-3 inline-block btn-primary text-xs"
             >
-              返回工作台
+              返回主流程工作台
             </Link>
           </div>
         )}
       </div>
+
+      <SyncFeedbackPanel assessmentId={assessmentId} />
     </main>
   );
 }

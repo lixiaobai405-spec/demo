@@ -615,6 +615,7 @@ def expand_directions(
     # Phase 1: Instant rule-based expansion
     service = DirectionExpansionService()
     expansion = service.expand(breakthrough_keys)
+    _clear_direction_selection_and_below(db, assessment_id)
 
     # Persist with pending LLM status
     record = _upsert_direction_expansion(
@@ -642,12 +643,10 @@ def expand_directions(
     # Set llm_status on the response expansion
     expansion.llm_status = record.llm_status
 
-    selection_response = _load_direction_selection(db, assessment_id)
-
     return AssessmentDirectionResponse(
         assessment_id=assessment_id,
         direction_expansion=expansion,
-        direction_selection=selection_response,
+        direction_selection=None,
     )
 
 
@@ -708,7 +707,9 @@ def get_directions(
             detail="请先生成创新方向延展。",
         )
 
-    expansion = DirectionExpansionResult.model_validate_json(record.expansion_json)
+    expansion = _normalize_direction_expansion(
+        DirectionExpansionResult.model_validate_json(record.expansion_json)
+    )
     expansion.generation_mode = record.generation_mode  # type: ignore[assignment]
     expansion.llm_status = record.llm_status  # type: ignore[assignment]
 
@@ -960,12 +961,19 @@ def recommend_scenarios(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="请先确认创新方向，再生成 AI 场景推荐。",
         )
+    breakthrough_keys = _load_breakthrough_selection_keys(db, assessment_id) or []
+    breakthrough_labels = [ELEMENT_KEY_TO_TITLE.get(key, key) for key in breakthrough_keys]
+    direction_titles = [direction.title for direction in selected_directions]
     direction_categories = _load_direction_categories(db, assessment_id)
     recommender = ScenarioRecommender()
 
     if mode == "legacy":
         top_recommendations, evaluated_count = recommender.recommend(
-            assessment, profile, direction_categories
+            assessment,
+            profile,
+            direction_categories,
+            breakthrough_labels,
+            direction_titles,
         )
         stored_scenarios = _upsert_scenario_recommendation(
             db=db,
@@ -976,7 +984,11 @@ def recommend_scenarios(
         )
     else:
         priority_result = recommender.recommend_with_priority(
-            assessment, profile, direction_categories
+            assessment,
+            profile,
+            direction_categories,
+            breakthrough_labels,
+            direction_titles,
         )
         stored_scenarios = _upsert_scenario_recommendation(
             db=db,
@@ -1024,10 +1036,17 @@ def recommend_scenarios_with_priority(
             detail="请先确认创新方向，再生成 AI 场景推荐。",
         )
     profile = _load_profile_from_assessment(assessment)
+    breakthrough_keys = _load_breakthrough_selection_keys(db, assessment_id) or []
+    breakthrough_labels = [ELEMENT_KEY_TO_TITLE.get(key, key) for key in breakthrough_keys]
+    direction_titles = [direction.title for direction in selected_directions]
     direction_categories = _load_direction_categories(db, assessment_id)
     recommender = ScenarioRecommender()
     priority_result = recommender.recommend_with_priority(
-        assessment, profile, direction_categories
+        assessment,
+        profile,
+        direction_categories,
+        breakthrough_labels,
+        direction_titles,
     )
     stored_scenarios = _upsert_scenario_recommendation(
         db=db,
@@ -1632,18 +1651,51 @@ def _load_direction_selection(
     return _build_direction_selection_response(record)
 
 
+def _normalize_direction_expansion(
+    expansion: DirectionExpansionResult,
+) -> DirectionExpansionResult:
+    from app.schemas.direction import DirectionExpansionByElement
+
+    seen_ids: set[str] = set()
+    normalized_elements: list[DirectionExpansionByElement] = []
+    for element in expansion.elements:
+        suggestions = []
+        for suggestion in element.suggestions:
+            if suggestion.direction_id in seen_ids:
+                continue
+            seen_ids.add(suggestion.direction_id)
+            suggestions.append(suggestion)
+        normalized_elements.append(
+            DirectionExpansionByElement(
+                element_key=element.element_key,
+                element_title=element.element_title,
+                suggestions=suggestions,
+            )
+        )
+
+    normalized = DirectionExpansionResult(
+        generation_mode=expansion.generation_mode,
+        llm_status=expansion.llm_status,
+        elements=normalized_elements,
+        total_suggestions=sum(
+            len(element.suggestions) for element in normalized_elements
+        ),
+    )
+    return normalized
+
+
 def _load_direction_expansion_result(
     db: Session,
     assessment_id: str,
 ) -> DirectionExpansionResult | None:
-    from app.schemas.direction import DirectionExpansionResult
-
     record = _load_direction_expansion(db, assessment_id)
     if record is None or not record.expansion_json:
         return None
     try:
         raw = json.loads(record.expansion_json)
-        return DirectionExpansionResult.model_validate(raw)
+        return _normalize_direction_expansion(
+            DirectionExpansionResult.model_validate(raw)
+        )
     except Exception:
         return None
 
@@ -1824,11 +1876,11 @@ def _inject_llm_directions_into_expansion(
             elements.append(elem)
 
     total = sum(len(e.suggestions) for e in elements)
-    return DirectionExpansionResult(
+    return _normalize_direction_expansion(DirectionExpansionResult(
         generation_mode="llm" if llm_directions else expansion.generation_mode,
         elements=elements,
         total_suggestions=total,
-    )
+    ))
 
 
 def _upsert_direction_expansion(
@@ -1836,21 +1888,22 @@ def _upsert_direction_expansion(
     assessment_id: str,
     expansion: DirectionExpansionResult,
 ) -> DirectionExpansion:
+    normalized_expansion = _normalize_direction_expansion(expansion)
     record = db.scalar(
         select(DirectionExpansion).where(DirectionExpansion.assessment_id == assessment_id)
     )
     if record is None:
         record = DirectionExpansion(
             assessment_id=assessment_id,
-            generation_mode=expansion.generation_mode,
+            generation_mode=normalized_expansion.generation_mode,
             llm_status="pending",
-            expansion_json=expansion.model_dump_json(),
+            expansion_json=normalized_expansion.model_dump_json(),
         )
         db.add(record)
     else:
-        record.generation_mode = expansion.generation_mode
+        record.generation_mode = normalized_expansion.generation_mode
         record.llm_status = "pending"
-        record.expansion_json = expansion.model_dump_json()
+        record.expansion_json = normalized_expansion.model_dump_json()
     db.flush()
     db.refresh(record)
     return record
@@ -2492,6 +2545,44 @@ def _clear_scenarios_and_below(db: Session, assessment_id: str) -> None:
             db.scalar(select(EndgameAnalysis).where(EndgameAnalysis.assessment_id == assessment_id)),
             db.scalar(select(CaseRecommendation).where(CaseRecommendation.assessment_id == assessment_id)),
             db.scalar(select(GeneratedReport).where(GeneratedReport.assessment_id == assessment_id)),
+        ],
+    )
+
+
+def _clear_direction_selection_and_below(db: Session, assessment_id: str) -> None:
+    _delete_records(
+        db,
+        [
+            db.scalar(
+                select(DirectionSelection).where(
+                    DirectionSelection.assessment_id == assessment_id
+                )
+            ),
+            db.scalar(
+                select(ScenarioRecommendation).where(
+                    ScenarioRecommendation.assessment_id == assessment_id
+                )
+            ),
+            db.scalar(
+                select(CompetitivenessAnalysis).where(
+                    CompetitivenessAnalysis.assessment_id == assessment_id
+                )
+            ),
+            db.scalar(
+                select(EndgameAnalysis).where(
+                    EndgameAnalysis.assessment_id == assessment_id
+                )
+            ),
+            db.scalar(
+                select(CaseRecommendation).where(
+                    CaseRecommendation.assessment_id == assessment_id
+                )
+            ),
+            db.scalar(
+                select(GeneratedReport).where(
+                    GeneratedReport.assessment_id == assessment_id
+                )
+            ),
         ],
     )
 

@@ -113,7 +113,7 @@ export function WorkflowSidebar({
         </div>
         <p className="mt-4 text-sm leading-7 text-muted-foreground">
           刷新页面后会自动从后端恢复当前 Assessment 状态。重新生成上游模块时，
-          下游结果会被自动失效并需要重新生成。
+          下游结果会自动失效并需要重新生成。
         </p>
       </div>
     </div>

@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import React from "react";
+import { useMemo, useState } from "react";
+
 import { useAssessmentDetail } from "@/hooks";
 
 type StepStatus = {
-  label: string;
   key: string;
+  label: string;
   exists: boolean;
   detail: string;
 };
@@ -15,113 +17,134 @@ export function SyncFeedbackPanel({ assessmentId }: { assessmentId: string }) {
   const detailQuery = useAssessmentDetail(assessmentId);
   const data = detailQuery.data;
 
-  if (!data) return null;
+  const steps = useMemo<StepStatus[]>(() => {
+    if (!data) {
+      return [];
+    }
 
-  const { progress } = data;
+    return [
+      {
+        key: "profile",
+        label: "企业画像",
+        exists: data.progress.has_profile,
+        detail: data.progress.has_profile ? "已生成画像内容" : "无结果",
+      },
+      {
+        key: "canvas",
+        label: "商业画布",
+        exists: data.progress.has_canvas,
+        detail: data.progress.has_canvas ? "已生成 9 格诊断" : "无结果",
+      },
+      {
+        key: "breakthrough",
+        label: "突破要素",
+        exists: data.progress.has_breakthrough,
+        detail:
+          data.breakthrough_selection && data.breakthrough_selection.length > 0
+            ? `已确认 ${data.breakthrough_selection.length} 个突破要素`
+            : "无结果",
+      },
+      {
+        key: "directions",
+        label: "创新方向",
+        exists: data.progress.has_directions,
+        detail:
+          data.direction_selection?.selected_directions.length
+            ? `已确认 ${data.direction_selection.selected_directions.length} 个方向`
+            : data.direction_expansion
+              ? "已有候选，待确认"
+              : "无结果",
+      },
+      {
+        key: "scenarios",
+        label: "AI 推荐场景",
+        exists: data.progress.has_scenarios,
+        detail:
+          data.scenario_recommendation?.top_scenarios.length
+            ? `已生成 Top ${data.scenario_recommendation.top_scenarios.length}`
+            : "无结果",
+      },
+      {
+        key: "competitiveness",
+        label: "差异化竞争力",
+        exists: data.progress.has_competitiveness,
+        detail: data.progress.has_competitiveness ? "已生成竞争力报告" : "无结果",
+      },
+      {
+        key: "endgame",
+        label: "商业终局",
+        exists: data.progress.has_endgame,
+        detail: data.progress.has_endgame ? "已生成终局设计" : "无结果",
+      },
+      {
+        key: "report",
+        label: "综合报告",
+        exists: data.progress.has_report,
+        detail: data.progress.has_report ? "已生成导出报告" : "无结果",
+      },
+    ];
+  }, [data]);
 
-  const steps: StepStatus[] = [
-    {
-      label: "企业画像",
-      key: "profile",
-      exists: progress.has_profile,
-      detail: progress.has_profile ? "已生成" : "未生成",
-    },
-    {
-      label: "商业画布",
-      key: "canvas",
-      exists: progress.has_canvas,
-      detail: data.canvas_diagnosis
-        ? `${data.canvas_diagnosis.canvas.blocks.length} 个模块, 评分 ${data.canvas_diagnosis.overall_score}`
-        : "未生成",
-    },
-    {
-      label: "突破要素",
-      key: "breakthrough",
-      exists: progress.has_breakthrough,
-      detail: data.breakthrough_selection?.length
-        ? `已选 ${data.breakthrough_selection.length} 个`
-        : "未选择",
-    },
-    {
-      label: "创新方向",
-      key: "directions",
-      exists: progress.has_directions,
-      detail: data.direction_selection?.selected_directions?.length
-        ? `已选 ${data.direction_selection.selected_directions.length} 个`
-        : "未选择",
-    },
-    {
-      label: "AI 场景",
-      key: "scenarios",
-      exists: progress.has_scenarios,
-      detail: data.scenario_recommendation
-        ? `Top ${data.scenario_recommendation.top_scenarios.length}`
-        : "未生成",
-    },
-    {
-      label: "差异化竞争力",
-      key: "competitiveness",
-      exists: progress.has_competitiveness,
-      detail: progress.has_competitiveness ? "已生成" : "未生成",
-    },
-    {
-      label: "商业终局",
-      key: "endgame",
-      exists: progress.ready_for_report && data.scenario_recommendation !== null,
-      detail: progress.ready_for_report ? "已具备" : "未满足条件",
-    },
-  ];
+  if (!data || steps.length === 0) {
+    return null;
+  }
 
-  const readyCount = steps.filter((s) => s.exists).length;
+  const readyCount = steps.filter((item) => item.exists).length;
 
   return (
     <div className="fixed bottom-4 right-4 z-50">
-      {!isOpen ? (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="rounded-full bg-warm-accent text-white px-4 py-2 text-xs font-semibold shadow-lg hover:bg-warm-accent/90 transition"
-        >
-          🔍 {readyCount}/{steps.length}
-        </button>
-      ) : (
+      {isOpen ? (
         <div className="w-80 rounded-xl border border-warm-border-light bg-warm-surface shadow-2xl">
-          <div className="flex items-center justify-between p-4 border-b border-warm-border-light">
-            <p className="text-sm font-semibold text-warm-text">
-              同步状态 ({readyCount}/{steps.length})
-            </p>
+          <div className="flex items-center justify-between border-b border-warm-border-light p-4">
+            <div>
+              <p className="text-sm font-semibold text-warm-text">同步状态</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {readyCount} / {steps.length} 已完成
+              </p>
+            </div>
             <button
+              type="button"
               onClick={() => setIsOpen(false)}
               className="text-xs text-muted-foreground hover:text-warm-text"
             >
               关闭
             </button>
           </div>
-          <div className="p-4 space-y-2 max-h-96 overflow-y-auto">
+
+          <div className="max-h-96 space-y-2 overflow-y-auto p-4">
             {steps.map((step) => (
               <div
                 key={step.key}
-                className={`flex items-center justify-between rounded-lg p-2 text-xs ${
+                className={`rounded-lg border p-3 text-xs ${
                   step.exists
-                    ? "bg-warm-success/10 border border-green-200"
-                    : "bg-muted border border-warm-border-light"
+                    ? "border-green-200 bg-green-50/70"
+                    : "border-warm-border-light bg-muted/40"
                 }`}
               >
-                <div>
-                  <p className={`font-medium ${step.exists ? "text-warm-success" : "text-muted-foreground"}`}>
-                    {step.exists ? "✓" : "○"} {step.label}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{step.detail}</p>
-                </div>
+                <p className={`font-medium ${step.exists ? "text-warm-success" : "text-muted-foreground"}`}>
+                  {step.exists ? "已完成" : "未完成"} · {step.label}
+                </p>
+                <p className="mt-1 text-[11px] text-muted-foreground">{step.detail}</p>
               </div>
             ))}
+
             <button
+              type="button"
               onClick={() => detailQuery.refetch()}
-              className="w-full mt-3 rounded-lg border border-warm-accent/30 bg-warm-accent/5 py-1.5 text-xs text-warm-accent hover:bg-warm-accent/10 transition"
+              className="mt-2 w-full rounded-lg border border-warm-accent/30 bg-warm-accent/5 py-2 text-xs text-warm-accent transition hover:bg-warm-accent/10"
             >
               刷新同步状态
             </button>
           </div>
         </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setIsOpen(true)}
+          className="rounded-full bg-warm-accent px-4 py-2 text-xs font-semibold text-white shadow-lg transition hover:bg-warm-accent/90"
+        >
+          同步状态 {readyCount}/{steps.length}
+        </button>
       )}
     </div>
   );

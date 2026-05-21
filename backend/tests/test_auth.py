@@ -409,3 +409,218 @@ class TestErrorMessageClarity:
         resp = client.get("/api/auth/me")
         detail = resp.json()["detail"]
         assert any(ch in detail for ch in "登录认证")
+
+
+def test_register_with_profile_fields_and_recovery_settings(client: TestClient):
+    resp = client.post("/api/auth/register", json={
+        "email": "recovery@test.com",
+        "password": "test123456",
+        "display_name": "测试用户",
+        "company_name": "美太测试企业",
+        "job_title": "创新负责人",
+        "recovery_question": "你的第一位直属领导姓名是？",
+        "recovery_answer": "张老师",
+    })
+    assert resp.status_code == 201, resp.text
+    data = resp.json()
+    assert data["user"]["display_name"] == "测试用户"
+    assert data["user"]["company_name"] == "美太测试企业"
+    assert data["user"]["job_title"] == "创新负责人"
+
+
+def test_forgot_password_question_and_reset_flow(client: TestClient):
+    client.post("/api/auth/register", json={
+        "email": "resetme@test.com",
+        "password": "oldpass123",
+        "display_name": "可重置用户",
+        "recovery_question": "你的第一次独立项目名称是？",
+        "recovery_answer": "星火计划",
+    })
+
+    question_resp = client.post("/api/auth/forgot-password/question", json={
+        "email": "resetme@test.com",
+    })
+    assert question_resp.status_code == 200, question_resp.text
+    assert question_resp.json()["recovery_question"] == "你的第一次独立项目名称是？"
+
+    reset_resp = client.post("/api/auth/forgot-password/reset", json={
+        "email": "resetme@test.com",
+        "recovery_answer": "星火计划",
+        "new_password": "newpass123",
+    })
+    assert reset_resp.status_code == 200, reset_resp.text
+    assert reset_resp.json()["success"] is True
+
+    old_login = client.post("/api/auth/login", json={
+        "email": "resetme@test.com",
+        "password": "oldpass123",
+    })
+    assert old_login.status_code == 401
+
+    new_login = client.post("/api/auth/login", json={
+        "email": "resetme@test.com",
+        "password": "newpass123",
+    })
+    assert new_login.status_code == 200, new_login.text
+
+
+def test_forgot_password_requires_existing_recovery_settings(client: TestClient):
+    client.post("/api/auth/register", json={
+        "email": "norecovery@test.com",
+        "password": "test123456",
+    })
+
+    question_resp = client.post("/api/auth/forgot-password/question", json={
+        "email": "norecovery@test.com",
+    })
+    assert question_resp.status_code == 404, question_resp.text
+
+
+def test_forgot_password_sends_reset_email_via_smtp(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    from types import SimpleNamespace
+
+    from app.models.user import User
+    from app.services import auth_service
+
+    client.post("/api/auth/register", json={
+        "email": "smtp-reset@test.com",
+        "password": "test123456",
+    })
+
+    sent: dict[str, object] = {}
+
+    class FakeSMTP:
+        def __init__(self, host: str, port: int, timeout: int):
+            sent["host"] = host
+            sent["port"] = port
+            sent["timeout"] = timeout
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def starttls(self):
+            sent["starttls"] = True
+
+        def login(self, username: str, password: str):
+            sent["login"] = (username, password)
+
+        def send_message(self, message):
+            sent["message"] = message
+
+    monkeypatch.setattr(
+        auth_service,
+        "settings",
+        SimpleNamespace(
+            smtp_enabled=True,
+            smtp_host="smtp.example.com",
+            smtp_port=587,
+            smtp_username="smtp-user",
+            smtp_password="smtp-pass",
+            smtp_from_email="noreply@example.com",
+            smtp_from_name="Meitai AI",
+            smtp_use_tls=True,
+            smtp_use_ssl=False,
+            password_reset_url="",
+            frontend_origin="http://localhost:3001",
+            jwt_expire_minutes=1440,
+            jwt_secret_key="test-secret",
+            jwt_algorithm="HS256",
+        ),
+    )
+    monkeypatch.setattr(auth_service.smtplib, "SMTP", FakeSMTP)
+
+    response = client.post("/api/auth/forgot-password", json={
+        "email": "smtp-reset@test.com",
+    })
+
+    assert response.status_code == 200, response.text
+    assert sent["host"] == "smtp.example.com"
+    assert sent["port"] == 587
+    assert sent["starttls"] is True
+    assert sent["login"] == ("smtp-user", "smtp-pass")
+    message = sent["message"]
+    assert message["To"] == "smtp-reset@test.com"
+    html_body = message.get_body(preferencelist=("html",))
+    assert html_body is not None
+    assert "reset-password?token=" in html_body.get_content()
+
+    with db_session.SessionLocal() as db:
+        user = db.query(User).filter(User.email == "smtp-reset@test.com").first()
+        assert user is not None
+        assert user.reset_token is not None
+        assert user.reset_token_expires_at is not None
+
+
+def test_forgot_password_smtp_failure_rolls_back_token(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    import smtplib
+    from types import SimpleNamespace
+
+    from app.models.user import User
+    from app.services import auth_service
+
+    client.post("/api/auth/register", json={
+        "email": "smtp-fail@test.com",
+        "password": "test123456",
+    })
+
+    class FailingSMTP:
+        def __init__(self, host: str, port: int, timeout: int):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def starttls(self):
+            pass
+
+        def login(self, username: str, password: str):
+            pass
+
+        def send_message(self, message):
+            raise smtplib.SMTPException("send failed")
+
+    monkeypatch.setattr(
+        auth_service,
+        "settings",
+        SimpleNamespace(
+            smtp_enabled=True,
+            smtp_host="smtp.example.com",
+            smtp_port=587,
+            smtp_username="smtp-user",
+            smtp_password="smtp-pass",
+            smtp_from_email="noreply@example.com",
+            smtp_from_name="Meitai AI",
+            smtp_use_tls=True,
+            smtp_use_ssl=False,
+            password_reset_url="",
+            frontend_origin="http://localhost:3001",
+            jwt_expire_minutes=1440,
+            jwt_secret_key="test-secret",
+            jwt_algorithm="HS256",
+        ),
+    )
+    monkeypatch.setattr(auth_service.smtplib, "SMTP", FailingSMTP)
+
+    response = client.post("/api/auth/forgot-password", json={
+        "email": "smtp-fail@test.com",
+    })
+
+    assert response.status_code == 503, response.text
+
+    with db_session.SessionLocal() as db:
+        user = db.query(User).filter(User.email == "smtp-fail@test.com").first()
+        assert user is not None
+        assert user.reset_token is None
+        assert user.reset_token_expires_at is None

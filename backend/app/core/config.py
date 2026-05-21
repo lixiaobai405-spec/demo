@@ -126,6 +126,17 @@ class Settings:
     jwt_secret_key: str = _resolve("jwt_secret_key", "JWT_SECRET_KEY", "meitai-demo-dev-secret-change-in-prod")
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = _resolve_int("jwt_expire_minutes", "JWT_EXPIRE_MINUTES", 1440)
+    # SMTP / password reset mail
+    smtp_enabled: bool = _resolve_bool("smtp_enabled", "SMTP_ENABLED", False)
+    smtp_host: str = _resolve("smtp_host", "SMTP_HOST", "").strip()
+    smtp_port: int = _resolve_int("smtp_port", "SMTP_PORT", 587)
+    smtp_username: str = _resolve("smtp_username", "SMTP_USERNAME", "").strip()
+    smtp_password: str = _resolve("smtp_password", "SMTP_PASSWORD", "").strip()
+    smtp_from_email: str = _resolve("smtp_from_email", "SMTP_FROM_EMAIL", "").strip()
+    smtp_from_name: str = _resolve("smtp_from_name", "SMTP_FROM_NAME", "Meitai AI").strip()
+    smtp_use_tls: bool = _resolve_bool("smtp_use_tls", "SMTP_USE_TLS", True)
+    smtp_use_ssl: bool = _resolve_bool("smtp_use_ssl", "SMTP_USE_SSL", False)
+    password_reset_url: str = _resolve("password_reset_url", "PASSWORD_RESET_URL", "").strip()
 
 
 settings = Settings()

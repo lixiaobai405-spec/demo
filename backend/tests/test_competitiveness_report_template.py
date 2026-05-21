@@ -157,7 +157,7 @@ def _competitiveness() -> CompetitivenessResult:
     )
 
 
-def test_competitiveness_section_uses_output_template_table() -> None:
+def test_competitiveness_section_uses_card_layout() -> None:
     report = ReportBuilder().build(
         assessment=_assessment(),
         profile=_profile(),
@@ -169,16 +169,22 @@ def test_competitiveness_section_uses_output_template_table() -> None:
 
     section = next(item for item in report.sections if item.key == "competitiveness")
 
-    assert section.content == "输出文档标题：《测试企业·差异化竞争力策略概要》"
-    assert section.table is not None
-    assert section.table.columns == ["字段模块", "输出内容说明"]
-    assert [row[0] for row in section.table.rows] == [
-        "① AI 点优势串联叙述",
-        "② VP 重构输出",
-        "③ 竞争优势差异化定位",
-        "④ 核心竞争力提升路径",
+    assert section.title == "差异化竞争力设计"
+    assert section.content == "企业应围绕增强型价值主张构建系统性竞争力。"
+    assert section.table is None
+    assert section.cards is not None
+    assert [card.title for card in section.cards] == [
+        "AI 点优势串联",
+        "VP 重构输出",
+        "竞争优势差异化定位",
+        "核心竞争力提升路径",
     ]
-    assert "系统方案名称：" in section.table.rows[0][1]
-    assert "新 VP（AI 重构）：" in section.table.rows[1][1]
-    assert "AI 原生竞争者的威胁应对策略：" in section.table.rows[2][1]
-    assert "短期：" in section.table.rows[3][1]
+    assert section.cards[0].subtitle == "系统方案命名"
+    assert section.cards[0].highlight == "系统方案名称：客户响应速度智能协同系统"
+    assert section.cards[1].highlight == "旧 VP：帮助门店提升经营效率"
+    assert section.cards[2].highlight is not None
+    assert "定位语：" in section.cards[2].highlight
+    assert section.cards[3].content == "短期：先围绕知识助手完成小范围试点。"
+    assert section.cards[3].highlight == "中期：把试点扩展到相邻门店和团队。"
+    assert section.cards[3].bullets == ["长期：把数据、流程和知识沉淀为长期壁垒。"]
+    assert section.note == "该章节保留卡片式展示，便于讲师批注、方案汇报和后续人工修订。"

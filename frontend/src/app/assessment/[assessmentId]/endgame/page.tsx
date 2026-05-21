@@ -1,14 +1,15 @@
 "use client";
 
-import { use, useCallback } from "react";
+import React, { use, useCallback, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { useAssessmentDetail, useUpdateEndgame } from "@/hooks";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EndgamePanel } from "@/components/endgame-panel";
 import { GeneratedJsonEditor } from "@/components/generated-json-editor";
+import { SyncFeedbackPanel } from "@/components/sync-feedback-panel";
 import { toast } from "@/hooks/use-toast";
 import { formatMutationError } from "@/lib/api";
 import type { UpdateEndgamePayload } from "@/lib/types";
@@ -22,6 +23,7 @@ export default function EndgamePage({
   const router = useRouter();
   const detailQuery = useAssessmentDetail(assessmentId);
   const updateEndgame = useUpdateEndgame();
+  const [isEditing, setIsEditing] = useState(false);
 
   const handleSaveEndgame = useCallback(
     async (payload: unknown) => {
@@ -32,8 +34,10 @@ export default function EndgamePage({
         });
         toast({
           title: "商业终局设计已更新",
-          description: "报告已失效，请重新生成最终报告。",
+          description: "综合报告已自动失效，请重新生成最终报告。",
         });
+        setIsEditing(false);
+        await detailQuery.refetch();
       } catch (error) {
         toast({
           title: "保存失败",
@@ -42,7 +46,7 @@ export default function EndgamePage({
         });
       }
     },
-    [assessmentId, updateEndgame],
+    [assessmentId, detailQuery, updateEndgame],
   );
 
   if (detailQuery.isLoading) {
@@ -60,7 +64,7 @@ export default function EndgamePage({
     return (
       <main className="min-h-screen px-6 py-10">
         <div className="mx-auto max-w-7xl">
-          <div className="rounded-xl msg-error p-6 text-sm space-y-4">
+          <div className="space-y-4 rounded-xl p-6 text-sm msg-error">
             <p className="font-medium">加载失败</p>
             <p>
               {detailQuery.error instanceof Error
@@ -89,9 +93,7 @@ export default function EndgamePage({
         generation_mode: _generationMode,
         industry_essence: _industryEssence,
         ...rest
-      }) => rest)(
-        endgameData.result,
-      )
+      }) => rest)(endgameData.result)
     : null;
 
   return (
@@ -101,19 +103,13 @@ export default function EndgamePage({
           <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center gap-2">
               <Link href="/" className="btn-secondary text-xs">
-                ← 返回首页
+                返回首页
               </Link>
               <Link
                 href={`/assessment/${assessmentId}`}
                 className="btn-secondary text-xs"
               >
-                ← 返回工作台
-              </Link>
-              <Link
-                href={`/assessment/${assessmentId}/results`}
-                className="btn-secondary text-xs"
-              >
-                结果仪表盘 →
+                返回主流程工作台
               </Link>
             </div>
             <span className="badge badge-accent">私域 + 生态 + OPC</span>
@@ -130,26 +126,47 @@ export default function EndgamePage({
 
         {endgameData ? (
           <>
-            <EndgamePanel data={endgameData} />
-            <GeneratedJsonEditor
-              title="商业终局 JSON"
-              description="适合手动修订私域、生态、OPC、三阶段策略和多路径推演。"
-              value={editableEndgame}
-              isSaving={updateEndgame.isPending}
-              onSave={handleSaveEndgame}
-            />
+            <div className="flex items-center gap-3">
+              <Button
+                variant={isEditing ? "default" : "outline"}
+                size="sm"
+                onClick={() => setIsEditing((current) => !current)}
+              >
+                {isEditing ? "退出编辑" : "✏️ 手动编辑终局报告"}
+              </Button>
+              {isEditing ? (
+                <span className="text-xs text-warm-accent">
+                  编辑模式下可直接修订私域、生态、OPC、三阶段策略和多路径推演。
+                </span>
+              ) : null}
+            </div>
+
+            {isEditing ? (
+              <GeneratedJsonEditor
+                title="商业终局 JSON"
+                description="适合手动修订私域、生态、OPC、三阶段策略和多路径推演。"
+                value={editableEndgame}
+                isSaving={updateEndgame.isPending}
+                onSave={handleSaveEndgame}
+                isEditing={isEditing}
+                onEditingChange={setIsEditing}
+                showToggleButton={false}
+              />
+            ) : (
+              <EndgamePanel data={endgameData} />
+            )}
           </>
         ) : (
           <div className="card-inset">
             <p className="section-label">商业终局设计</p>
             <p className="mt-4 text-sm leading-7 text-muted-foreground">
-              尚未生成商业终局设计。请先完成差异化竞争力分析后再查看。
+              尚未生成商业终局设计。请先完成差异化竞争力分析。
             </p>
             <Link
               href={`/assessment/${assessmentId}/competitiveness`}
-              className="inline-block mt-3 btn-primary text-xs"
+              className="mt-3 inline-block btn-primary text-xs"
             >
-              前往差异化竞争力页 →
+              前往差异化竞争力页
             </Link>
           </div>
         )}
@@ -158,23 +175,17 @@ export default function EndgamePage({
           <p className="section-label">下一步</p>
           <h2 className="section-heading">结果仪表盘</h2>
           <p className="mt-2 text-sm leading-7 text-muted-foreground">
-            进入结果仪表盘查看全链路结果，并在终局完成后生成最终报告。
+            回到结果仪表盘查看全链路状态，并生成 PDF / Word 导出报告。
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
-            <Button
-              onClick={() => router.push(`/assessment/${assessmentId}/results`)}
-            >
-              查看结果仪表盘 →
+            <Button onClick={() => router.push(`/assessment/${assessmentId}/results`)}>
+              查看结果仪表盘
             </Button>
-            <Link
-              href={`/assessment/${assessmentId}/canvas`}
-              className={buttonVariants({ variant: "outline" })}
-            >
-              商业画布 9 格
-            </Link>
           </div>
         </section>
       </div>
+
+      <SyncFeedbackPanel assessmentId={assessmentId} />
     </main>
   );
 }

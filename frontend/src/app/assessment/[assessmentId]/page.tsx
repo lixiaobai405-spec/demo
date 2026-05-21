@@ -36,7 +36,7 @@ export default async function AssessmentDetailPage({
                   Assessment 回看 / 状态恢复
                 </span>
                 <h1 className="font-heading text-4xl font-bold tracking-tight text-warm-text">
-                  企业问卷工作台
+                  主流程工作台
                 </h1>
                 <p className="text-base leading-7 text-warm-secondary sm:text-lg">
                   当前页面会根据 URL 中的 assessment_id 恢复企业画像、商业画布、

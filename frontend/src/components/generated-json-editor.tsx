@@ -10,20 +10,33 @@ export function GeneratedJsonEditor({
   value,
   isSaving,
   onSave,
+  isEditing: controlledIsEditing,
+  onEditingChange,
+  showToggleButton = true,
+  defaultEditing = false,
 }: {
   title: string;
   description: string;
   value: unknown;
   isSaving?: boolean;
   onSave: (payload: unknown) => Promise<void> | void;
+  isEditing?: boolean;
+  onEditingChange?: (next: boolean) => void;
+  showToggleButton?: boolean;
+  defaultEditing?: boolean;
 }) {
-  const formattedValue = useMemo(
-    () => JSON.stringify(value, null, 2),
-    [value],
-  );
-  const [isEditing, setIsEditing] = useState(false);
+  const formattedValue = useMemo(() => JSON.stringify(value, null, 2), [value]);
+  const [internalIsEditing, setInternalIsEditing] = useState(defaultEditing);
   const [draft, setDraft] = useState(formattedValue);
   const [parseError, setParseError] = useState<string | null>(null);
+  const isEditing = controlledIsEditing ?? internalIsEditing;
+
+  function setEditing(next: boolean) {
+    onEditingChange?.(next);
+    if (controlledIsEditing === undefined) {
+      setInternalIsEditing(next);
+    }
+  }
 
   useEffect(() => {
     if (!isEditing) {
@@ -37,7 +50,7 @@ export function GeneratedJsonEditor({
       const parsed = JSON.parse(draft);
       setParseError(null);
       await onSave(parsed);
-      setIsEditing(false);
+      setEditing(false);
     } catch (error) {
       if (error instanceof SyntaxError) {
         setParseError(`JSON 解析失败：${error.message}`);
@@ -57,13 +70,15 @@ export function GeneratedJsonEditor({
             {description}
           </p>
         </div>
-        <Button
-          variant={isEditing ? "default" : "outline"}
-          size="sm"
-          onClick={() => setIsEditing((current) => !current)}
-        >
-          {isEditing ? "收起编辑器" : "编辑生成结果"}
-        </Button>
+        {showToggleButton ? (
+          <Button
+            variant={isEditing ? "default" : "outline"}
+            size="sm"
+            onClick={() => setEditing(!isEditing)}
+          >
+            {isEditing ? "收起编辑器" : "编辑生成结果"}
+          </Button>
+        ) : null}
       </div>
 
       {isEditing ? (
@@ -75,10 +90,10 @@ export function GeneratedJsonEditor({
             spellCheck={false}
           />
           <div className="rounded-xl border border-warm-warning/20 bg-warm-warning/5 p-4 text-sm leading-7 text-warm-secondary">
-            保存后，下游结果会按依赖链失效并需要重新生成。
+            保存后，下游结论会按依赖链自动失效，需要重新生成。
           </div>
           {parseError ? (
-            <div className="rounded-xl msg-error p-4 text-sm">{parseError}</div>
+            <div className="rounded-xl p-4 text-sm msg-error">{parseError}</div>
           ) : null}
           <div className="flex flex-wrap gap-3">
             <Button onClick={handleSave} loading={isSaving} disabled={isSaving}>
@@ -89,7 +104,7 @@ export function GeneratedJsonEditor({
               onClick={() => {
                 setDraft(formattedValue);
                 setParseError(null);
-                setIsEditing(false);
+                setEditing(false);
               }}
             >
               取消

@@ -9,12 +9,10 @@ import { useGenerateCompetitiveness } from "@/hooks/use-competitiveness";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScenarioQuadrantView } from "@/components/scenario-quadrant-view";
+import { SyncFeedbackPanel } from "@/components/sync-feedback-panel";
 import { toast } from "@/hooks/use-toast";
 import { formatMutationError } from "@/lib/api";
 
-/**
- * 在客户端加载 AI 场景推荐详情，避免服务端请求拿不到本地登录态。
- */
 export function ScenariosPageContent({
   assessmentId,
 }: {
@@ -27,12 +25,12 @@ export function ScenariosPageContent({
   const handleGenerateCompetitiveness = useCallback(async () => {
     try {
       await generateCompetitiveness.mutateAsync(assessmentId);
-      toast({ title: "差异化竞争力分析已生成" });
+      toast({ title: "差异化竞争力报告已生成" });
       router.push(`/assessment/${assessmentId}/competitiveness`);
-    } catch (e) {
+    } catch (error) {
       toast({
         title: "生成失败",
-        description: formatMutationError(e, "差异化竞争力分析"),
+        description: formatMutationError(error, "差异化竞争力分析"),
         variant: "destructive",
       });
     }
@@ -53,7 +51,7 @@ export function ScenariosPageContent({
     return (
       <main className="min-h-screen px-6 py-10">
         <div className="mx-auto max-w-7xl">
-          <div className="space-y-4 rounded-xl msg-error p-6 text-sm">
+          <div className="space-y-4 rounded-xl p-6 text-sm msg-error">
             <p className="font-medium">加载失败</p>
             <p>
               {detailQuery.error instanceof Error
@@ -87,24 +85,18 @@ export function ScenariosPageContent({
           <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center gap-2">
               <Link href="/" className="btn-secondary text-xs">
-                ← 返回首页
+                返回首页
               </Link>
               <Link
                 href={`/assessment/${assessmentId}`}
                 className="btn-secondary text-xs"
               >
-                ← 返回工作台
-              </Link>
-              <Link
-                href={`/assessment/${assessmentId}/results`}
-                className="btn-secondary text-xs"
-              >
-                结果仪表盘 →
+                返回主流程工作台
               </Link>
             </div>
-            <span className="badge badge-warning">AI 场景推荐</span>
+            <span className="badge badge-warning">AI 推荐场景</span>
             <h1 className="font-heading text-4xl font-bold tracking-tight text-warm-text sm:text-5xl">
-              {companyName} AI 场景推荐
+              {companyName} AI 推荐场景
             </h1>
             {industry ? (
               <p className="text-base leading-7 text-warm-secondary">
@@ -120,14 +112,13 @@ export function ScenariosPageContent({
               scenarioRecommendation={scenarios}
               assessmentId={assessmentId}
             />
-            {/* Next step */}
-            {canGenerateCompetitiveness && (
-              <section className="card mt-8">
+
+            {canGenerateCompetitiveness ? (
+              <section className="card">
                 <p className="section-label">下一步</p>
                 <h2 className="section-heading">差异化竞争力分析</h2>
                 <p className="mt-2 text-sm leading-7 text-muted-foreground">
-                  基于 Top 3 AI 场景推荐结果，分析企业的差异化竞争力，
-                  包括 Point-to-Line 串联和核心优势。
+                  基于已确认的 Top 3 场景，生成差异化竞争力报告，并继续推进商业终局设计。
                 </p>
                 <div className="mt-4 flex flex-wrap gap-3">
                   <Button
@@ -135,33 +126,31 @@ export function ScenariosPageContent({
                     disabled={generateCompetitiveness.isPending}
                     loading={generateCompetitiveness.isPending}
                   >
-                    {generateCompetitiveness.isPending ? "正在生成..." : "生成差异化竞争力 →"}
+                    {generateCompetitiveness.isPending
+                      ? "生成中..."
+                      : "生成差异化竞争力"}
                   </Button>
-                  <Link
-                    href={`/assessment/${assessmentId}/results`}
-                    className="btn-secondary text-xs"
-                  >
-                    查看结果仪表盘
-                  </Link>
                 </div>
               </section>
-            )}
+            ) : null}
           </>
         ) : (
           <div className="card-inset">
-            <p className="section-label">AI 场景推荐</p>
+            <p className="section-label">AI 推荐场景</p>
             <p className="mt-4 text-sm leading-7 text-muted-foreground">
-              尚未生成 AI 场景推荐。请先完成前置步骤后再查看。
+              尚未生成 AI 推荐场景。请先完成创新方向确认后再查看。
             </p>
             <Link
               href={`/assessment/${assessmentId}`}
               className="mt-3 inline-block btn-primary text-xs"
             >
-              返回工作台
+              返回主流程工作台
             </Link>
           </div>
         )}
       </div>
+
+      <SyncFeedbackPanel assessmentId={assessmentId} />
     </main>
   );
 }

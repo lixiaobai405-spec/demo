@@ -4,6 +4,7 @@ import React from "react";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { AssessmentFormSection } from "@/components/assessment-form-section";
 import { IntakeImportSection } from "@/components/intake-import-section";
@@ -31,7 +32,7 @@ import {
   getResultsDashboardPath,
   getScenarioResultPath,
 } from "@/lib/assessment-result-routes";
-import { formatMutationError } from "@/lib/api";
+import { ApiError, formatMutationError } from "@/lib/api";
 import type { AssessmentCreateRequest, AssessmentProgress } from "@/lib/types";
 import {
   useAssessmentDetail,
@@ -84,6 +85,7 @@ export function AssessmentWorkspace({
   prefillSessionId?: string;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const store = useAssessmentStore();
 
   const [form, setForm] = useState<AssessmentCreateRequest>(initialForm);
@@ -173,6 +175,8 @@ export function AssessmentWorkspace({
     if (!store.assessment) return;
 
     try {
+      store.setDirectionSelection(null);
+      store.setSelectedDirectionIds([]);
       const result = await withSlowHint(
         generateProfile.mutateAsync(store.assessment.id),
         "正在生成企业画像",
@@ -273,6 +277,12 @@ export function AssessmentWorkspace({
 
       store.resetDownstream("directions");
       store.setDirectionData(result);
+      store.setDirectionSelection(result.direction_selection);
+      store.setSelectedDirectionIds(
+        result.direction_selection?.selected_directions.map(
+          (direction) => direction.direction_id,
+        ) ?? [],
+      );
       setProgress((prev) =>
         computeProgress({
           hasAssessment: true,
@@ -463,23 +473,44 @@ export function AssessmentWorkspace({
     }
   }, [currentAssessment]);
 
+  const isMissingAssessment =
+    detailQuery.error instanceof ApiError &&
+    detailQuery.error.status === 404;
+
+  useEffect(() => {
+    if (!isMissingAssessment) {
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ["my-assessments"] });
+  }, [isMissingAssessment, queryClient]);
+
   if (detailQuery.isLoading) return <AssessmentSkeleton />;
 
   if (detailQuery.isError) {
     return (
       <div className="space-y-4 rounded-xl msg-error p-6 text-sm">
         <p>
-          {detailQuery.error instanceof Error
-            ? detailQuery.error.message
-            : "Assessment 加载失败。"}
+          {isMissingAssessment
+            ? "该评估可能已经被删除，评估历史正在同步。请返回评估历史刷新后再继续。"
+            : detailQuery.error instanceof Error
+              ? detailQuery.error.message
+              : "Assessment 加载失败。"}
         </p>
-        <button
-          type="button"
-          onClick={() => detailQuery.refetch()}
-          className="btn-secondary text-xs"
-        >
-          重试加载
-        </button>
+        <div className="flex flex-wrap gap-3">
+          {isMissingAssessment ? (
+            <Link href="/history" className="btn-primary text-xs">
+              返回评估历史
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => detailQuery.refetch()}
+              className="btn-secondary text-xs"
+            >
+              重试加载
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -672,7 +703,7 @@ export function AssessmentWorkspace({
             </div>
             <p className="mt-4 text-sm leading-7 text-muted-foreground">
               刷新页面后会自动从后端恢复当前 Assessment 状态。重新生成上游模块时，
-              下游结果会被自动失效并需要重新生成。
+              下游结果会自动失效并需要重新生成。
             </p>
           </div>
 

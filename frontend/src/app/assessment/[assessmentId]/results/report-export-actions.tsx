@@ -1,17 +1,26 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { generateAssessmentReport, getReportMarkdownExportUrl, getReportDocxExportUrl, getReportPrintUrl } from "@/lib/api";
+
+import {
+  generateAssessmentReport,
+  getReportDocxExportUrl,
+  getReportMarkdownExportUrl,
+  getReportPdfUrl,
+  getReportPrintUrl,
+} from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 
-/**
- * 结果仪表盘的导出操作按钮组。
- * 生成模板报告后提供 Markdown / Word / 打印版下载入口。
- */
-export function ReportExportActions({ assessmentId }: { assessmentId: string }) {
+export function ReportExportActions({
+  assessmentId,
+  initialReportId,
+}: {
+  assessmentId: string;
+  initialReportId?: string | null;
+}) {
   const [isGenerating, setIsGenerating] = useState(false);
-  const [reportId, setReportId] = useState<string | null>(null);
+  const [reportId, setReportId] = useState<string | null>(initialReportId ?? null);
 
   const handleGenerateAndExport = useCallback(async () => {
     if (reportId) return;
@@ -19,7 +28,7 @@ export function ReportExportActions({ assessmentId }: { assessmentId: string }) 
     try {
       const reportResponse = await generateAssessmentReport(assessmentId, "template");
       setReportId(reportResponse.report_id);
-      toast({ title: "报告已生成，可下载导出" });
+      toast({ title: "报告已生成，可以直接导出 PDF / Word" });
     } catch {
       toast({ title: "报告生成失败", variant: "destructive" });
     } finally {
@@ -41,11 +50,11 @@ export function ReportExportActions({ assessmentId }: { assessmentId: string }) 
       ) : (
         <>
           <a
-            href={getReportMarkdownExportUrl(reportId)}
+            href={getReportPdfUrl(reportId)}
             className="btn-primary text-xs"
             download
           >
-            下载 Markdown
+            下载 PDF
           </a>
           <a
             href={getReportDocxExportUrl(reportId)}
@@ -53,6 +62,13 @@ export function ReportExportActions({ assessmentId }: { assessmentId: string }) 
             download
           >
             下载 Word
+          </a>
+          <a
+            href={getReportMarkdownExportUrl(reportId)}
+            className="btn-secondary text-xs"
+            download
+          >
+            下载 Markdown
           </a>
           <a
             href={getReportPrintUrl(reportId)}

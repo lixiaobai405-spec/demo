@@ -10,7 +10,7 @@ import {
 import { useRouter } from "next/navigation";
 import { loginUser, registerUser, getCurrentUser, ApiError } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
-import type { UserResponse } from "@/lib/types";
+import type { RegisterRequest, UserResponse } from "@/lib/types";
 
 type AuthContextType = {
   user: UserResponse | null;
@@ -19,7 +19,7 @@ type AuthContextType = {
   isLoading: boolean;
   isInstructor: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, displayName?: string) => Promise<void>;
+  register: (payload: RegisterRequest) => Promise<void>;
   logout: () => void;
 };
 
@@ -79,10 +79,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const register = useCallback(
-    async (email: string, password: string, displayName?: string) => {
+    async (payload: RegisterRequest) => {
       store.setLoading(true);
       try {
-        const result = await registerUser({ email, password, display_name: displayName });
+        const result = await registerUser(payload);
         store.setAuth(result.user, result.access_token);
       } catch (error) {
         store.setLoading(false);

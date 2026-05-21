@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createAssessment, getAssessmentDetail } from "@/lib/api";
+import { ApiError, createAssessment, getAssessmentDetail } from "@/lib/api";
 import type { AssessmentCreateRequest } from "@/lib/types";
 
 export const assessmentKeys = {
@@ -22,6 +22,11 @@ export function useAssessmentDetail(assessmentId: string | undefined) {
     queryFn: () => getAssessmentDetail(assessmentId!),
     enabled: Boolean(assessmentId),
     staleTime: 0, // always refetch on mount so workbench shows latest state
+    retry: (failureCount, error) =>
+      !(
+        error instanceof ApiError &&
+        (error.status === 403 || error.status === 404)
+      ) && failureCount < 2,
   });
 }
 

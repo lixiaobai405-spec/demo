@@ -45,7 +45,7 @@ describe("DirectionExpansionPanel", () => {
       />,
     );
 
-    expect(screen.getByText("AI 正在增强中，请稍候")).toBeInTheDocument();
+    expect(screen.getByText("AI 正在生成方向候选")).toBeInTheDocument();
     expect(screen.queryByText("AI 驱动动态定价")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /确认选择/ }),
@@ -100,6 +100,125 @@ describe("DirectionExpansionPanel", () => {
       />,
     );
 
+    expect(
+      screen.getByRole("button", { name: "确认选择（1 个方向）" }),
+    ).toBeInTheDocument();
+  });
+
+  it("ignores stale selections and deduplicates the displayed candidate count", () => {
+    render(
+      <DirectionExpansionPanel
+        data={{
+          assessment_id: "assessment-1",
+          direction_expansion: {
+            generation_mode: "llm",
+            llm_status: "completed",
+            total_suggestions: 7,
+            elements: [
+              {
+                element_key: "revenue_streams",
+                element_title: "收入来源",
+                suggestions: [
+                  {
+                    direction_id: "direction-1",
+                    element_key: "revenue_streams",
+                    title: "方向 1",
+                    description: "描述 1",
+                    expected_impact: "影响 1",
+                    data_needed: ["数据 1"],
+                    related_scenario_categories: ["销售增长"],
+                  },
+                  {
+                    direction_id: "direction-2",
+                    element_key: "revenue_streams",
+                    title: "方向 2",
+                    description: "描述 2",
+                    expected_impact: "影响 2",
+                    data_needed: ["数据 2"],
+                    related_scenario_categories: ["销售增长"],
+                  },
+                  {
+                    direction_id: "direction-3",
+                    element_key: "revenue_streams",
+                    title: "方向 3",
+                    description: "描述 3",
+                    expected_impact: "影响 3",
+                    data_needed: ["数据 3"],
+                    related_scenario_categories: ["销售增长"],
+                  },
+                ],
+              },
+              {
+                element_key: "customer_relationships",
+                element_title: "客户关系",
+                suggestions: [
+                  {
+                    direction_id: "direction-3",
+                    element_key: "customer_relationships",
+                    title: "重复方向 3",
+                    description: "重复描述",
+                    expected_impact: "重复影响",
+                    data_needed: ["重复数据"],
+                    related_scenario_categories: ["客户服务"],
+                  },
+                  {
+                    direction_id: "direction-4",
+                    element_key: "customer_relationships",
+                    title: "方向 4",
+                    description: "描述 4",
+                    expected_impact: "影响 4",
+                    data_needed: ["数据 4"],
+                    related_scenario_categories: ["客户服务"],
+                  },
+                  {
+                    direction_id: "direction-5",
+                    element_key: "customer_relationships",
+                    title: "方向 5",
+                    description: "描述 5",
+                    expected_impact: "影响 5",
+                    data_needed: ["数据 5"],
+                    related_scenario_categories: ["客户服务"],
+                  },
+                  {
+                    direction_id: "direction-6",
+                    element_key: "customer_relationships",
+                    title: "方向 6",
+                    description: "描述 6",
+                    expected_impact: "影响 6",
+                    data_needed: ["数据 6"],
+                    related_scenario_categories: ["客户服务"],
+                  },
+                ],
+              },
+            ],
+          },
+          direction_selection: {
+            assessment_id: "assessment-1",
+            generation_mode: "rule_based",
+            created_at: null,
+            updated_at: null,
+            selected_directions: [
+              {
+                direction_id: "legacy-direction",
+                element_key: "revenue_streams",
+                title: "旧方向",
+                description: "旧描述",
+                expected_impact: "旧影响",
+                data_needed: [],
+                related_scenario_categories: [],
+              },
+            ],
+          },
+        }}
+        selectedIds={["direction-1"]}
+        isSelecting={false}
+        onToggleDirection={vi.fn()}
+        onConfirmSelection={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("共 6 个候选")).toBeInTheDocument();
+    expect(screen.queryByText("已确认 1 个创新方向")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "确认选择（1 个方向）" }),
     ).toBeInTheDocument();

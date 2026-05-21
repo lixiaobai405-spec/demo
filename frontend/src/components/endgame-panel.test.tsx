@@ -94,7 +94,7 @@ describe("EndgamePanel", () => {
     expect(screen.getByText("能力前提")).toBeInTheDocument();
   });
 
-  it("renders the competitiveness panel with the template table", () => {
+  it("renders the competitiveness panel with the card layout", () => {
     render(
       <CompetitivenessPanel
         data={{
@@ -143,12 +143,13 @@ describe("EndgamePanel", () => {
       />,
     );
 
-    expect(screen.getByText("内容输出结构（Output Template）")).toBeInTheDocument();
-    expect(screen.getByText("输出文档标题：")).toBeInTheDocument();
-    expect(screen.getByText("① AI 点优势串联叙述")).toBeInTheDocument();
-    expect(screen.getByText("系统方案名称：", { exact: false })).toBeInTheDocument();
-    expect(screen.getByText("AI 原生竞争者的威胁应对策略：", { exact: false })).toBeInTheDocument();
-    expect(screen.getByText("短期：", { exact: false })).toBeInTheDocument();
-    expect(screen.queryByText("联动逻辑")).not.toBeInTheDocument();
+    expect(screen.getByText("差异化竞争力策略概要")).toBeInTheDocument();
+    expect(screen.getByText("卡片式输出")).toBeInTheDocument();
+    expect(screen.getByText("输出文档标题")).toBeInTheDocument();
+    expect(screen.getByText("① AI 点优势串联")).toBeInTheDocument();
+    expect(screen.getByText("系统方案名称")).toBeInTheDocument();
+    expect(screen.getByText("AI 原生竞争者的威胁应对策略")).toBeInTheDocument();
+    expect(screen.getByText("短期")).toBeInTheDocument();
+    expect(screen.queryByText("内容输出结构（Output Template）")).not.toBeInTheDocument();
   });
 });

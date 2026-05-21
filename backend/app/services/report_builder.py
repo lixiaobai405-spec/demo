@@ -313,7 +313,7 @@ class ReportBuilder:
     ) -> ReportSectionData:
         if competitiveness_result is not None:
             cr = competitiveness_result
-            return ReportSectionData(
+            _legacy_template_section = ReportSectionData(
                 key="competitiveness",
                 title="宸紓鍖栫珵浜夊姏璁捐",
                 content=f"输出文档标题：《{profile.company_name}·差异化竞争力策略概要》",
@@ -334,6 +334,7 @@ class ReportBuilder:
             advantages_text = "；".join(
                 [f"{a.advantage_name}（壁垒{a.barrier_level}）" for a in cr.advantages[:3]]
             ) if cr.advantages else ""
+            top_scenarios = [item.name for item in scenario_recommendation.top_scenarios[:3]]
             competitiveness_content = (
                 cr.overall_narrative.strip()
                 if getattr(cr, "overall_narrative", None)
@@ -346,30 +347,50 @@ class ReportBuilder:
                     f"并沉淀为 {advantages_text or '核心能力壁垒'}。"
                 )
 
-            cards = []
-            for conn in cr.connections[:3]:
-                cards.append(
-                    ReportCardData(
-                        title=conn.line_name,
-                        subtitle="到线串联",
-                        content=conn.strategic_narrative,
-                        highlight=f"竞争影响：{conn.competitive_impact}",
-                        bullets=[f"核心指标：{', '.join(conn.key_metrics[:3])}"],
-                    )
-                )
+            cards = [
+                ReportCardData(
+                    title="AI 点优势串联",
+                    subtitle="系统方案命名",
+                    content=self._build_solution_chain_logic(cr),
+                    highlight=f"系统方案名称：{self._build_system_solution_name(cr, top_scenarios)}",
+                    bullets=[f"协同增效：{self._build_synergy_description(cr)}"],
+                ),
+                ReportCardData(
+                    title="VP 重构输出",
+                    subtitle="价值主张升级",
+                    content=vp.enhanced_vp,
+                    highlight=f"旧 VP：{vp.current_vp}",
+                    bullets=[f"交付逻辑变化：{vp.customer_value_shift}"],
+                ),
+                ReportCardData(
+                    title="竞争优势差异化定位",
+                    subtitle="市场定位",
+                    content=self._build_differentiation_overview(cr),
+                    highlight=f"定位语：{self._build_differentiation_positioning(cr)}",
+                    bullets=[f"AI 原生竞争者应对：{self._build_ai_native_threat_response(cr)}"],
+                ),
+                ReportCardData(
+                    title="核心竞争力提升路径",
+                    subtitle="短中长期推进",
+                    content=f"短期：{cr.delivery_strategy.phase_1_quick_win}",
+                    highlight=f"中期：{cr.delivery_strategy.phase_2_scale}",
+                    bullets=[f"长期：{cr.delivery_strategy.phase_3_moat}"],
+                ),
+            ]
 
             return ReportSectionData(
                 key="competitiveness",
                 title="差异化竞争力设计",
                 content=competitiveness_content,
                 bullets=[
+                    f"系统方案名称：{self._build_system_solution_name(cr, top_scenarios)}",
                     f"增强型价值主张：{vp.enhanced_vp}",
                     f"客户价值转移：{vp.customer_value_shift}",
                     f"串联竞争力线：{connections_text or '待补充'}",
                     f"核心优势：{advantages_text or '待补充'}",
                 ],
-                cards=cards if cards else None,
-                note=cr.delivery_strategy.phase_1_quick_win if cr.delivery_strategy else None,
+                cards=cards,
+                note="该章节保留卡片式展示，便于讲师批注、方案汇报和后续人工修订。",
             )
 
         top_scenarios = [item.name for item in scenario_recommendation.top_scenarios[:2]]

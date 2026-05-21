@@ -1,4 +1,9 @@
+import logging
+import smtplib
 from datetime import datetime, timedelta, timezone
+from email.message import EmailMessage
+from email.utils import formataddr
+from urllib.parse import quote
 
 import bcrypt
 from fastapi import HTTPException, status
@@ -20,6 +25,7 @@ from app.schemas.auth import (
 
 TEACHER_EMAIL = "teacher"
 TEACHER_PASSWORD = "meitai123456"
+logger = logging.getLogger(__name__)
 
 
 def _hash_password(password: str) -> str:
@@ -155,6 +161,77 @@ def setup_recovery(
     db.commit()
 
 
+def _build_password_reset_link(token: str) -> str:
+    base_url = settings.password_reset_url or (
+        f"{settings.frontend_origin.rstrip('/')}/reset-password"
+    )
+    separator = "&" if "?" in base_url else "?"
+    return f"{base_url}{separator}token={quote(token)}"
+
+
+def _send_password_reset_email(recipient_email: str, token: str) -> None:
+    if not settings.smtp_enabled:
+        logger.info(
+            "SMTP disabled; skipping password reset email for %s",
+            recipient_email,
+        )
+        return
+
+    if not settings.smtp_host or not settings.smtp_from_email:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="密码找回邮件服务配置不完整，请联系管理员。",
+        )
+
+    reset_link = _build_password_reset_link(token)
+    message = EmailMessage()
+    message["Subject"] = "美泰 AI 创新智能体密码重置"
+    message["From"] = formataddr(
+        (settings.smtp_from_name, settings.smtp_from_email)
+    )
+    message["To"] = recipient_email
+    message.set_content(
+        "\n".join(
+            [
+                "您好，",
+                "",
+                "我们收到了您的密码重置申请。请在 1 小时内打开以下链接设置新密码：",
+                reset_link,
+                "",
+                "如果这不是您的操作，请忽略此邮件。",
+            ]
+        )
+    )
+    message.add_alternative(
+        (
+            "<p>您好，</p>"
+            "<p>我们收到了您的密码重置申请。请在 1 小时内点击以下链接设置新密码：</p>"
+            f"<p><a href=\"{reset_link}\">{reset_link}</a></p>"
+            "<p>如果这不是您的操作，请忽略此邮件。</p>"
+        ),
+        subtype="html",
+    )
+
+    smtp_client = smtplib.SMTP_SSL if settings.smtp_use_ssl else smtplib.SMTP
+    try:
+        with smtp_client(settings.smtp_host, settings.smtp_port, timeout=30) as client:
+            if not settings.smtp_use_ssl and settings.smtp_use_tls:
+                client.starttls()
+            if settings.smtp_username:
+                client.login(settings.smtp_username, settings.smtp_password)
+            client.send_message(message)
+    except (smtplib.SMTPException, OSError) as exc:
+        logger.warning(
+            "Failed to send password reset email to %s: %s",
+            recipient_email,
+            exc,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="密码找回邮件发送失败，请稍后重试。",
+        ) from exc
+
+
 def request_password_reset(db: Session, email: str) -> None:
     """生成密码重置 token，存入用户记录。"""
     import secrets
@@ -167,7 +244,19 @@ def request_password_reset(db: Session, email: str) -> None:
     user.reset_token = token
     user.reset_token_expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
     db.add(user)
-    db.commit()
+    try:
+        _send_password_reset_email(user.email, token)
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        logger.exception("Unexpected password reset failure for %s", email)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="密码找回服务暂时不可用，请稍后重试。",
+        ) from exc
 
 
 def reset_password_by_token(db: Session, token: str, new_password: str) -> None:

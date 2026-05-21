@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { useAssessmentDetail } from "@/hooks";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BusinessCanvasGrid } from "@/components/business-canvas-grid";
 import { CanvasEditor } from "@/components/canvas-editor";
@@ -154,12 +154,6 @@ export default function CanvasPage({
             >
               进入 BMC 三维评分矩阵 →
             </Button>
-            <Link
-              href={`/assessment/${assessmentId}/results`}
-              className={buttonVariants({ variant: "outline" })}
-            >
-              查看结果仪表盘
-            </Link>
           </div>
         </section>
       </div>

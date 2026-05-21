@@ -173,7 +173,16 @@ async function request<T>(path: string, init?: RequestInit & { signal?: AbortSig
         throw new ApiError(message, response.status, detail);
       }
 
-      return (await response.json()) as T;
+      if (response.status === 204) {
+        return undefined as T;
+      }
+
+      const raw = await response.text();
+      if (!raw.trim()) {
+        return undefined as T;
+      }
+
+      return JSON.parse(raw) as T;
     } catch (error) {
       if (error instanceof ApiError) {
         throw error;

@@ -99,7 +99,7 @@ export function IntakeImportSection({
 
         // Auto-redirect if assessment was auto-created
         if (result.created_assessment_id) {
-          toast({ title: "导入完成", description: "正在跳转到企业问卷工作台...", variant: "success" });
+          toast({ title: "导入完成", description: "正在跳转到主流程工作台...", variant: "success" });
           router.push(`/assessment/${result.created_assessment_id}`);
           return;
         }
