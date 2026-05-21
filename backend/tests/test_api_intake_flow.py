@@ -306,7 +306,7 @@ def test_intake_service_extracts_pdf_text_via_pdf_reader(monkeypatch: pytest.Mon
     monkeypatch.setattr("app.services.intake_service.PdfReader", FakePdfReader)
 
     extracted, warnings = IntakeService()._extract_text_from_pdf(b"%PDF-1.4 fake")
-    assert extracted == "企业名称：PDF 测试企业\n所属行业：零售"
+    assert extracted == "【第 1 页】\n企业名称：PDF 测试企业\n\n【第 2 页】\n所属行业：零售"
     assert warnings == []
 
 

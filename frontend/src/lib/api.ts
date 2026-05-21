@@ -35,6 +35,12 @@ import type {
   TokenResponse,
   RegisterRequest,
   LoginRequest,
+  ForgotPasswordQuestionRequest,
+  ForgotPasswordQuestionResponse,
+  ResetPasswordRequest,
+  ResetPasswordResponse,
+  UpdateRecoveryRequest,
+  UpdateRecoveryResponse,
   UserResponse,
   AssessmentListResponse,
   CreateInstructorRequest,
@@ -598,8 +604,8 @@ export function formatMutationError(error: unknown, fallback: string): string {
   if (error instanceof ApiError) {
     if (error.status === 0) return error.message;
     if (error.status >= 500) return `${fallback}时后端服务异常（${error.status}），请稍后重试。`;
-    if (error.status === 400) return `${fallback}失败：请求参数不合法。`;
-    if (error.status === 404) return `${fallback}失败：未找到目标资源。`;
+    if (error.status === 400) return error.message || `${fallback}失败：请求参数不合法。`;
+    if (error.status === 404) return error.message || `${fallback}失败：未找到目标资源。`;
     return error.message || `${fallback}失败。`;
   }
   if (error instanceof Error) {
@@ -627,8 +633,35 @@ export function loginUser(payload: LoginRequest): Promise<TokenResponse> {
   });
 }
 
+export function getForgotPasswordQuestion(
+  payload: ForgotPasswordQuestionRequest,
+): Promise<ForgotPasswordQuestionResponse> {
+  return request<ForgotPasswordQuestionResponse>("/api/auth/forgot-password/question", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function resetPassword(
+  payload: ResetPasswordRequest,
+): Promise<ResetPasswordResponse> {
+  return request<ResetPasswordResponse>("/api/auth/forgot-password/reset", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function getCurrentUser(): Promise<UserResponse> {
   return request<UserResponse>("/api/auth/me");
+}
+
+export function updateRecovery(
+  payload: UpdateRecoveryRequest,
+): Promise<UpdateRecoveryResponse> {
+  return request<UpdateRecoveryResponse>("/api/auth/me/recovery", {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
 }
 
 // ── History API ──

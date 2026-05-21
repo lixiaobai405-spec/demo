@@ -5,9 +5,15 @@ from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import (
+    ForgotPasswordQuestionRequest,
+    ForgotPasswordQuestionResponse,
     LoginRequest,
     RegisterRequest,
+    ResetPasswordRequest,
+    ResetPasswordResponse,
     TokenResponse,
+    UpdateRecoveryRequest,
+    UpdateRecoveryResponse,
     UserResponse,
 )
 from app.services import auth_service
@@ -33,6 +39,30 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     return auth_service.authenticate(db, payload)
 
 
+@router.post(
+    "/forgot-password/question",
+    response_model=ForgotPasswordQuestionResponse,
+    status_code=status.HTTP_200_OK,
+)
+def forgot_password_question(
+    payload: ForgotPasswordQuestionRequest,
+    db: Session = Depends(get_db),
+):
+    return auth_service.get_recovery_question(db, payload)
+
+
+@router.post(
+    "/forgot-password/reset",
+    response_model=ResetPasswordResponse,
+    status_code=status.HTTP_200_OK,
+)
+def forgot_password_reset(
+    payload: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    return auth_service.reset_password(db, payload)
+
+
 @router.get(
     "/me",
     response_model=UserResponse,
@@ -40,3 +70,18 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 )
 def get_me(current_user: User = Depends(get_current_user)):
     return UserResponse.model_validate(current_user, from_attributes=True)
+
+
+@router.put(
+    "/me/recovery",
+    response_model=UpdateRecoveryResponse,
+    status_code=status.HTTP_200_OK,
+)
+def update_my_recovery(
+    payload: UpdateRecoveryRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """已登录用户补充或更新找回密码设置。"""
+    auth_service.update_recovery(db, current_user, payload.recovery_question, payload.recovery_answer)
+    return UpdateRecoveryResponse()

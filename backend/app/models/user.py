@@ -24,6 +24,10 @@ class User(Base):
     )
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    company_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    job_title: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    recovery_question: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    recovery_answer_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     role: Mapped[str] = mapped_column(
         String(20), nullable=False, default="student"
     )
@@ -42,3 +46,7 @@ class User(Base):
     assessments: Mapped[list["Assessment"]] = relationship(
         "Assessment", back_populates="user"
     )
+
+    @property
+    def has_recovery(self) -> bool:
+        return bool(self.recovery_question and self.recovery_answer_hash)

@@ -123,6 +123,8 @@ class ScenarioRecommender:
         assessment: Assessment,
         profile: CompanyProfileResult | None = None,
         direction_categories: list[str] | None = None,
+        breakthrough_labels: list[str] | None = None,
+        direction_titles: list[str] | None = None,
     ) -> tuple[list[ScenarioRecommendationItem], int]:
         library = load_scenario_library()
         scored = [
@@ -131,7 +133,14 @@ class ScenarioRecommender:
         ]
         scored.sort(key=lambda x: (-x[0], x[1].name))
         top_items = [
-            self._build_item(definition, assessment, profile, direction_categories)
+            self._build_item(
+                definition,
+                assessment,
+                profile,
+                direction_categories,
+                breakthrough_labels,
+                direction_titles,
+            )
             for _, definition in scored[:3]
         ]
         return top_items, len(scored)
@@ -142,21 +151,27 @@ class ScenarioRecommender:
         assessment: Assessment,
         profile: CompanyProfileResult | None,
         direction_categories: list[str] | None = None,
+        breakthrough_labels: list[str] | None = None,
+        direction_titles: list[str] | None = None,
     ) -> ScenarioRecommendationItem:
         return ScenarioRecommendationItem(
             scenario_id=definition.id,
             name=definition.name,
             category=definition.category,
-            summary=definition.summary,
-            canvas_elements="、".join(definition.canvas_keywords[:3]) if definition.canvas_keywords else "",
-            expected_effects=_build_quantified_effect(
-                definition.name, definition.category, definition.goal_keywords,
+            summary=self._build_template_summary(
+                definition,
+                direction_titles,
+                breakthrough_labels,
             ),
-            core_data_requirements=(
-                definition.data_requirements[0]
-                if definition.data_requirements
-                else ""
+            canvas_elements=self._build_canvas_element_text(
+                definition,
+                breakthrough_labels,
             ),
+            expected_effects=self._build_effect_text(
+                definition,
+                direction_titles,
+            ),
+            core_data_requirements=self._build_data_requirement_text(definition),
         )
 
     def _calc_score(
@@ -241,10 +256,11 @@ class ScenarioRecommender:
             score -= 6
 
         if direction_categories:
+            matched_count = 0
             for category in direction_categories:
                 if category in definition.category or definition.category in category:
-                    score += 10
-                    break
+                    matched_count += 1
+            score += min(36, matched_count * 12)
 
         final_score = max(0, min(100, score))
         return final_score
@@ -272,6 +288,8 @@ class ScenarioRecommender:
         assessment: Assessment,
         profile: CompanyProfileResult | None = None,
         direction_categories: list[str] | None = None,
+        breakthrough_labels: list[str] | None = None,
+        direction_titles: list[str] | None = None,
     ) -> ScenarioRecommendationResult:
         """使用四象限优先级评分引擎进行 Top 3 场景推荐。
 
@@ -351,19 +369,23 @@ class ScenarioRecommender:
                     scene_id=definition.id,
                     scene_name=definition.name,
                     category=definition.category,
-                    summary=definition.summary,
+                    summary=self._build_template_summary(
+                        definition,
+                        direction_titles,
+                        breakthrough_labels,
+                    ),
                     structuredness_x=x,
                     complexity_y=y,
                     industry=assessment.industry or "",
-                    canvas_elements="、".join(definition.canvas_keywords[:3]) if definition.canvas_keywords else "",
-                    expected_effects=_build_quantified_effect(
-                        definition.name, definition.category, definition.goal_keywords,
+                    canvas_elements=self._build_canvas_element_text(
+                        definition,
+                        breakthrough_labels,
                     ),
-                    core_data_requirements=(
-                        definition.data_requirements[0]
-                        if definition.data_requirements
-                        else ""
+                    expected_effects=self._build_effect_text(
+                        definition,
+                        direction_titles,
                     ),
+                    core_data_requirements=self._build_data_requirement_text(definition),
                 )
             )
 
@@ -376,20 +398,28 @@ class ScenarioRecommender:
                 scenario_id=ps.scene_id,
                 name=ps.scene_name,
                 category=ps.category,
-                summary=definition.summary if definition else "",
-                canvas_elements=(
-                    "、".join(definition.canvas_keywords[:3])
-                    if definition and definition.canvas_keywords
+                summary=(
+                    self._build_template_summary(
+                        definition,
+                        direction_titles,
+                        breakthrough_labels,
+                    )
+                    if definition
                     else ""
                 ),
-                expected_effects=_build_quantified_effect(
-                    ps.scene_name,
-                    ps.category,
-                    definition.goal_keywords if definition else None,
+                canvas_elements=(
+                    self._build_canvas_element_text(definition, breakthrough_labels)
+                    if definition
+                    else ""
+                ),
+                expected_effects=(
+                    self._build_effect_text(definition, direction_titles)
+                    if definition
+                    else ""
                 ),
                 core_data_requirements=(
-                    definition.data_requirements[0]
-                    if definition and definition.data_requirements
+                    self._build_data_requirement_text(definition)
+                    if definition
                     else ""
                 ),
                 priority_structuredness_x=ps.structuredness_x,
@@ -419,6 +449,65 @@ class ScenarioRecommender:
             top_scenarios=top_scenarios,
             all_scores=all_scores,
         )
+
+    def _build_template_summary(
+        self,
+        definition: ScenarioDefinition,
+        direction_titles: list[str] | None,
+        breakthrough_labels: list[str] | None,
+    ) -> str:
+        directions = self._join_values(direction_titles, "、", "已确认方向")
+        breakthroughs = self._join_values(breakthrough_labels, "、", "当前突破要素")
+        base_summary = definition.summary.rstrip("。；; ")
+        return (
+            f"围绕“{directions}”，结合“{breakthroughs}”，在{definition.category}环节布局“{definition.name}”，"
+            f"{base_summary}。"
+        )
+
+    def _build_canvas_element_text(
+        self,
+        definition: ScenarioDefinition,
+        breakthrough_labels: list[str] | None,
+    ) -> str:
+        breakthroughs = self._join_values(
+            breakthrough_labels,
+            "、",
+            "待补充突破要素",
+        )
+        canvas_keywords = self._join_values(
+            definition.canvas_keywords[:3],
+            "、",
+            "待补充画布模块",
+        )
+        return f"对应突破要素：{breakthroughs}；关联画布模块：{canvas_keywords}"
+
+    def _build_effect_text(
+        self,
+        definition: ScenarioDefinition,
+        direction_titles: list[str] | None,
+    ) -> str:
+        directions = self._join_values(direction_titles, "、", "已确认方向")
+        quantified = _build_quantified_effect(
+            definition.name,
+            definition.category,
+            definition.goal_keywords,
+        ).rstrip("。；; ")
+        return f"支撑方向：{directions}；{quantified}。"
+
+    def _build_data_requirement_text(self, definition: ScenarioDefinition) -> str:
+        return f"关键数据：{self._join_values(definition.data_requirements[:3], '、', '待补充数据口径')}"
+
+    def _join_values(
+        self,
+        values: list[str] | None,
+        separator: str,
+        fallback: str,
+    ) -> str:
+        if not values:
+            return fallback
+
+        cleaned = [value.strip() for value in values if value and value.strip()]
+        return separator.join(cleaned[:3]) if cleaned else fallback
 
     def _normalize_text(self, text: str | None) -> str:
         if not text:

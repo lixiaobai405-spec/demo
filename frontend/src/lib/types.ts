@@ -721,7 +721,10 @@ export type UserResponse = {
   id: string;
   email: string;
   display_name: string | null;
+  company_name?: string | null;
+  job_title?: string | null;
   role: "student" | "user" | "instructor";
+  has_recovery: boolean;
   created_at: string;
 };
 
@@ -729,11 +732,43 @@ export type RegisterRequest = {
   email: string;
   password: string;
   display_name?: string | null;
+  company_name?: string | null;
+  job_title?: string | null;
+  recovery_question?: string | null;
+  recovery_answer?: string | null;
 };
 
 export type LoginRequest = {
   email: string;
   password: string;
+};
+
+export type ForgotPasswordQuestionRequest = {
+  email: string;
+};
+
+export type ForgotPasswordQuestionResponse = {
+  email: string;
+  recovery_question: string;
+};
+
+export type ResetPasswordRequest = {
+  email: string;
+  recovery_answer: string;
+  new_password: string;
+};
+
+export type ResetPasswordResponse = {
+  success: boolean;
+};
+
+export type UpdateRecoveryRequest = {
+  recovery_question: string;
+  recovery_answer: string;
+};
+
+export type UpdateRecoveryResponse = {
+  success: boolean;
 };
 
 export type TokenResponse = {

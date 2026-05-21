@@ -752,7 +752,7 @@ class IntakeService:
                     ) from exc
 
             parts = [(page.extract_text() or "").strip() for page in reader.pages]
-            direct_text = "\n".join(part for part in parts if part).strip()
+            direct_text = self._join_pages_with_markers(parts)
             warnings: list[str] = []
 
             if not self._should_try_pdf_ocr(direct_text):
@@ -843,7 +843,7 @@ class IntakeService:
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, len(png_pages))) as executor:
             ocr_parts = list(executor.map(_ocr_page, png_pages))
 
-        ocr_text = "\n".join(p for p in ocr_parts if p).strip()
+        ocr_text = self._join_pages_with_markers(ocr_parts)
         return ocr_text, warnings
 
     def _render_pdf_pages_as_png_bytes(
@@ -923,6 +923,18 @@ class IntakeService:
                 return "\n".join(collected)
 
         return ""
+
+    @staticmethod
+    def _join_pages_with_markers(page_parts: list[str]) -> str:
+        """用页码标记连接各页文本，保留逐页索引能力。"""
+        result_parts: list[str] = []
+        for idx, part in enumerate(page_parts):
+            text = part.strip()
+            if not text:
+                continue
+            page_num = idx + 1
+            result_parts.append(f"【第 {page_num} 页】\n{text}")
+        return "\n\n".join(result_parts)
 
     def _merge_extracted_text(self, direct_text: str, ocr_text: str) -> str:
         direct = direct_text.strip()
