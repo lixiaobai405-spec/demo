@@ -214,6 +214,7 @@ export default function DirectionsPage({
             selectedIds={currentSelectedDirectionIds}
             isSelecting={isSelecting}
             isLLMPending={isLLMPending}
+            isNextStepPending={generateScenarios.isPending}
             onToggleDirection={store.toggleDirectionId}
             onConfirmSelection={async () => {
               if (currentSelectedDirectionIds.length < 1) return;

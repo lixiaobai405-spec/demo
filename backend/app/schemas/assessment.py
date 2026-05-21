@@ -171,6 +171,8 @@ class ScenarioRecommendationResult(BaseModel):
     fallback_triggered: bool = False
     fallback_reason: str = ""
     all_scores: list[ScenarioRecommendationItem] | None = None
+    active_count: int | None = None
+    excluded_scores: list[ScenarioRecommendationItem] = Field(default_factory=list)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -183,6 +185,10 @@ class ScenarioCalibrationItem(BaseModel):
 
 class ScenarioCalibrationRequest(BaseModel):
     calibrations: list[ScenarioCalibrationItem] = Field(min_length=1, max_length=50)
+
+
+class ScenarioPoolUpdateRequest(BaseModel):
+    active_scenario_ids: list[str] = Field(min_length=3, max_length=50)
 
 
 class AssessmentScenarioRecommendationResponse(BaseModel):

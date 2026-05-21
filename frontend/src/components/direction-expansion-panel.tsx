@@ -12,6 +12,7 @@ export function DirectionExpansionPanel({
   selectedIds,
   isSelecting,
   isLLMPending,
+  isNextStepPending,
   onToggleDirection,
   onConfirmSelection,
   onNextStep,
@@ -20,6 +21,7 @@ export function DirectionExpansionPanel({
   selectedIds: string[];
   isSelecting: boolean;
   isLLMPending?: boolean;
+  isNextStepPending?: boolean;
   onToggleDirection: (id: string) => void;
   onConfirmSelection: () => void;
   onNextStep?: () => void;
@@ -65,7 +67,9 @@ export function DirectionExpansionPanel({
         </div>
 
         <div className="mt-6 rounded-xl border border-warm-accent/15 bg-warm-accent/5 p-6">
-          <p className="text-sm font-medium text-warm-text">AI 正在生成方向候选</p>
+          <p className="text-sm font-medium text-warm-text">
+            AI 正在生成方向候选
+          </p>
           <p className="mt-3 text-sm leading-7 text-warm-secondary">
             方向生成完成后，页面会自动刷新并展示当前可选候选池。
           </p>
@@ -81,9 +85,7 @@ export function DirectionExpansionPanel({
           <p className="section-label">方向候选</p>
           <h2 className="section-heading">创新方向延展</h2>
         </div>
-        <span className="badge badge-accent">
-          共 {displayedSuggestionCount} 个候选
-        </span>
+        <span className="badge badge-accent">共 {displayedSuggestionCount} 个候选</span>
       </div>
 
       {hasExistingSelection ? (
@@ -104,17 +106,63 @@ export function DirectionExpansionPanel({
           </div>
 
           {onNextStep ? (
-            <div className="mt-6 rounded-xl border border-warm-accent/20 bg-warm-accent/5 p-5">
-              <p className="text-sm font-medium text-warm-text">
-                方向已确认，可立即进入下一步
-              </p>
-              <p className="mt-2 text-sm leading-7 text-warm-secondary">
-                基于当前已选方向生成候选场景池和 Top 3 AI 推荐场景。
-              </p>
-              <button type="button" onClick={onNextStep} className="btn-primary mt-4">
-                生成 AI 推荐场景
-              </button>
-            </div>
+            isNextStepPending ? (
+              <div className="mt-6 rounded-xl border border-warm-success/20 bg-warm-success/5 p-5">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-warm-text">
+                      AI 正在生成推荐场景
+                    </p>
+                    <p className="mt-2 text-sm leading-7 text-warm-secondary">
+                      正在基于当前已确认方向生成候选场景池和 Top 3 AI 推荐场景，完成后页面会自动跳转。
+                    </p>
+                  </div>
+                  <span className="badge badge-success animate-pulse text-xs">
+                    生成中
+                  </span>
+                </div>
+                <div className="mt-4 flex items-center gap-3 text-sm text-warm-secondary">
+                  <svg
+                    className="h-4 w-4 animate-spin text-warm-success"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
+                  </svg>
+                  <span>请稍候，系统正在同步场景结果。</span>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 rounded-xl border border-warm-accent/20 bg-warm-accent/5 p-5">
+                <p className="text-sm font-medium text-warm-text">
+                  方向已确认，可立即进入下一步
+                </p>
+                <p className="mt-2 text-sm leading-7 text-warm-secondary">
+                  基于当前已选方向生成候选场景池和 Top 3 AI 推荐场景。
+                </p>
+                <button
+                  type="button"
+                  onClick={onNextStep}
+                  className="btn-primary mt-4"
+                >
+                  生成 AI 推荐场景
+                </button>
+              </div>
+            )
           ) : null}
         </div>
       ) : (

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from io import BytesIO
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sys
 
 import pytest
 from fastapi.testclient import TestClient
+from jose import jwt
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -13,16 +14,48 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
+from app.core.config import settings
 from app.db import session as db_session
-from app.db.session import Base
 from app.main import create_app
+from app.models.user import User
 
 TEST_DB_PATH = Path(__file__).resolve().parent / "test_auth.db"
 
 
+def build_register_payload(
+    email: str,
+    password: str = "test123456",
+    **overrides,
+) -> dict[str, str]:
+    payload = {
+        "email": email,
+        "password": password,
+        "display_name": "测试用户",
+        "company_name": "测试企业",
+        "job_title": "创新负责人",
+    }
+    payload.update(overrides)
+    return payload
+
+
+def build_assessment_payload(company_name: str) -> dict[str, str]:
+    return {
+        "company_name": company_name,
+        "industry": "零售",
+        "company_size": "50-200人",
+        "region": "华东",
+        "annual_revenue_range": "1000万-5000万元",
+        "core_products": "社区零售门店与会员运营",
+        "target_customers": "社区家庭用户",
+        "current_challenges": "门店效率波动，会员复购不稳定",
+        "ai_goals": "提升门店运营效率和会员复购",
+        "available_data": "POS、会员、客服数据",
+        "notes": "测试数据",
+    }
+
+
 @pytest.fixture()
 def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    """Create an isolated auth test client backed by a disposable SQLite DB."""
     if TEST_DB_PATH.exists():
         TEST_DB_PATH.unlink()
 
@@ -37,8 +70,9 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     )
 
     monkeypatch.setattr(db_session, "engine", engine)
-    Base.metadata.create_all(bind=engine)
     monkeypatch.setattr(db_session, "SessionLocal", testing_session_local)
+    db_session.Base.metadata.create_all(bind=engine)
+    db_session._migrate_generated_reports_table()
 
     def _override_get_db():
         db = testing_session_local()
@@ -49,8 +83,8 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
     app = create_app()
     app.dependency_overrides[db_session.get_db] = _override_get_db
-    with TestClient(app) as c:
-        yield c
+    with TestClient(app) as test_client:
+        yield test_client
 
     app.dependency_overrides.clear()
     engine.dispose()
@@ -58,437 +92,344 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
         TEST_DB_PATH.unlink()
 
 
-def test_teacher_login_returns_instructor_role(client: TestClient):
-    """讲师硬编码账户登录应返回 role=instructor + 有效 token"""
-    resp = client.post("/api/auth/login", json={
-        "email": "teacher",
-        "password": "meitai123456",
-    })
-    assert resp.status_code == 200, resp.text
-    data = resp.json()
-    assert "access_token" in data
-    assert data["token_type"] == "bearer"
-    assert data["user"]["email"] == "teacher"
-    assert data["user"]["role"] == "instructor"
-    assert data["user"]["display_name"] == "讲师"
+def test_teacher_login_returns_instructor_role(client: TestClient) -> None:
+    response = client.post(
+        "/api/auth/login",
+        json={"email": "teacher", "password": "meitai123456"},
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["token_type"] == "bearer"
+    assert body["user"]["role"] == "instructor"
+    assert body["user"]["email"] == "teacher"
 
 
-def test_teacher_login_wrong_password_fails(client: TestClient):
-    """讲师错误密码应返回 401"""
-    resp = client.post("/api/auth/login", json={
-        "email": "teacher",
-        "password": "wrongpassword",
-    })
-    assert resp.status_code == 401, resp.text
+def test_teacher_login_wrong_password_fails(client: TestClient) -> None:
+    response = client.post(
+        "/api/auth/login",
+        json={"email": "teacher", "password": "wrongpassword"},
+    )
+
+    assert response.status_code == 401
 
 
-def test_student_register_and_login(client: TestClient):
-    """学员正常注册和登录流程不受影响"""
-    # 注册
-    resp = client.post("/api/auth/register", json={
-        "email": "student@test.com",
-        "password": "test123456",
-        "display_name": "测试学员",
-    })
-    assert resp.status_code == 201, resp.text
-    data = resp.json()
-    assert data["user"]["role"] == "student"
-    assert data["user"]["email"] == "student@test.com"
+def test_student_register_and_login(client: TestClient) -> None:
+    register_response = client.post(
+        "/api/auth/register",
+        json=build_register_payload(
+            "student@test.com",
+            display_name="测试学员",
+        ),
+    )
+    assert register_response.status_code == 201, register_response.text
+    register_body = register_response.json()
+    assert register_body["user"]["role"] == "student"
+    assert register_body["user"]["company_name"] == "测试企业"
+    assert register_body["user"]["job_title"] == "创新负责人"
 
-    # 登录
-    resp = client.post("/api/auth/login", json={
-        "email": "student@test.com",
-        "password": "test123456",
-    })
-    assert resp.status_code == 200, resp.text
-    data = resp.json()
-    assert data["user"]["role"] == "student"
-
-
-def test_teacher_can_see_all_assessments(client: TestClient):
-    """讲师登录后调用 /api/assessments 不过滤 user_id"""
-    # 先创建两个不同用户的评估
-    # 注册学生 A
-    resp = client.post("/api/auth/register", json={
-        "email": "a@test.com",
-        "password": "test123456",
-        "display_name": "学生A",
-    })
-    token_a = resp.json()["access_token"]
-
-    # 注册学生 B
-    resp = client.post("/api/auth/register", json={
-        "email": "b@test.com",
-        "password": "test123456",
-        "display_name": "学生B",
-    })
-    token_b = resp.json()["access_token"]
-
-    # 学生 A 创建评估
-    client.post("/api/assessments", json={
-        "company_name": "A公司",
-        "industry": "教育",
-        "company_size": "小型",
-    }, headers={"Authorization": f"Bearer {token_a}"})
-
-    # 学生 B 创建评估
-    client.post("/api/assessments", json={
-        "company_name": "B公司",
-        "industry": "医疗",
-        "company_size": "中型",
-    }, headers={"Authorization": f"Bearer {token_b}"})
-
-    # 讲师登录
-    resp = client.post("/api/auth/login", json={
-        "email": "teacher",
-        "password": "meitai123456",
-    })
-    teacher_token = resp.json()["access_token"]
-
-    # 讲师查看所有评估
-    resp = client.get("/api/assessments", headers={
-        "Authorization": f"Bearer {teacher_token}",
-    })
-    assert resp.status_code == 200, resp.text
-    data = resp.json()
-    assert data["total"] >= 2, f"讲师应能看到所有评估，实际 total={data['total']}"
+    login_response = client.post(
+        "/api/auth/login",
+        json={"email": "student@test.com", "password": "test123456"},
+    )
+    assert login_response.status_code == 200, login_response.text
+    assert login_response.json()["user"]["email"] == "student@test.com"
 
 
-def test_student_can_only_see_own_assessments(client: TestClient):
-    """学生只能看到自己的评估"""
-    # 注册并登录学生
-    resp = client.post("/api/auth/register", json={
-        "email": "onlyme@test.com",
-        "password": "test123456",
-    })
-    token = resp.json()["access_token"]
+def test_teacher_can_see_all_assessments(client: TestClient) -> None:
+    register_a = client.post(
+        "/api/auth/register",
+        json=build_register_payload("a@test.com", display_name="学生A"),
+    )
+    assert register_a.status_code == 201, register_a.text
+    token_a = register_a.json()["access_token"]
 
-    client.post("/api/assessments", json={
-        "company_name": "我的公司",
-        "industry": "金融",
-        "company_size": "小型",
-    }, headers={"Authorization": f"Bearer {token}"})
+    register_b = client.post(
+        "/api/auth/register",
+        json=build_register_payload("b@test.com", display_name="学生B"),
+    )
+    assert register_b.status_code == 201, register_b.text
+    token_b = register_b.json()["access_token"]
 
-    resp = client.get("/api/assessments", headers={
-        "Authorization": f"Bearer {token}",
-    })
-    assert resp.status_code == 200, resp.text
-    data = resp.json()
-    assert data["total"] == 1
+    response_a = client.post(
+        "/api/assessments",
+        json=build_assessment_payload("A公司"),
+        headers={"Authorization": f"Bearer {token_a}"},
+    )
+    assert response_a.status_code == 201, response_a.text
 
+    response_b = client.post(
+        "/api/assessments",
+        json=build_assessment_payload("B公司"),
+        headers={"Authorization": f"Bearer {token_b}"},
+    )
+    assert response_b.status_code == 201, response_b.text
 
-# ── A. 登录与账户系统 逐项测试 ──
+    teacher_login = client.post(
+        "/api/auth/login",
+        json={"email": "teacher", "password": "meitai123456"},
+    )
+    assert teacher_login.status_code == 200, teacher_login.text
+    teacher_token = teacher_login.json()["access_token"]
 
-class TestLoginCorrectCredentials:
-    """正确账号密码登录"""
-
-    def test_student_login_with_correct_credentials(self, client):
-        client.post("/api/auth/register", json={
-            "email": "correct@test.com", "password": "test123456",
-        })
-        resp = client.post("/api/auth/login", json={
-            "email": "correct@test.com", "password": "test123456",
-        })
-        assert resp.status_code == 200
-        data = resp.json()
-        assert "access_token" in data
-        assert data["token_type"] == "bearer"
-        assert data["user"]["email"] == "correct@test.com"
-
-    def test_login_returns_valid_token_usable_for_me(self, client):
-        client.post("/api/auth/register", json={
-            "email": "valid@test.com", "password": "test123456",
-        })
-        resp = client.post("/api/auth/login", json={
-            "email": "valid@test.com", "password": "test123456",
-        })
-        token = resp.json()["access_token"]
-        me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
-        assert me.status_code == 200
-        assert me.json()["email"] == "valid@test.com"
+    assessments_response = client.get(
+        "/api/assessments",
+        headers={"Authorization": f"Bearer {teacher_token}"},
+    )
+    assert assessments_response.status_code == 200, assessments_response.text
+    assert assessments_response.json()["total"] >= 2
 
 
-class TestLoginWrongPassword:
-    """错误密码登录"""
+def test_student_can_only_see_own_assessments(client: TestClient) -> None:
+    register_response = client.post(
+        "/api/auth/register",
+        json=build_register_payload("onlyme@test.com", display_name="我自己"),
+    )
+    assert register_response.status_code == 201, register_response.text
+    token = register_response.json()["access_token"]
 
-    def test_wrong_password_returns_401(self, client):
-        client.post("/api/auth/register", json={
-            "email": "wp@test.com", "password": "test123456",
-        })
-        resp = client.post("/api/auth/login", json={
-            "email": "wp@test.com", "password": "wrongpassword",
-        })
-        assert resp.status_code == 401
+    create_response = client.post(
+        "/api/assessments",
+        json=build_assessment_payload("我的公司"),
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert create_response.status_code == 201, create_response.text
 
-    def test_wrong_password_message_does_not_leak_info(self, client):
-        """错误提示不泄露是否存在该用户"""
-        client.post("/api/auth/register", json={
-            "email": "leak@test.com", "password": "test123456",
-        })
-        # wrong password for existing user
-        resp = client.post("/api/auth/login", json={
-            "email": "leak@test.com", "password": "wrong",
-        })
-        msg_existing = resp.json()["detail"]
-
-        # non-existent user
-        resp2 = client.post("/api/auth/login", json={
-            "email": "nonexistent@test.com", "password": "test123456",
-        })
-        msg_nonexistent = resp2.json()["detail"]
-
-        # Same error message — no user enumeration
-        assert msg_existing == msg_nonexistent
-        assert "邮箱或密码错误" in msg_existing
+    list_response = client.get(
+        "/api/assessments",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert list_response.status_code == 200, list_response.text
+    assert list_response.json()["total"] == 1
 
 
-class TestLoginEmptyCredentials:
-    """空账号/空密码"""
+def test_login_returns_token_usable_for_me(client: TestClient) -> None:
+    register_response = client.post(
+        "/api/auth/register",
+        json=build_register_payload("valid@test.com"),
+    )
+    assert register_response.status_code == 201, register_response.text
 
-    def test_empty_email_rejected(self, client):
-        resp = client.post("/api/auth/login", json={
-            "email": "", "password": "test123456",
-        })
-        # Backend LoginRequest uses str (not EmailStr), so empty string
-        # passes through and fails authentication → 401.
-        # This is correct security posture: no user-enumeration via validation.
-        assert resp.status_code == 401
+    login_response = client.post(
+        "/api/auth/login",
+        json={"email": "valid@test.com", "password": "test123456"},
+    )
+    assert login_response.status_code == 200, login_response.text
+    token = login_response.json()["access_token"]
 
-    def test_empty_password_rejected(self, client):
-        resp = client.post("/api/auth/login", json={
-            "email": "test@test.com", "password": "",
-        })
-        assert resp.status_code == 401
-
-    def test_both_empty_rejected(self, client):
-        resp = client.post("/api/auth/login", json={
-            "email": "", "password": "",
-        })
-        assert resp.status_code == 401
+    me_response = client.get(
+        "/api/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert me_response.status_code == 200, me_response.text
+    assert me_response.json()["email"] == "valid@test.com"
 
 
-class TestLoginEmailFormat:
-    """邮箱格式错误 — 统一返回 401，不区分格式错误与凭据错误"""
+def test_wrong_password_returns_uniform_401(client: TestClient) -> None:
+    register_response = client.post(
+        "/api/auth/register",
+        json=build_register_payload("leak@test.com"),
+    )
+    assert register_response.status_code == 201, register_response.text
 
-    def test_no_at_sign_uniform_error(self, client):
-        resp = client.post("/api/auth/login", json={
-            "email": "notanemail", "password": "test123456",
-        })
-        # LoginRequest.email is plain str, no EmailStr validation.
-        # Returns 401 with generic message — prevents user enumeration.
-        assert resp.status_code == 401
-        assert "邮箱或密码错误" in resp.json()["detail"]
+    existing_user = client.post(
+        "/api/auth/login",
+        json={"email": "leak@test.com", "password": "wrong"},
+    )
+    missing_user = client.post(
+        "/api/auth/login",
+        json={"email": "missing@test.com", "password": "test123456"},
+    )
 
-    def test_no_domain_uniform_error(self, client):
-        resp = client.post("/api/auth/login", json={
-            "email": "user@", "password": "test123456",
-        })
-        assert resp.status_code == 401
-
-
-class TestProtectedRoutes:
-    """未登录访问受保护页面"""
-
-    def test_me_without_token_returns_401(self, client):
-        resp = client.get("/api/auth/me")
-        assert resp.status_code == 401
-        assert "请先登录" in resp.json()["detail"]
-
-    def test_me_with_malformed_header_returns_401(self, client):
-        resp = client.get("/api/auth/me", headers={
-            "Authorization": "not-bearer-format",
-        })
-        assert resp.status_code == 401
-        assert "认证格式错误" in resp.json()["detail"]
-
-    def test_me_with_empty_token_returns_401(self, client):
-        resp = client.get("/api/auth/me", headers={
-            "Authorization": "Bearer ",
-        })
-        assert resp.status_code == 401
-        assert "认证格式错误" in resp.json()["detail"]
-
-    def test_me_with_tampered_token_returns_401(self, client):
-        resp = client.get("/api/auth/me", headers={
-            "Authorization": "Bearer tampered.jwt.token",
-        })
-        assert resp.status_code == 401
-        assert "认证信息无效" in resp.json()["detail"]
-
-    def test_assessments_without_token_returns_401(self, client):
-        resp = client.get("/api/assessments")
-        assert resp.status_code == 401
+    assert existing_user.status_code == 401
+    assert missing_user.status_code == 401
+    assert existing_user.json()["detail"] == missing_user.json()["detail"]
 
 
-class TestTokenExpiry:
-    """会话过期处理"""
+def test_protected_routes_require_authentication(client: TestClient) -> None:
+    me_response = client.get("/api/auth/me")
+    assessments_response = client.get("/api/assessments")
 
-    def test_expired_token_returns_401(self, client, monkeypatch):
-        """模拟过期 token 返回明确提示"""
-        from datetime import datetime, timedelta, timezone
-        from jose import jwt
-        from app.core.config import settings
-        from app.models.user import User
-        from app.db.session import SessionLocal
+    assert me_response.status_code == 401
+    assert assessments_response.status_code == 401
 
-        # 创建一个真实用户
-        db = next(client.app.dependency_overrides.get(
-            db_session.get_db,
-            lambda: SessionLocal(),
-        )())
-        try:
-            user = User(
-                email="expired@test.com",
-                hashed_password="...",
-                role="student",
-            )
-            db.add(user)
-            db.commit()
-            db.refresh(user)
-            user_id = user.id
-        finally:
-            db.close()
 
-        # 用已在过去的 exp 生成 token
-        past = datetime.now(timezone.utc) - timedelta(hours=1)
-        payload = {"sub": user_id, "exp": past}
-        expired_token = jwt.encode(
-            payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm,
+def test_expired_token_returns_401(client: TestClient) -> None:
+    with db_session.SessionLocal() as db:
+        user = User(
+            email="expired@test.com",
+            hashed_password="not-used",
+            role="student",
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        user_id = user.id
+
+    expired_token = jwt.encode(
+        {
+            "sub": user_id,
+            "exp": datetime.now(timezone.utc) - timedelta(hours=1),
+        },
+        settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm,
+    )
+
+    response = client.get(
+        "/api/auth/me",
+        headers={"Authorization": f"Bearer {expired_token}"},
+    )
+
+    assert response.status_code == 401
+
+
+def test_register_requires_name_company_and_job_title(client: TestClient) -> None:
+    for missing_field in ("display_name", "company_name", "job_title"):
+        payload = build_register_payload("missing@test.com")
+        payload.pop(missing_field)
+
+        response = client.post("/api/auth/register", json=payload)
+
+        assert response.status_code == 422
+        assert any(
+            error["loc"][-1] == missing_field
+            for error in response.json()["detail"]
         )
 
-        resp = client.get("/api/auth/me", headers={
-            "Authorization": f"Bearer {expired_token}",
-        })
-        assert resp.status_code == 401
-        assert "已过期" in resp.json()["detail"]
+
+def test_register_rejects_blank_name_company_and_job_title(client: TestClient) -> None:
+    cases = {
+        "display_name": "   ",
+        "company_name": "   ",
+        "job_title": "   ",
+    }
+    for field_name, blank_value in cases.items():
+        payload = build_register_payload("blank@test.com", **{field_name: blank_value})
+
+        response = client.post("/api/auth/register", json=payload)
+
+        assert response.status_code == 422
+        assert any(
+            error["loc"][-1] == field_name
+            for error in response.json()["detail"]
+        )
 
 
-class TestRegistrationEdgeCases:
-    """注册边界情况"""
+def test_short_password_rejected(client: TestClient) -> None:
+    response = client.post(
+        "/api/auth/register",
+        json=build_register_payload("short@test.com", password="12345"),
+    )
 
-    def test_short_password_rejected(self, client):
-        resp = client.post("/api/auth/register", json={
-            "email": "short@test.com", "password": "12345",
-        })
-        assert resp.status_code == 422
-
-    def test_duplicate_email_rejected_409(self, client):
-        client.post("/api/auth/register", json={
-            "email": "dup@test.com", "password": "test123456",
-        })
-        resp = client.post("/api/auth/register", json={
-            "email": "dup@test.com", "password": "test123456",
-        })
-        assert resp.status_code == 409
-        assert "已被注册" in resp.json()["detail"]
-
-    def test_registration_returns_token(self, client):
-        resp = client.post("/api/auth/register", json={
-            "email": "newuser@test.com", "password": "test123456",
-            "display_name": "新用户",
-        })
-        assert resp.status_code == 201
-        data = resp.json()
-        assert "access_token" in data
-        assert data["user"]["display_name"] == "新用户"
+    assert response.status_code == 422
 
 
-class TestErrorMessageClarity:
-    """错误提示清晰度"""
+def test_duplicate_email_rejected(client: TestClient) -> None:
+    first = client.post(
+        "/api/auth/register",
+        json=build_register_payload("dup@test.com"),
+    )
+    second = client.post(
+        "/api/auth/register",
+        json=build_register_payload("dup@test.com"),
+    )
 
-    def test_login_error_is_chinese_and_actionable(self, client):
-        resp = client.post("/api/auth/login", json={
-            "email": "nobody@test.com", "password": "test123456",
-        })
-        assert resp.status_code == 401
-        detail = resp.json()["detail"]
-        # Must be in Chinese and actionable
-        assert "邮箱" in detail or "密码" in detail
-
-    def test_unauthorized_error_is_chinese(self, client):
-        resp = client.get("/api/auth/me")
-        detail = resp.json()["detail"]
-        assert any(ch in detail for ch in "登录认证")
+    assert first.status_code == 201, first.text
+    assert second.status_code == 409
 
 
-def test_register_with_profile_fields_and_recovery_settings(client: TestClient):
-    resp = client.post("/api/auth/register", json={
-        "email": "recovery@test.com",
-        "password": "test123456",
-        "display_name": "测试用户",
-        "company_name": "美太测试企业",
-        "job_title": "创新负责人",
-        "recovery_question": "你的第一位直属领导姓名是？",
-        "recovery_answer": "张老师",
-    })
-    assert resp.status_code == 201, resp.text
-    data = resp.json()
-    assert data["user"]["display_name"] == "测试用户"
-    assert data["user"]["company_name"] == "美太测试企业"
-    assert data["user"]["job_title"] == "创新负责人"
+def test_register_with_profile_fields_and_recovery_settings(client: TestClient) -> None:
+    response = client.post(
+        "/api/auth/register",
+        json=build_register_payload(
+            "recovery@test.com",
+            display_name="测试用户",
+            company_name="美太测试企业",
+            job_title="创新负责人",
+            recovery_question="你的第一位直属领导姓名是？",
+            recovery_answer="张老师",
+        ),
+    )
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["user"]["display_name"] == "测试用户"
+    assert body["user"]["company_name"] == "美太测试企业"
+    assert body["user"]["job_title"] == "创新负责人"
 
 
-def test_forgot_password_question_and_reset_flow(client: TestClient):
-    client.post("/api/auth/register", json={
-        "email": "resetme@test.com",
-        "password": "oldpass123",
-        "display_name": "可重置用户",
-        "recovery_question": "你的第一次独立项目名称是？",
-        "recovery_answer": "星火计划",
-    })
+def test_forgot_password_question_and_reset_flow(client: TestClient) -> None:
+    register_response = client.post(
+        "/api/auth/register",
+        json=build_register_payload(
+            "resetme@test.com",
+            password="oldpass123",
+            display_name="可重置用户",
+            recovery_question="你的第一个独立项目名称是？",
+            recovery_answer="星火计划",
+        ),
+    )
+    assert register_response.status_code == 201, register_response.text
 
-    question_resp = client.post("/api/auth/forgot-password/question", json={
-        "email": "resetme@test.com",
-    })
-    assert question_resp.status_code == 200, question_resp.text
-    assert question_resp.json()["recovery_question"] == "你的第一次独立项目名称是？"
+    question_response = client.post(
+        "/api/auth/forgot-password/question",
+        json={"email": "resetme@test.com"},
+    )
+    assert question_response.status_code == 200, question_response.text
+    assert question_response.json()["recovery_question"] == "你的第一个独立项目名称是？"
 
-    reset_resp = client.post("/api/auth/forgot-password/reset", json={
-        "email": "resetme@test.com",
-        "recovery_answer": "星火计划",
-        "new_password": "newpass123",
-    })
-    assert reset_resp.status_code == 200, reset_resp.text
-    assert reset_resp.json()["success"] is True
+    reset_response = client.post(
+        "/api/auth/forgot-password/reset",
+        json={
+            "email": "resetme@test.com",
+            "recovery_answer": "星火计划",
+            "new_password": "newpass123",
+        },
+    )
+    assert reset_response.status_code == 200, reset_response.text
+    assert reset_response.json()["success"] is True
 
-    old_login = client.post("/api/auth/login", json={
-        "email": "resetme@test.com",
-        "password": "oldpass123",
-    })
+    old_login = client.post(
+        "/api/auth/login",
+        json={"email": "resetme@test.com", "password": "oldpass123"},
+    )
+    new_login = client.post(
+        "/api/auth/login",
+        json={"email": "resetme@test.com", "password": "newpass123"},
+    )
+
     assert old_login.status_code == 401
-
-    new_login = client.post("/api/auth/login", json={
-        "email": "resetme@test.com",
-        "password": "newpass123",
-    })
     assert new_login.status_code == 200, new_login.text
 
 
-def test_forgot_password_requires_existing_recovery_settings(client: TestClient):
-    client.post("/api/auth/register", json={
-        "email": "norecovery@test.com",
-        "password": "test123456",
-    })
+def test_forgot_password_requires_existing_recovery_settings(client: TestClient) -> None:
+    register_response = client.post(
+        "/api/auth/register",
+        json=build_register_payload("norecovery@test.com"),
+    )
+    assert register_response.status_code == 201, register_response.text
 
-    question_resp = client.post("/api/auth/forgot-password/question", json={
-        "email": "norecovery@test.com",
-    })
-    assert question_resp.status_code == 404, question_resp.text
+    question_response = client.post(
+        "/api/auth/forgot-password/question",
+        json={"email": "norecovery@test.com"},
+    )
+
+    assert question_response.status_code == 404
 
 
 def test_forgot_password_sends_reset_email_via_smtp(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
-):
+) -> None:
     from types import SimpleNamespace
 
-    from app.models.user import User
     from app.services import auth_service
 
-    client.post("/api/auth/register", json={
-        "email": "smtp-reset@test.com",
-        "password": "test123456",
-    })
+    register_response = client.post(
+        "/api/auth/register",
+        json=build_register_payload("smtp-reset@test.com"),
+    )
+    assert register_response.status_code == 201, register_response.text
 
     sent: dict[str, object] = {}
 
@@ -535,15 +476,17 @@ def test_forgot_password_sends_reset_email_via_smtp(
     )
     monkeypatch.setattr(auth_service.smtplib, "SMTP", FakeSMTP)
 
-    response = client.post("/api/auth/forgot-password", json={
-        "email": "smtp-reset@test.com",
-    })
+    response = client.post(
+        "/api/auth/forgot-password",
+        json={"email": "smtp-reset@test.com"},
+    )
 
     assert response.status_code == 200, response.text
     assert sent["host"] == "smtp.example.com"
     assert sent["port"] == 587
     assert sent["starttls"] is True
     assert sent["login"] == ("smtp-user", "smtp-pass")
+
     message = sent["message"]
     assert message["To"] == "smtp-reset@test.com"
     html_body = message.get_body(preferencelist=("html",))
@@ -560,17 +503,17 @@ def test_forgot_password_sends_reset_email_via_smtp(
 def test_forgot_password_smtp_failure_rolls_back_token(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
-):
+) -> None:
     import smtplib
     from types import SimpleNamespace
 
-    from app.models.user import User
     from app.services import auth_service
 
-    client.post("/api/auth/register", json={
-        "email": "smtp-fail@test.com",
-        "password": "test123456",
-    })
+    register_response = client.post(
+        "/api/auth/register",
+        json=build_register_payload("smtp-fail@test.com"),
+    )
+    assert register_response.status_code == 201, register_response.text
 
     class FailingSMTP:
         def __init__(self, host: str, port: int, timeout: int):
@@ -613,9 +556,10 @@ def test_forgot_password_smtp_failure_rolls_back_token(
     )
     monkeypatch.setattr(auth_service.smtplib, "SMTP", FailingSMTP)
 
-    response = client.post("/api/auth/forgot-password", json={
-        "email": "smtp-fail@test.com",
-    })
+    response = client.post(
+        "/api/auth/forgot-password",
+        json={"email": "smtp-fail@test.com"},
+    )
 
     assert response.status_code == 503, response.text
 

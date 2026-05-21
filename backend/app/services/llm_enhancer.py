@@ -10,8 +10,14 @@ import re
 from typing import Any
 
 from app.core.config import settings
+from app.models.assessment import Assessment
+from app.prompts.scenario_writer_prompt import ScenarioWriterPrompt
 
-from app.schemas.assessment import CanvasDiagnosisResult
+from app.schemas.assessment import (
+    CanvasDiagnosisResult,
+    CompanyProfileResult,
+    ScenarioRecommendationItem,
+)
 from app.schemas.breakthrough import (
     BreakthroughElement,
     BreakthroughRecommendationResult,
@@ -356,3 +362,79 @@ class LLMEnhancer:
         except Exception as exc:
             logger.warning("Failed to parse LLM competitiveness response: %s", exc)
             return None
+
+    def enhance_scenario_descriptions(
+        self,
+        assessment: Assessment,
+        profile: CompanyProfileResult | None,
+        canvas_diagnosis: CanvasDiagnosisResult,
+        breakthrough_labels: list[str],
+        selected_directions: list[DirectionSuggestion],
+        scenarios: list[ScenarioRecommendationItem],
+    ) -> list[ScenarioRecommendationItem] | None:
+        if not self._is_live_mode():
+            return None
+        if not scenarios:
+            return []
+
+        system_prompt = ScenarioWriterPrompt.build_system_prompt()
+        user_prompt = ScenarioWriterPrompt.build_user_prompt(
+            assessment=assessment,
+            profile=profile,
+            canvas=canvas_diagnosis,
+            breakthrough_labels=breakthrough_labels,
+            selected_directions=selected_directions,
+            scenarios=scenarios,
+        )
+        result = self._call_llm(system_prompt, user_prompt)
+        if not result:
+            return None
+
+        raw_items = result.get("scenarios", [])
+        if not isinstance(raw_items, list) or not raw_items:
+            return None
+
+        rewrite_by_id: dict[str, dict[str, str]] = {}
+        for raw in raw_items:
+            if not isinstance(raw, dict):
+                continue
+            scenario_id = str(raw.get("scenario_id", "")).strip()
+            if not scenario_id:
+                continue
+            rewrite_by_id[scenario_id] = {
+                "summary": str(raw.get("summary", "")).strip(),
+                "canvas_elements": str(raw.get("canvas_elements", "")).strip(),
+                "expected_effects": str(raw.get("expected_effects", "")).strip(),
+                "core_data_requirements": str(
+                    raw.get("core_data_requirements", "")
+                ).strip(),
+            }
+
+        if not rewrite_by_id:
+            return None
+
+        enhanced_items: list[ScenarioRecommendationItem] = []
+        matched_count = 0
+        for item in scenarios:
+            rewrite = rewrite_by_id.get(item.scenario_id)
+            if not rewrite:
+                enhanced_items.append(item.model_copy(deep=True))
+                continue
+            matched_count += 1
+            enhanced_items.append(
+                item.model_copy(
+                    update={
+                        "summary": rewrite["summary"] or item.summary,
+                        "canvas_elements": rewrite["canvas_elements"]
+                        or item.canvas_elements,
+                        "expected_effects": rewrite["expected_effects"]
+                        or item.expected_effects,
+                        "core_data_requirements": rewrite[
+                            "core_data_requirements"
+                        ]
+                        or item.core_data_requirements,
+                    }
+                )
+            )
+
+        return enhanced_items if matched_count else None

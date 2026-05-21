@@ -3,12 +3,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { apiBaseUrl } from "@/lib/api";
+import {
+  apiBaseUrl,
+  formatMutationError,
+  updateScenarioPool,
+} from "@/lib/api";
 import type {
   ScenarioRecommendationItem,
   ScenarioRecommendationResult,
 } from "@/lib/types";
 import { assessmentKeys } from "@/hooks/use-assessment";
+import { toast } from "@/hooks/use-toast";
 
 const QUADRANT_THRESHOLD = 3.5;
 const WEIGHT_X = 0.6;
@@ -22,7 +27,7 @@ type QuadrantLabel =
   | "AI优先区"
   | "自动化主战场"
   | "人机协作区"
-  | "人工保留区";
+  | "人类保留区";
 
 type EditableScenario = ScenarioRecommendationItem & {
   _x: number;
@@ -35,6 +40,8 @@ type EditableScenario = ScenarioRecommendationItem & {
   _level: string;
   _kappa: number;
 };
+
+type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 const QUADRANT_META: Record<
   QuadrantLabel,
@@ -67,7 +74,7 @@ const QUADRANT_META: Record<
     areaLabelClass: "text-sky-400/70",
     borderClass: "border-sky-300",
   },
-  人工保留区: {
+  人类保留区: {
     badgeClass: "badge-muted",
     bubbleColor: "#94a3b8",
     areaClass: "bg-slate-50/70",
@@ -77,34 +84,28 @@ const QUADRANT_META: Record<
 };
 
 const X_DESCRIPTIONS: Record<number, string> = {
-  1: "完全非结构化，暂不适合直接上 AI。",
-  2: "低度结构化，需要先补规则和字段。",
-  3: "中度结构化，可在局部场景试点。",
-  4: "高度结构化，大部分流程已标准化。",
-  5: "完全结构化，可优先作为规模化 AI 场景。",
+  1: "完全非结构化，暂不适合直接做成 AI 场景。",
+  2: "低度结构化，需要先补规则和字段定义。",
+  3: "中度结构化，可以先在局部场景试点。",
+  4: "高度结构化，大部分流程已经标准化。",
+  5: "完全结构化，适合优先沉淀为规模化 AI 能力。",
 };
 
 const Y_DESCRIPTIONS: Record<number, string> = {
   1: "复杂度很低，适合快速落地。",
-  2: "复杂度较低，规则可较快梳理清楚。",
-  3: "复杂度中等，需要跨岗位协同。",
-  4: "复杂度较高，涉及多变量判断。",
-  5: "复杂度很高，落地阻力和改造成本都高。",
+  2: "复杂度较低，规则可以较快梳理清楚。",
+  3: "复杂度中等，需要一定的跨岗位协同。",
+  4: "复杂度较高，涉及多变量判断与流程改造。",
+  5: "复杂度很高，落地阻力和改造成本都更高。",
 };
 
-const RANK_MEDALS = ["🥇", "🥈", "🥉"];
+const RANK_LABELS = ["Top 1", "Top 2", "Top 3"];
 
 function calcQuadrant(x: number, y: number): QuadrantLabel {
-  if (x >= QUADRANT_THRESHOLD && y >= QUADRANT_THRESHOLD) {
-    return "AI优先区";
-  }
-  if (x >= QUADRANT_THRESHOLD && y < QUADRANT_THRESHOLD) {
-    return "自动化主战场";
-  }
-  if (x < QUADRANT_THRESHOLD && y >= QUADRANT_THRESHOLD) {
-    return "人机协作区";
-  }
-  return "人工保留区";
+  if (x >= QUADRANT_THRESHOLD && y >= QUADRANT_THRESHOLD) return "AI优先区";
+  if (x >= QUADRANT_THRESHOLD && y < QUADRANT_THRESHOLD) return "自动化主战场";
+  if (x < QUADRANT_THRESHOLD && y >= QUADRANT_THRESHOLD) return "人机协作区";
+  return "人类保留区";
 }
 
 function calcTier(quadrant: QuadrantLabel): number {
@@ -150,18 +151,42 @@ function toEditable(item: ScenarioRecommendationItem): EditableScenario {
   };
 }
 
-function buildDisplayScenarios(
-  recommendation: ScenarioRecommendationResult,
-): EditableScenario[] {
-  const all = recommendation.all_scores ?? recommendation.top_scenarios;
+function buildScenarioBuckets(recommendation: ScenarioRecommendationResult) {
+  const activeSource = recommendation.all_scores ?? recommendation.top_scenarios;
+  const excludedSource = recommendation.excluded_scores ?? [];
   const topIds = new Set(recommendation.top_scenarios.map((item) => item.scenario_id));
-  const byId = new Map(all.map((item) => [item.scenario_id, item]));
+  const byId = new Map(activeSource.map((item) => [item.scenario_id, item]));
   const topItems = recommendation.top_scenarios
     .map((item) => byId.get(item.scenario_id) ?? item)
     .filter(Boolean) as ScenarioRecommendationItem[];
-  const restItems = all.filter((item) => !topIds.has(item.scenario_id));
+  const restItems = activeSource.filter((item) => !topIds.has(item.scenario_id));
 
-  return [...topItems, ...restItems].map(toEditable);
+  return {
+    active: [...topItems, ...restItems].map(toEditable),
+    excluded: excludedSource.map(toEditable),
+  };
+}
+
+function buildOptimisticScenarioRecommendation(
+  recommendation: ScenarioRecommendationResult,
+  rankedItems: ScenarioRecommendationItem[],
+  nextActiveIds: string[],
+): ScenarioRecommendationResult {
+  const nextActiveIdSet = new Set(nextActiveIds);
+  const activeItems = rankedItems.filter((item) =>
+    nextActiveIdSet.has(item.scenario_id),
+  );
+  const excludedItems = rankedItems.filter(
+    (item) => !nextActiveIdSet.has(item.scenario_id),
+  );
+
+  return {
+    ...recommendation,
+    top_scenarios: activeItems.slice(0, 3),
+    all_scores: activeItems,
+    active_count: activeItems.length,
+    excluded_scores: excludedItems,
+  };
 }
 
 function bubblePos(x: number, y: number) {
@@ -176,10 +201,7 @@ function clampScore(value: number) {
 }
 
 function getAuthHeaders(): Record<string, string> {
-  if (typeof window === "undefined") {
-    return {};
-  }
-
+  if (typeof window === "undefined") return {};
   const token = window.localStorage.getItem("auth_token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
@@ -194,22 +216,42 @@ export function ScenarioQuadrantView({
   const queryClient = useQueryClient();
   const [recommendation, setRecommendation] =
     useState<ScenarioRecommendationResult>(scenarioRecommendation);
-  const [scenarios, setScenarios] = useState<EditableScenario[]>(
-    buildDisplayScenarios(scenarioRecommendation),
+  const [activeScenarios, setActiveScenarios] = useState<EditableScenario[]>(
+    buildScenarioBuckets(scenarioRecommendation).active,
+  );
+  const [excludedScenarios, setExcludedScenarios] = useState<EditableScenario[]>(
+    buildScenarioBuckets(scenarioRecommendation).excluded,
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [calibrationSaveStatus, setCalibrationSaveStatus] =
+    useState<SaveStatus>("idle");
+  const [poolSaveStatus, setPoolSaveStatus] = useState<SaveStatus>("idle");
+  const [hasUnsavedCalibrationChanges, setHasUnsavedCalibrationChanges] =
+    useState(false);
+  const [pendingPoolScenarioId, setPendingPoolScenarioId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
+    const nextBuckets = buildScenarioBuckets(scenarioRecommendation);
     setRecommendation(scenarioRecommendation);
-    setScenarios(buildDisplayScenarios(scenarioRecommendation));
+    setActiveScenarios(nextBuckets.active);
+    setExcludedScenarios(nextBuckets.excluded);
+    setCalibrationSaveStatus("idle");
+    setPoolSaveStatus("idle");
+    setHasUnsavedCalibrationChanges(false);
+    setSelectedId((current) =>
+      (current &&
+      nextBuckets.active.some((item) => item.scenario_id === current)
+        ? current
+        : nextBuckets.active[0]?.scenario_id) ?? null,
+    );
   }, [scenarioRecommendation]);
 
   const selected = useMemo(
-    () => scenarios.find((item) => item.scenario_id === selectedId) ?? null,
-    [scenarios, selectedId],
+    () => activeScenarios.find((item) => item.scenario_id === selectedId) ?? null,
+    [activeScenarios, selectedId],
   );
 
   const top3Ids = useMemo(
@@ -217,24 +259,73 @@ export function ScenarioQuadrantView({
     [recommendation.top_scenarios],
   );
 
-  const top3Cards = useMemo(() => {
-    return recommendation.top_scenarios
-      .map((item) => scenarios.find((scenario) => scenario.scenario_id === item.scenario_id))
-      .filter(Boolean) as EditableScenario[];
-  }, [recommendation.top_scenarios, scenarios]);
+  const top3Cards = useMemo(
+    () =>
+      recommendation.top_scenarios
+        .map((item) =>
+          activeScenarios.find((scenario) => scenario.scenario_id === item.scenario_id),
+        )
+        .filter(Boolean) as EditableScenario[],
+    [recommendation.top_scenarios, activeScenarios],
+  );
+  const rankedScenarios = useMemo(
+    () => [...activeScenarios, ...excludedScenarios],
+    [activeScenarios, excludedScenarios],
+  );
+
+  const activeCount = recommendation.active_count ?? activeScenarios.length;
+  const excludedCount = excludedScenarios.length;
+  const canRemoveMore = activeScenarios.length > 3;
+  const poolLocked =
+    calibrationSaveStatus === "saving" ||
+    hasUnsavedCalibrationChanges ||
+    poolSaveStatus === "saving";
+
+  const refreshScenarioQueries = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: assessmentKeys.detail(assessmentId) }),
+      queryClient.invalidateQueries({
+        queryKey: assessmentKeys.scenarios(assessmentId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: assessmentKeys.competitiveness(assessmentId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: assessmentKeys.endgame(assessmentId),
+      }),
+    ]);
+  }, [assessmentId, queryClient]);
+
+  const applyScenarioRecommendation = useCallback(
+    (
+      nextRecommendation: ScenarioRecommendationResult,
+      preferredSelectedId?: string | null,
+    ) => {
+      const nextBuckets = buildScenarioBuckets(nextRecommendation);
+      setRecommendation(nextRecommendation);
+      setActiveScenarios(nextBuckets.active);
+      setExcludedScenarios(nextBuckets.excluded);
+      setSelectedId((current) =>
+        [preferredSelectedId, current]
+          .filter((value): value is string => Boolean(value))
+          .find((value) =>
+            nextBuckets.active.some((item) => item.scenario_id === value),
+          ) ?? nextBuckets.active[0]?.scenario_id ?? null,
+      );
+    },
+    [],
+  );
 
   const handleScoreChange = useCallback(
     (axis: "x" | "y", value: number) => {
       if (!selectedId) return;
       const nextValue = clampScore(value);
-      setHasUnsavedChanges(true);
-      setSaveStatus("idle");
-      setScenarios((current) =>
+      setHasUnsavedCalibrationChanges(true);
+      setCalibrationSaveStatus("idle");
+      setPoolSaveStatus("idle");
+      setActiveScenarios((current) =>
         current.map((item) => {
-          if (item.scenario_id !== selectedId) {
-            return item;
-          }
-
+          if (item.scenario_id !== selectedId) return item;
           const nextX = axis === "x" ? nextValue : item._x;
           const nextY = axis === "y" ? nextValue : item._y;
           const { qs, lps, lpsDisplay, quadrant, tier, level } = recompute(
@@ -277,8 +368,50 @@ export function ScenarioQuadrantView({
     [handleScoreChange, selected],
   );
 
+  const persistScenarioPool = useCallback(
+    async (nextActiveIds: string[], scenarioId: string, actionLabel: string) => {
+      const previousRecommendation = recommendation;
+      const previousSelectedId = selectedId;
+      const optimisticRecommendation = buildOptimisticScenarioRecommendation(
+        recommendation,
+        rankedScenarios,
+        nextActiveIds,
+      );
+
+      applyScenarioRecommendation(optimisticRecommendation, selectedId);
+      setPoolSaveStatus("saving");
+      setPendingPoolScenarioId(scenarioId);
+      try {
+        const response = await updateScenarioPool(assessmentId, {
+          active_scenario_ids: nextActiveIds,
+        });
+        applyScenarioRecommendation(response.scenario_recommendation, selectedId);
+        setPoolSaveStatus("saved");
+        void refreshScenarioQueries();
+      } catch (error) {
+        applyScenarioRecommendation(previousRecommendation, previousSelectedId);
+        setPoolSaveStatus("error");
+        toast({
+          title: `${actionLabel}失败`,
+          description: formatMutationError(error, "场景池调整"),
+          variant: "destructive",
+        });
+      } finally {
+        setPendingPoolScenarioId(null);
+      }
+    },
+    [
+      applyScenarioRecommendation,
+      assessmentId,
+      rankedScenarios,
+      recommendation,
+      refreshScenarioQueries,
+      selectedId,
+    ],
+  );
+
   const handleSaveCalibration = useCallback(async () => {
-    setSaveStatus("saving");
+    setCalibrationSaveStatus("saving");
     try {
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
@@ -291,7 +424,7 @@ export function ScenarioQuadrantView({
           method: "POST",
           headers,
           body: JSON.stringify({
-            calibrations: scenarios.map((item) => ({
+            calibrations: activeScenarios.map((item) => ({
               scenario_id: item.scenario_id,
               priority_structuredness_x: item._x,
               priority_complexity_y: item._y,
@@ -299,7 +432,6 @@ export function ScenarioQuadrantView({
           }),
         },
       );
-
       if (!response.ok) {
         throw new Error(await response.text());
       }
@@ -307,20 +439,48 @@ export function ScenarioQuadrantView({
       const payload = (await response.json()) as {
         scenario_recommendation: ScenarioRecommendationResult;
       };
-      setRecommendation(payload.scenario_recommendation);
-      setScenarios(buildDisplayScenarios(payload.scenario_recommendation));
-      setHasUnsavedChanges(false);
-      setSaveStatus("saved");
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: assessmentKeys.detail(assessmentId) }),
-        queryClient.invalidateQueries({ queryKey: assessmentKeys.scenarios(assessmentId) }),
-        queryClient.invalidateQueries({ queryKey: assessmentKeys.competitiveness(assessmentId) }),
-        queryClient.invalidateQueries({ queryKey: assessmentKeys.endgame(assessmentId) }),
-      ]);
-    } catch {
-      setSaveStatus("error");
+      applyScenarioRecommendation(payload.scenario_recommendation, selectedId);
+      setHasUnsavedCalibrationChanges(false);
+      setCalibrationSaveStatus("saved");
+      void refreshScenarioQueries();
+    } catch (error) {
+      setCalibrationSaveStatus("error");
+      toast({
+        title: "保存校准失败",
+        description: formatMutationError(error, "场景校准"),
+        variant: "destructive",
+      });
     }
-  }, [assessmentId, queryClient, scenarios]);
+  }, [
+    activeScenarios,
+    applyScenarioRecommendation,
+    assessmentId,
+    refreshScenarioQueries,
+    selectedId,
+  ]);
+
+  const handleRemoveScenario = useCallback(
+    async (scenarioId: string) => {
+      if (!canRemoveMore || poolLocked) return;
+      const nextActiveIds = activeScenarios
+        .filter((item) => item.scenario_id !== scenarioId)
+        .map((item) => item.scenario_id);
+      await persistScenarioPool(nextActiveIds, scenarioId, "移出场景");
+    },
+    [activeScenarios, canRemoveMore, persistScenarioPool, poolLocked],
+  );
+
+  const handleRestoreScenario = useCallback(
+    async (scenarioId: string) => {
+      if (poolLocked) return;
+      const nextActiveIds = [
+        ...activeScenarios.map((item) => item.scenario_id),
+        scenarioId,
+      ];
+      await persistScenarioPool(nextActiveIds, scenarioId, "加回场景");
+    },
+    [activeScenarios, persistScenarioPool, poolLocked],
+  );
 
   const toggleExpanded = useCallback((scenarioId: string) => {
     setExpandedIds((current) =>
@@ -335,29 +495,27 @@ export function ScenarioQuadrantView({
       <div>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="section-label">场景候选池</p>
-            <h2 className="section-heading">Top 3 AI 推荐场景</h2>
+            <p className="section-label">候选场景池</p>
+            <h2 className="section-heading">场景池校准与 Top 3 AI 推荐场景</h2>
           </div>
           <span className="badge badge-warning">四象限评分</span>
         </div>
         <p className="mt-3 text-sm leading-7 text-warm-secondary">
-          当前共评估 {recommendation.evaluated_count} 个候选场景。你可以在左侧校准 X/Y 评分，系统会即时重算场景象限、优先级和 Top 3 排名。
+          系统一共评估了 {recommendation.evaluated_count} 个候选场景；当前有效场景池保留{" "}
+          {activeCount} 个，已移出 {excludedCount} 个。你可以先校准场景的 X/Y 评分，再按需要把场景移出或加回；
+          后续 Top 3、差异化竞争力和商业终局都只基于当前有效场景池继续生成。
         </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
         <div className="space-y-4">
           <section className="rounded-2xl border border-warm-border-light bg-warm-surface p-5">
-            <h3 className="font-heading text-base font-bold text-warm-text">
-              候选池校准
-            </h3>
+            <h3 className="font-heading text-base font-bold text-warm-text">候选池校准</h3>
             {selected ? (
-              <p className="mt-1 text-sm text-warm-accent">
-                当前场景：{selected.name}
-              </p>
+              <p className="mt-1 text-sm text-warm-accent">当前场景：{selected.name}</p>
             ) : (
               <p className="mt-1 text-sm text-warm-muted">
-                请先从下方候选池选择一个场景。
+                请先从下方有效场景池里选择一个场景。
               </p>
             )}
 
@@ -369,7 +527,7 @@ export function ScenarioQuadrantView({
                   <ScoreEditor
                     label="结构化程度 X"
                     value={selected._x}
-                    helper="越高越适合做成稳定 AI 能力"
+                    helper="越高越适合沉淀为稳定的 AI 能力"
                     description={X_DESCRIPTIONS[Math.round(selected._x)] ?? ""}
                     onDecrease={() => adjustScore("x", -0.1)}
                     onIncrease={() => adjustScore("x", 0.1)}
@@ -403,95 +561,179 @@ export function ScenarioQuadrantView({
                   <button
                     type="button"
                     onClick={handleSaveCalibration}
-                    disabled={saveStatus === "saving" || !hasUnsavedChanges}
+                    disabled={
+                      calibrationSaveStatus === "saving" ||
+                      poolSaveStatus === "saving" ||
+                      !hasUnsavedCalibrationChanges
+                    }
                     className={`rounded-full px-4 py-1.5 text-xs font-medium transition ${
-                      saveStatus === "saving"
+                      calibrationSaveStatus === "saving"
                         ? "cursor-wait bg-warm-inset text-warm-muted"
-                        : saveStatus === "saved"
+                        : calibrationSaveStatus === "saved"
                           ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-                          : hasUnsavedChanges
+                          : hasUnsavedCalibrationChanges
                             ? "bg-amber-500 text-white hover:bg-amber-600"
                             : "cursor-not-allowed bg-warm-inset text-warm-muted"
                     }`}
                   >
-                    {saveStatus === "saving"
+                    {calibrationSaveStatus === "saving"
                       ? "保存中..."
-                      : saveStatus === "saved"
+                      : calibrationSaveStatus === "saved"
                         ? "已保存"
-                        : saveStatus === "error"
+                        : calibrationSaveStatus === "error"
                           ? "保存失败，请重试"
                           : "保存校准"}
                   </button>
                   <span className="text-[11px] text-warm-muted">
-                    {hasUnsavedChanges
-                      ? "保存后，后续竞争力与终局结果会自动失效。"
-                      : "当前显示的是已保存的校准结果。"}
+                    {hasUnsavedCalibrationChanges
+                      ? "保存后，后续竞争力、终局和综合报告会自动失效。"
+                      : "场景增减前请先保存当前校准，避免本地未保存改动被覆盖。"}
                   </span>
                 </div>
               </>
             ) : (
               <p className="py-4 text-center text-sm text-warm-muted">
-                选择候选场景后，可在这里通过 +/- 或滑块调整评分。
+                选择有效场景池中的任一场景后，可以在这里通过 +/- 或滑块调整评分。
               </p>
             )}
           </section>
 
           <section className="rounded-2xl border border-warm-border-light bg-warm-surface p-5">
             <div className="flex items-center justify-between">
-              <h3 className="font-heading text-base font-bold text-warm-text">
-                候选场景池
-              </h3>
+              <h3 className="font-heading text-base font-bold text-warm-text">有效场景池</h3>
               <span className="rounded-full bg-warm-inset px-2.5 py-0.5 text-xs text-warm-muted">
-                {scenarios.length} 个场景
+                有效 {activeCount} / 总 {recommendation.evaluated_count}
               </span>
             </div>
+            <p className="mt-2 text-xs leading-6 text-warm-muted">
+              这里的场景会参与 Top 3 排序和后续报告生成。至少保留 3 个场景。
+            </p>
             <div className="my-4 border-t border-warm-border-light" />
 
             <div className="max-h-[440px] space-y-2 overflow-y-auto pr-2">
-              {scenarios.map((item) => {
+              {activeScenarios.map((item) => {
                 const isSelected = selectedId === item.scenario_id;
                 const meta = QUADRANT_META[item._quadrant];
+                const isPending = pendingPoolScenarioId === item.scenario_id;
                 return (
-                  <button
+                  <div
                     key={item.scenario_id}
-                    type="button"
-                    onClick={() =>
-                      setSelectedId((current) =>
-                        current === item.scenario_id ? null : item.scenario_id,
-                      )
-                    }
                     className={`w-full rounded-xl border px-4 py-3 text-left transition ${
                       isSelected
                         ? `${meta.borderClass} bg-white shadow-sm`
                         : "border-warm-border-light bg-white hover:border-warm-accent/30"
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-warm-text">
-                          {item.name}
-                        </p>
-                        <p className="mt-1 line-clamp-2 text-xs leading-5 text-warm-muted">
-                          {item.summary}
-                        </p>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelectedId((current) =>
+                              current === item.scenario_id ? null : item.scenario_id,
+                            )
+                          }
+                          className="w-full text-left"
+                        >
+                          <p className="truncate text-sm font-semibold text-warm-text">
+                            {item.name}
+                          </p>
+                          <p className="mt-1 line-clamp-2 text-xs leading-5 text-warm-muted">
+                            {item.summary}
+                          </p>
+                        </button>
                       </div>
-                      <span className={`badge shrink-0 text-[0.6rem] ${meta.badgeClass}`}>
-                        {item._quadrant}
-                      </span>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className={`badge shrink-0 text-[0.6rem] ${meta.badgeClass}`}>
+                          {item._quadrant}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveScenario(item.scenario_id)}
+                          disabled={!canRemoveMore || poolLocked || isPending}
+                          className={`rounded-full border px-3 py-1 text-[0.7rem] font-medium transition ${
+                            !canRemoveMore || poolLocked || isPending
+                              ? "cursor-not-allowed border-warm-border-light bg-warm-inset text-warm-muted"
+                              : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                          }`}
+                        >
+                          {isPending && poolSaveStatus === "saving" ? "移出中..." : "移出"}
+                        </button>
+                      </div>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-3 text-xs text-warm-muted">
                       <span>X: {item._x}</span>
                       <span>Y: {item._y}</span>
-                      <span className="font-medium text-warm-text">
-                        {item._lpsDisplay} 分
-                      </span>
+                      <span className="font-medium text-warm-text">{item._lpsDisplay} 分</span>
                       <span>{item._level}</span>
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
           </section>
+
+          {excludedScenarios.length > 0 ? (
+            <section className="rounded-2xl border border-warm-border-light bg-warm-surface p-5">
+              <div className="flex items-center justify-between">
+                <h3 className="font-heading text-base font-bold text-warm-text">已移出场景</h3>
+                <span className="rounded-full bg-warm-inset px-2.5 py-0.5 text-xs text-warm-muted">
+                  {excludedScenarios.length} 个场景
+                </span>
+              </div>
+              <p className="mt-2 text-xs leading-6 text-warm-muted">
+                已移出的场景不会参与 Top 3、竞争力或终局生成；需要时可以加回有效场景池。
+              </p>
+              <div className="my-4 border-t border-warm-border-light" />
+
+              <div className="max-h-[320px] space-y-2 overflow-y-auto pr-2">
+                {excludedScenarios.map((item) => {
+                  const meta = QUADRANT_META[item._quadrant];
+                  const isPending = pendingPoolScenarioId === item.scenario_id;
+                  return (
+                    <div
+                      key={item.scenario_id}
+                      className="rounded-xl border border-warm-border-light bg-white px-4 py-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-warm-text">
+                            {item.name}
+                          </p>
+                          <p className="mt-1 line-clamp-2 text-xs leading-5 text-warm-muted">
+                            {item.summary}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span className={`badge shrink-0 text-[0.6rem] ${meta.badgeClass}`}>
+                            {item._quadrant}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRestoreScenario(item.scenario_id)}
+                            disabled={poolLocked || isPending}
+                            className={`rounded-full border px-3 py-1 text-[0.7rem] font-medium transition ${
+                              poolLocked || isPending
+                                ? "cursor-not-allowed border-warm-border-light bg-warm-inset text-warm-muted"
+                                : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                            }`}
+                          >
+                            {isPending && poolSaveStatus === "saving" ? "加回中..." : "加回"}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-3 text-xs text-warm-muted">
+                        <span>X: {item._x}</span>
+                        <span>Y: {item._y}</span>
+                        <span className="font-medium text-warm-text">{item._lpsDisplay} 分</span>
+                        <span>{item._level}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
         </div>
 
         <div className="min-w-0">
@@ -502,15 +744,13 @@ export function ScenarioQuadrantView({
                 <p>X 轴：结构化程度，越高表示越适合沉淀为标准 AI 能力。</p>
                 <p>Y 轴：实施复杂度，越低越适合优先启动。</p>
                 <p>QS = X × Y，用于体现象限位置。</p>
-                <p>
-                  LPS = [X × 0.6 + (6 - Y) × 0.4] × 行业系数 × 2，用于推荐排序。
-                </p>
+                <p>LPS = [X × 0.6 + (6 - Y) × 0.4] × 行业系数 × 2，用于推荐排序。</p>
               </div>
             </div>
 
             <div className="mb-4 flex flex-wrap gap-3 text-xs text-warm-muted">
-              <span>● 金色外圈表示当前 Top 3</span>
-              <span>点击气泡或左侧候选场景可查看并校准</span>
+              <span>金色外圈表示当前 Top 3</span>
+              <span>图中只显示当前有效场景池；点击气泡或左侧卡片可查看并校准</span>
             </div>
 
             <div className="relative w-full" style={{ paddingBottom: "min(100%, 560px)" }}>
@@ -530,9 +770,9 @@ export function ScenarioQuadrantView({
                       </div>
                     </div>
                     <div className="flex flex-1">
-                      <div className={`flex flex-1 items-center justify-center ${QUADRANT_META["人工保留区"].areaClass}`}>
-                        <span className={`text-[0.65rem] font-medium ${QUADRANT_META["人工保留区"].areaLabelClass}`}>
-                          人工保留区
+                      <div className={`flex flex-1 items-center justify-center ${QUADRANT_META["人类保留区"].areaClass}`}>
+                        <span className={`text-[0.65rem] font-medium ${QUADRANT_META["人类保留区"].areaLabelClass}`}>
+                          人类保留区
                         </span>
                       </div>
                       <div className={`flex flex-1 items-center justify-center ${QUADRANT_META["自动化主战场"].areaClass}`}>
@@ -544,14 +784,8 @@ export function ScenarioQuadrantView({
                   </div>
                 </div>
 
-                <div
-                  className="absolute bg-warm-border-light/70"
-                  style={{ left: "50%", top: 0, bottom: 0, width: 1 }}
-                />
-                <div
-                  className="absolute bg-warm-border-light/70"
-                  style={{ top: "50%", left: 0, right: 0, height: 1 }}
-                />
+                <div className="absolute bg-warm-border-light/70" style={{ left: "50%", top: 0, bottom: 0, width: 1 }} />
+                <div className="absolute bg-warm-border-light/70" style={{ top: "50%", left: 0, right: 0, height: 1 }} />
 
                 <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[0.65rem] text-warm-muted">
                   结构化程度 →
@@ -563,7 +797,7 @@ export function ScenarioQuadrantView({
                   实施复杂度 →
                 </div>
 
-                {scenarios.map((item) => {
+                {activeScenarios.map((item) => {
                   const position = bubblePos(item._x, item._y);
                   const meta = QUADRANT_META[item._quadrant];
                   const isTop3 = top3Ids.has(item.scenario_id);
@@ -624,7 +858,9 @@ export function ScenarioQuadrantView({
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
-                      <p className="text-lg">{RANK_MEDALS[index] ?? "⭐"}</p>
+                      <p className="text-sm font-semibold text-warm-accent">
+                        {RANK_LABELS[index] ?? "Top"}
+                      </p>
                       <h3 className="mt-1 font-heading text-xl font-bold text-warm-text">
                         {item.name}
                       </h3>
@@ -639,9 +875,7 @@ export function ScenarioQuadrantView({
                       </div>
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-2xl font-bold text-warm-text">
-                        {item._lpsDisplay}
-                      </p>
+                      <p className="text-2xl font-bold text-warm-text">{item._lpsDisplay}</p>
                       <p className="text-[0.65rem] text-warm-muted">/ 10 分</p>
                     </div>
                   </div>
@@ -666,9 +900,7 @@ export function ScenarioQuadrantView({
                         <DetailCard title="核心数据要求" content={item.core_data_requirements} />
                       ) : null}
                       <div className="rounded-xl bg-warm-inset px-4 py-3">
-                        <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">
-                          四象限评分
-                        </p>
+                        <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">四象限评分</p>
                         <div className="mt-2 grid grid-cols-2 gap-2 text-sm text-warm-secondary">
                           <div>
                             <span className="text-warm-muted">结构化程度 X：</span>
@@ -742,6 +974,7 @@ function ScoreEditor({
         <button
           type="button"
           onClick={onDecrease}
+          aria-label={`${label} 减少`}
           className="flex h-8 w-8 items-center justify-center rounded-full border border-warm-border-light bg-white text-sm text-warm-text transition hover:border-warm-accent"
         >
           -
@@ -758,6 +991,7 @@ function ScoreEditor({
         <button
           type="button"
           onClick={onIncrease}
+          aria-label={`${label} 增加`}
           className="flex h-8 w-8 items-center justify-center rounded-full border border-warm-border-light bg-white text-sm text-warm-text transition hover:border-warm-accent"
         >
           +
@@ -767,9 +1001,7 @@ function ScoreEditor({
         <span>1</span>
         <span>5</span>
       </div>
-      <p className="mt-2 text-[0.7rem] leading-relaxed text-warm-muted">
-        {description}
-      </p>
+      <p className="mt-2 text-[0.7rem] leading-relaxed text-warm-muted">{description}</p>
     </div>
   );
 }
@@ -777,9 +1009,7 @@ function ScoreEditor({
 function DetailCard({ title, content }: { title: string; content: string }) {
   return (
     <div className="rounded-xl bg-warm-inset px-4 py-3">
-      <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">
-        {title}
-      </p>
+      <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">{title}</p>
       <p className="mt-1 text-sm leading-7 text-warm-secondary">{content}</p>
     </div>
   );

@@ -27,6 +27,7 @@ class ScenarioRecommendation(Base):
     scenario_json: Mapped[str] = mapped_column(Text, nullable=False)
     top_scenarios: Mapped[str] = mapped_column(Text, nullable=False)
     all_scores_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    active_scenario_ids_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

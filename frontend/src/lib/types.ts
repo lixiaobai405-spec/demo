@@ -120,9 +120,15 @@ export type ScenarioRecommendationResult = {
   scoring_method: "rule_based_v1" | "four_quadrant_v1";
   evaluated_count: number;
   top_scenarios: ScenarioRecommendationItem[];
+  active_count?: number | null;
+  excluded_scores?: ScenarioRecommendationItem[] | null;
   all_scores?: ScenarioRecommendationItem[] | null;
   created_at: string | null;
   updated_at: string | null;
+};
+
+export type ScenarioPoolUpdateRequest = {
+  active_scenario_ids: string[];
 };
 
 export type AssessmentScenarioRecommendationResponse = {
@@ -731,9 +737,9 @@ export type UserResponse = {
 export type RegisterRequest = {
   email: string;
   password: string;
-  display_name?: string | null;
-  company_name?: string | null;
-  job_title?: string | null;
+  display_name: string;
+  company_name: string;
+  job_title: string;
   recovery_question?: string | null;
   recovery_answer?: string | null;
 };

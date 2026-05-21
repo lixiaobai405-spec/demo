@@ -271,14 +271,21 @@ def _migrate_scenario_recommendations_table() -> None:
         return
 
     existing_columns = {c["name"] for c in inspector.get_columns("scenario_recommendations")}
-    if "all_scores_json" not in existing_columns:
-        with engine.begin() as connection:
-            connection.execute(
-                text(
-                    "ALTER TABLE scenario_recommendations "
-                    "ADD COLUMN all_scores_json TEXT"
-                )
-            )
+    required_columns = {
+        "all_scores_json": (
+            "ALTER TABLE scenario_recommendations "
+            "ADD COLUMN all_scores_json TEXT"
+        ),
+        "active_scenario_ids_json": (
+            "ALTER TABLE scenario_recommendations "
+            "ADD COLUMN active_scenario_ids_json TEXT"
+        ),
+    }
+
+    with engine.begin() as connection:
+        for column_name, ddl in required_columns.items():
+            if column_name not in existing_columns:
+                connection.execute(text(ddl))
 
 
 def get_db() -> Generator[Session, None, None]:

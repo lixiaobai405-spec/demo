@@ -8,6 +8,7 @@ import type {
   AssessmentProfileResponse,
   AssessmentResponse,
   AssessmentScenarioRecommendationResponse,
+  ScenarioPoolUpdateRequest,
   BreakthroughSelectionRequest,
   BreakthroughSelectionResponse,
   CompetitivenessResponse,
@@ -312,6 +313,19 @@ export function generateScenarioRecommendations(
   return request<AssessmentScenarioRecommendationResponse>(
     `/api/assessments/${assessmentId}/scenarios`,
     { method: "POST" },
+  );
+}
+
+export function updateScenarioPool(
+  assessmentId: string,
+  payload: ScenarioPoolUpdateRequest,
+): Promise<AssessmentScenarioRecommendationResponse> {
+  return request<AssessmentScenarioRecommendationResponse>(
+    `/api/assessments/${assessmentId}/scenarios/pool`,
+    {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    },
   );
 }
 

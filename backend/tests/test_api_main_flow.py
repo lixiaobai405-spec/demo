@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -55,6 +56,8 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
                 "email": "mainflow@test.com",
                 "password": "test123456",
                 "display_name": "主流程测试用户",
+                "company_name": "主流程测试企业",
+                "job_title": "产品负责人",
             },
         )
         assert register_response.status_code == 201
@@ -814,6 +817,122 @@ def test_save_calibrations_persists_xy_and_reranks_top3(
     assert detail_updated["priority_structuredness_x"] == 5.0
 
 
+def test_update_scenario_pool_persists_active_and_excluded_buckets_and_clears_downstream_outputs(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+) -> None:
+    assessment_id = _prepare_for_report(client, assessment_payload)
+    report_response = client.post(f"/api/assessments/{assessment_id}/report?mode=template")
+    assert report_response.status_code == 200
+
+    detail_before = client.get(f"/api/assessments/{assessment_id}")
+    assert detail_before.status_code == 200
+    original_scenarios = detail_before.json()["scenario_recommendation"]
+    all_scores = original_scenarios["all_scores"]
+    assert all_scores is not None
+    assert len(all_scores) >= 4
+
+    removed_id = all_scores[3]["scenario_id"]
+    original_ids = [item["scenario_id"] for item in all_scores]
+    next_active_ids = [scenario_id for scenario_id in original_ids if scenario_id != removed_id]
+
+    update_response = client.put(
+        f"/api/assessments/{assessment_id}/scenarios/pool",
+        json={"active_scenario_ids": next_active_ids},
+    )
+    assert update_response.status_code == 200
+    updated_scenarios = update_response.json()["scenario_recommendation"]
+    assert updated_scenarios["active_count"] == len(next_active_ids)
+    assert all(
+        item["scenario_id"] != removed_id for item in updated_scenarios["all_scores"]
+    )
+    assert any(
+        item["scenario_id"] == removed_id
+        for item in updated_scenarios["excluded_scores"]
+    )
+
+    detail_after_update = client.get(f"/api/assessments/{assessment_id}")
+    assert detail_after_update.status_code == 200
+    detail_body = detail_after_update.json()
+    assert detail_body["progress"]["has_competitiveness"] is False
+    assert detail_body["progress"]["has_endgame"] is False
+    assert detail_body["progress"]["has_report"] is False
+    assert detail_body["progress"].get("has_cases") is False
+    assert detail_body["scenario_recommendation"]["active_count"] == len(next_active_ids)
+
+    restore_response = client.put(
+        f"/api/assessments/{assessment_id}/scenarios/pool",
+        json={"active_scenario_ids": original_ids},
+    )
+    assert restore_response.status_code == 200
+    restored_scenarios = restore_response.json()["scenario_recommendation"]
+    assert restored_scenarios["active_count"] == len(original_ids)
+    assert restored_scenarios["excluded_scores"] == []
+
+
+def test_calibration_keeps_removed_scenarios_out_of_top3(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+) -> None:
+    assessment_id = _prepare_for_scenarios(client, assessment_payload)
+
+    scenarios_response = client.post(f"/api/assessments/{assessment_id}/scenarios")
+    assert scenarios_response.status_code == 200
+    scenario_body = scenarios_response.json()["scenario_recommendation"]
+    all_scores = scenario_body["all_scores"]
+    assert all_scores is not None
+    assert len(all_scores) >= 4
+
+    removed = all_scores[3]
+    removed_id = removed["scenario_id"]
+    active_ids = [
+        item["scenario_id"]
+        for item in all_scores
+        if item["scenario_id"] != removed_id
+    ]
+
+    pool_response = client.put(
+        f"/api/assessments/{assessment_id}/scenarios/pool",
+        json={"active_scenario_ids": active_ids},
+    )
+    assert pool_response.status_code == 200
+
+    calibration_response = client.post(
+        f"/api/assessments/{assessment_id}/scenarios/calibrations",
+        json={
+            "calibrations": [
+                {
+                    "scenario_id": removed_id,
+                    "priority_structuredness_x": 5.0,
+                    "priority_complexity_y": 1.0,
+                }
+            ]
+        },
+    )
+    assert calibration_response.status_code == 200
+    calibrated = calibration_response.json()["scenario_recommendation"]
+
+    assert all(
+        item["scenario_id"] != removed_id for item in calibrated["top_scenarios"]
+    )
+    removed_after = next(
+        item
+        for item in calibrated["excluded_scores"]
+        if item["scenario_id"] == removed_id
+    )
+    assert removed_after["priority_structuredness_x"] == 5.0
+    assert removed_after["priority_complexity_y"] == 1.0
+
+    detail_response = client.get(f"/api/assessments/{assessment_id}")
+    assert detail_response.status_code == 200
+    detail_scenarios = detail_response.json()["scenario_recommendation"]
+    assert detail_scenarios["active_count"] == len(active_ids)
+    assert all(
+        item["scenario_id"] != removed_id
+        for item in detail_scenarios["top_scenarios"]
+    )
+
+
 def test_calibration_requires_existing_scenarios(
     client: TestClient,
     assessment_payload: dict[str, str],
@@ -824,6 +943,432 @@ def test_calibration_requires_existing_scenarios(
         json={"calibrations": [{"scenario_id": "test", "priority_structuredness_x": 3, "priority_complexity_y": 3}]},
     )
     assert cal_resp.status_code in (404, 400)
+
+
+def test_live_scenario_packaging_rewrites_top3_and_syncs_all_scores(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.api.routes import assessments as assessments_routes
+    from app.schemas.assessment import (
+        BusinessModelCanvasResult,
+        CanvasBlockResult,
+        CanvasDiagnosisResult,
+        ScenarioRecommendationItem,
+    )
+
+    monkeypatch.setattr(
+        LLMEnhancer,
+        "enhance_scenario_descriptions",
+        lambda self, assessment, profile, canvas_diagnosis, breakthrough_labels, selected_directions, scenarios: [
+            scenario.model_copy(
+                update={
+                    "summary": f"改写场景摘要 {index}",
+                    "canvas_elements": f"对应突破要素：突破{index}",
+                    "expected_effects": f"预期收益：收益{index}",
+                    "core_data_requirements": f"资源准备：准备{index}",
+                }
+            )
+            for index, scenario in enumerate(scenarios, start=1)
+        ],
+    )
+
+    canvas = CanvasDiagnosisResult(
+        generation_mode="mock",
+        overall_score=70,
+        weakest_blocks=["客户关系"],
+        recommended_focus=["客户关系"],
+        canvas=BusinessModelCanvasResult(
+            overall_summary="摘要",
+            blocks=[
+                CanvasBlockResult(
+                    key="customer_relationships",
+                    title="客户关系",
+                    current_state="现状",
+                    diagnosis="诊断",
+                    ai_opportunity="机会",
+                    missing_information="",
+                )
+            ],
+        ),
+    )
+    top_scenarios = [
+        ScenarioRecommendationItem(
+            scenario_id="s-1",
+            name="场景 1",
+            category="客户经营",
+            summary="旧摘要 1",
+            canvas_elements="旧切入 1",
+            expected_effects="旧收益 1",
+            core_data_requirements="旧资源 1",
+            priority_quadrant="AI优先区",
+        ),
+        ScenarioRecommendationItem(
+            scenario_id="s-2",
+            name="场景 2",
+            category="客户经营",
+            summary="旧摘要 2",
+            canvas_elements="旧切入 2",
+            expected_effects="旧收益 2",
+            core_data_requirements="旧资源 2",
+            priority_quadrant="自动化主战场",
+        ),
+    ]
+    all_scores = top_scenarios + [
+        ScenarioRecommendationItem(
+            scenario_id="s-3",
+            name="场景 3",
+            category="客户经营",
+            summary="旧摘要 3",
+            canvas_elements="旧切入 3",
+            expected_effects="旧收益 3",
+            core_data_requirements="旧资源 3",
+            priority_quadrant="人机协作区",
+        )
+    ]
+
+    merged_top, merged_all = assessments_routes._enhance_scenario_description_fields(
+        assessment=SimpleNamespace(
+            company_name="测试企业",
+            industry="零售",
+            company_size="100-499人",
+            region="华东",
+            annual_revenue_range="5000万-1亿元",
+            core_products="门店服务",
+            target_customers="会员用户",
+            current_challenges="复购波动",
+            ai_goals="提升复购",
+            available_data="POS、会员数据",
+            notes="先试点",
+        ),
+        profile=None,
+        canvas=canvas,
+        breakthrough_labels=["客户关系"],
+        selected_directions=[],
+        top_scenarios=top_scenarios,
+        all_scores=all_scores,
+    )
+
+    assert merged_top[0].summary == "改写场景摘要 1"
+    assert merged_top[1].summary == "改写场景摘要 2"
+    assert merged_all is not None
+    assert merged_all[0].summary == "改写场景摘要 1"
+    assert merged_all[1].summary == "改写场景摘要 2"
+    assert merged_all[2].summary == "旧摘要 3"
+
+
+@pytest.mark.skip(reason="manual scenario calibration no longer re-runs LLM packaging")
+def test_calibration_repackages_promoted_top3_when_live_packaging_enabled(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assessment_id = _prepare_for_scenarios(client, assessment_payload)
+
+    scenarios_response = client.post(f"/api/assessments/{assessment_id}/scenarios")
+    assert scenarios_response.status_code == 200
+    scenario_body = scenarios_response.json()["scenario_recommendation"]
+    all_scores = scenario_body["all_scores"]
+    assert all_scores is not None
+    assert len(all_scores) >= 4
+
+    target = scenario_body["top_scenarios"][0]
+    rewrites = [
+        {
+            "scenario_id": item["scenario_id"],
+            "summary": f"{item['name']} 的管理层改写摘要",
+            "canvas_elements": f"{item['name']} 的突破要素与战略价值",
+            "expected_effects": f"{item['name']} 的预期收益",
+            "core_data_requirements": f"{item['name']} 的资源准备",
+        }
+        for item in scenario_body["top_scenarios"]
+    ]
+
+    monkeypatch.setattr(
+        LLMEnhancer,
+        "enhance_scenario_descriptions",
+        lambda self, assessment, profile, canvas_diagnosis, breakthrough_labels, selected_directions, scenarios: [
+            scenario.model_copy(
+                update=next(
+                    rewrite
+                    for rewrite in rewrites
+                    if rewrite["scenario_id"] == scenario.scenario_id
+                )
+            )
+            if any(
+                rewrite["scenario_id"] == scenario.scenario_id for rewrite in rewrites
+            )
+            else scenario
+            for scenario in scenarios
+        ],
+    )
+
+    calibration_response = client.post(
+        f"/api/assessments/{assessment_id}/scenarios/calibrations",
+        json={
+            "calibrations": [
+                {
+                    "scenario_id": target["scenario_id"],
+                    "priority_structuredness_x": 5.0,
+                    "priority_complexity_y": 1.0,
+                }
+            ]
+        },
+    )
+    assert calibration_response.status_code == 200
+    calibrated = calibration_response.json()["scenario_recommendation"]
+
+    promoted_top = next(
+        (
+            item
+            for item in calibrated["top_scenarios"]
+            if item["scenario_id"] == target["scenario_id"]
+        ),
+        None,
+    )
+    assert promoted_top is not None
+    assert promoted_top["summary"] == f"{target['name']} 的管理层改写摘要"
+    assert (
+        promoted_top["expected_effects"]
+        == f"{target['name']} 的预期收益"
+    )
+
+    promoted_all = next(
+        item
+        for item in calibrated["all_scores"]
+        if item["scenario_id"] == target["scenario_id"]
+    )
+    assert promoted_all["summary"] == promoted_top["summary"]
+    assert (
+        promoted_all["core_data_requirements"]
+        == f"{target['name']} 的资源准备"
+    )
+
+
+def test_calibration_keeps_text_without_repackaging(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assessment_id = _prepare_for_scenarios(client, assessment_payload)
+
+    scenarios_response = client.post(f"/api/assessments/{assessment_id}/scenarios")
+    assert scenarios_response.status_code == 200
+    scenario_body = scenarios_response.json()["scenario_recommendation"]
+    all_scores = scenario_body["all_scores"]
+    assert all_scores is not None
+    assert len(all_scores) >= 4
+
+    target = scenario_body["top_scenarios"][0]
+    monkeypatch.setattr(
+        LLMEnhancer,
+        "enhance_scenario_descriptions",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("manual calibration should not trigger scenario repackaging")
+        ),
+    )
+
+    calibration_response = client.post(
+        f"/api/assessments/{assessment_id}/scenarios/calibrations",
+        json={
+            "calibrations": [
+                {
+                    "scenario_id": target["scenario_id"],
+                    "priority_structuredness_x": 5.0,
+                    "priority_complexity_y": 1.0,
+                }
+            ]
+        },
+    )
+    assert calibration_response.status_code == 200
+    calibrated = calibration_response.json()["scenario_recommendation"]
+
+    promoted_top = next(
+        (
+            item
+            for item in calibrated["top_scenarios"]
+            if item["scenario_id"] == target["scenario_id"]
+        ),
+        None,
+    )
+    assert promoted_top is not None
+    assert promoted_top["summary"] == target["summary"]
+    assert promoted_top["expected_effects"] == target["expected_effects"]
+
+    promoted_all = next(
+        item
+        for item in calibrated["all_scores"]
+        if item["scenario_id"] == target["scenario_id"]
+    )
+    assert promoted_all["summary"] == promoted_top["summary"]
+    assert promoted_all["core_data_requirements"] == target["core_data_requirements"]
+
+
+def test_pool_update_reorders_top3_without_repackaging_text(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assessment_id = _prepare_for_scenarios(client, assessment_payload)
+
+    scenarios_response = client.post(f"/api/assessments/{assessment_id}/scenarios")
+    assert scenarios_response.status_code == 200
+    scenario_body = scenarios_response.json()["scenario_recommendation"]
+    all_scores = scenario_body["all_scores"]
+    assert all_scores is not None
+    assert len(all_scores) >= 4
+
+    removed_top_id = all_scores[0]["scenario_id"]
+    promoted_candidate = all_scores[3]
+    monkeypatch.setattr(
+        LLMEnhancer,
+        "enhance_scenario_descriptions",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("scenario pool update should not trigger scenario repackaging")
+        ),
+    )
+
+    next_active_ids = [
+        item["scenario_id"] for item in all_scores if item["scenario_id"] != removed_top_id
+    ]
+    pool_response = client.put(
+        f"/api/assessments/{assessment_id}/scenarios/pool",
+        json={"active_scenario_ids": next_active_ids},
+    )
+    assert pool_response.status_code == 200
+    updated = pool_response.json()["scenario_recommendation"]
+
+    promoted_top = next(
+        (
+            item
+            for item in updated["top_scenarios"]
+            if item["scenario_id"] == promoted_candidate["scenario_id"]
+        ),
+        None,
+    )
+    assert promoted_top is not None
+    assert promoted_top["summary"] == promoted_candidate["summary"]
+    assert promoted_top["canvas_elements"] == promoted_candidate["canvas_elements"]
+
+
+def test_enhance_scenario_descriptions_only_overrides_text_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.schemas.assessment import (
+        BusinessModelCanvasResult,
+        CanvasBlockResult,
+        CanvasDiagnosisResult,
+        CompanyProfileResult,
+        ScenarioRecommendationItem,
+    )
+    from app.schemas.direction import DirectionSuggestion
+
+    enhancer = LLMEnhancer()
+    monkeypatch.setattr(LLMEnhancer, "_is_live_mode", lambda self: True)
+    monkeypatch.setattr(
+        LLMEnhancer,
+        "_call_llm",
+        lambda self, system_prompt, user_prompt: {
+            "scenarios": [
+                {
+                    "scenario_id": "scenario-1",
+                    "summary": "新的管理层场景描述",
+                    "canvas_elements": "对应突破要素与战略价值",
+                    "expected_effects": "新的预期收益",
+                    "core_data_requirements": "新的资源准备",
+                }
+            ]
+        },
+    )
+
+    assessment = SimpleNamespace(
+        company_name="测试零售企业",
+        industry="零售",
+        company_size="100-499人",
+        region="华东",
+        annual_revenue_range="5000万-1亿元",
+        core_products="社区零售门店",
+        target_customers="会员用户",
+        current_challenges="复购波动",
+        ai_goals="提升复购",
+        available_data="POS、会员数据",
+        notes="先试点",
+    )
+    profile = CompanyProfileResult(
+        company_name="测试零售企业",
+        company_summary="企业概览",
+        value_proposition="价值主张",
+        customer_and_market="客户与市场",
+        operations_and_resources="运营与资源",
+        digital_and_ai_readiness="准备度",
+        key_challenges=["复购波动"],
+        priority_ai_directions=["会员经营"],
+    )
+    canvas = CanvasDiagnosisResult(
+        generation_mode="mock",
+        overall_score=68,
+        weakest_blocks=["客户关系"],
+        recommended_focus=["客户关系"],
+        canvas=BusinessModelCanvasResult(
+            overall_summary="画布总体摘要",
+            blocks=[
+                CanvasBlockResult(
+                    key="customer_relationships",
+                    title="客户关系",
+                    current_state="依赖门店经验",
+                    diagnosis="复购运营缺少统一机制",
+                    ai_opportunity="建立客户分层与召回",
+                    missing_information="",
+                )
+            ],
+        ),
+    )
+    directions = [
+        DirectionSuggestion(
+            direction_id="dir-1",
+            element_key="customer_relationships",
+            title="会员经营自动化",
+            description="围绕复购做分层运营",
+            expected_impact="提升复购稳定性",
+            data_needed=["POS", "会员标签"],
+            related_scenario_categories=["客户经营"],
+        )
+    ]
+    source = ScenarioRecommendationItem(
+        scenario_id="scenario-1",
+        name="AI 流失预测与自动关怀",
+        category="客户经营",
+        summary="旧摘要",
+        canvas_elements="旧切入点",
+        expected_effects="旧收益",
+        core_data_requirements="旧资源",
+        priority_structuredness_x=4.0,
+        priority_complexity_y=2.0,
+        priority_qs=4.0,
+        priority_lps=7.2,
+        priority_lps_display=7.0,
+        priority_quadrant="AI优先区",
+        priority_tier=2,
+        priority_recommendation="原推荐说明",
+        recommendation_level="规划推进",
+    )
+
+    result = enhancer.enhance_scenario_descriptions(
+        assessment=assessment,
+        profile=profile,
+        canvas_diagnosis=canvas,
+        breakthrough_labels=["客户关系"],
+        selected_directions=directions,
+        scenarios=[source],
+    )
+
+    assert result is not None
+    assert result[0].summary == "新的管理层场景描述"
+    assert result[0].canvas_elements == "对应突破要素与战略价值"
+    assert result[0].expected_effects == "新的预期收益"
+    assert result[0].core_data_requirements == "新的资源准备"
+    assert result[0].priority_qs == 4.0
+    assert result[0].priority_quadrant == "AI优先区"
+    assert result[0].priority_recommendation == "原推荐说明"
 
 
 def test_report_endpoints_return_404_for_missing_report_id(client: TestClient) -> None:

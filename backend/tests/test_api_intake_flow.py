@@ -52,6 +52,8 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
                 "email": "student@example.com",
                 "password": "password123",
                 "display_name": "Test Student",
+                "company_name": "Test Company",
+                "job_title": "Innovation Lead",
             },
         )
         assert register_response.status_code == 201

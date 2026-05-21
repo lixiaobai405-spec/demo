@@ -9,12 +9,6 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/providers/auth-provider";
 
-const RECOVERY_QUESTIONS = [
-  "你的第一位直属领导姓名是？",
-  "你第一次独立负责的项目名称是？",
-  "你最常用的备用联系方式后四位是？",
-];
-
 export default function RegisterPage() {
   const { register, isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
@@ -24,8 +18,6 @@ export default function RegisterPage() {
   const [companyName, setCompanyName] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [password, setPassword] = useState("");
-  const [recoveryQuestion, setRecoveryQuestion] = useState(RECOVERY_QUESTIONS[0]);
-  const [recoveryAnswer, setRecoveryAnswer] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -41,9 +33,7 @@ export default function RegisterPage() {
       !displayName.trim() ||
       !companyName.trim() ||
       !jobTitle.trim() ||
-      !password ||
-      !recoveryQuestion.trim() ||
-      !recoveryAnswer.trim()
+      !password
     ) {
       return;
     }
@@ -56,8 +46,6 @@ export default function RegisterPage() {
         display_name: displayName.trim(),
         company_name: companyName.trim(),
         job_title: jobTitle.trim(),
-        recovery_question: recoveryQuestion.trim(),
-        recovery_answer: recoveryAnswer.trim(),
       });
       router.replace("/");
     } catch (error) {
@@ -152,41 +140,6 @@ export default function RegisterPage() {
             />
           </label>
 
-          <div className="space-y-4 rounded-2xl border border-warm-border-light bg-warm-inset p-4">
-            <div>
-              <p className="text-sm font-medium text-warm-text">找回设置</p>
-              <p className="mt-1 text-xs leading-6 text-muted-foreground">
-                用于后续自助重置密码。
-              </p>
-            </div>
-
-            <label className="flex flex-col gap-2 text-sm">
-              <span className="font-medium">找回问题</span>
-              <select
-                value={recoveryQuestion}
-                onChange={(event) => setRecoveryQuestion(event.target.value)}
-                className="input-field"
-                required
-              >
-                {RECOVERY_QUESTIONS.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="flex flex-col gap-2 text-sm">
-              <span className="font-medium">找回答案</span>
-              <Input
-                value={recoveryAnswer}
-                onChange={(event) => setRecoveryAnswer(event.target.value)}
-                placeholder="请输入便于记忆、但不易被猜到的答案"
-                required
-              />
-            </label>
-          </div>
-
           <Button type="submit" loading={submitting} className="w-full">
             {submitting ? "注册中..." : "注册并进入系统"}
           </Button>
@@ -200,7 +153,7 @@ export default function RegisterPage() {
         </form>
 
         <p className="mt-4 text-center text-xs text-muted-foreground">
-          如果忘记密码，可在登录页通过安全问题自助找回。
+          如果忘记密码，可在登录页通过邮箱重置。
         </p>
 
         <p className="mt-4 text-center">

@@ -72,7 +72,9 @@ def test_create_instructor_as_student_returns_403(client: TestClient):
     resp = client.post("/api/auth/register", json={
         "email": "student_for_test@example.com",
         "password": "test123456",
-        "display_name": "Test Student"
+        "display_name": "Test Student",
+        "company_name": "Test Company",
+        "job_title": "Innovation Lead",
     })
     assert resp.status_code == 201
     student_token = resp.json()["access_token"]
@@ -90,6 +92,9 @@ def test_dashboard_as_student_returns_403(client: TestClient):
     resp = client.post("/api/auth/register", json={
         "email": "student_for_dash@example.com",
         "password": "test123456",
+        "display_name": "Dash Student",
+        "company_name": "Dash Company",
+        "job_title": "Operations Lead",
     })
     assert resp.status_code == 201
     student_token = resp.json()["access_token"]
@@ -106,6 +111,9 @@ def test_batch_comment_as_student_returns_403(client: TestClient):
     resp = client.post("/api/auth/register", json={
         "email": "student_for_batch@example.com",
         "password": "test123456",
+        "display_name": "Batch Student",
+        "company_name": "Batch Company",
+        "job_title": "Project Lead",
     })
     assert resp.status_code == 201
     student_token = resp.json()["access_token"]
@@ -123,6 +131,9 @@ def test_export_as_student_returns_403(client: TestClient):
     resp = client.post("/api/auth/register", json={
         "email": "student_for_export@example.com",
         "password": "test123456",
+        "display_name": "Export Student",
+        "company_name": "Export Company",
+        "job_title": "Analyst",
     })
     assert resp.status_code == 201
     student_token = resp.json()["access_token"]
@@ -220,6 +231,9 @@ def test_batch_comment_as_instructor_returns_200(client: TestClient):
     resp = client.post("/api/auth/register", json={
         "email": "student_for_batch_positive@example.com",
         "password": "test123456",
+        "display_name": "Positive Student",
+        "company_name": "Positive Company",
+        "job_title": "Growth Lead",
     })
     assert resp.status_code == 201
     student_token = resp.json()["access_token"]

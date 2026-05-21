@@ -45,6 +45,7 @@ from app.schemas.assessment import (
     ReportDocumentResponse,
     ScenarioCalibrationItem,
     ScenarioCalibrationRequest,
+    ScenarioPoolUpdateRequest,
     ScenarioRecommendationItem,
     ScenarioRecommendationResult,
 )
@@ -954,6 +955,7 @@ def recommend_scenarios(
     可通过 ?mode=legacy 回退到旧关键词评分算法（rule_based_v1）。
     """
     assessment = _get_assessment_or_404(db, assessment_id)
+    canvas = _require_canvas(db, assessment_id)
     profile = _load_profile_from_assessment(assessment)
     selected_directions = _load_selected_directions(db, assessment_id)
     if not selected_directions:
@@ -975,6 +977,15 @@ def recommend_scenarios(
             breakthrough_labels,
             direction_titles,
         )
+        top_recommendations, _ = _enhance_scenario_description_fields(
+            assessment=assessment,
+            profile=profile,
+            canvas=canvas,
+            breakthrough_labels=breakthrough_labels,
+            selected_directions=selected_directions,
+            top_scenarios=top_recommendations,
+            all_scores=None,
+        )
         stored_scenarios = _upsert_scenario_recommendation(
             db=db,
             assessment_id=assessment.id,
@@ -990,13 +1001,22 @@ def recommend_scenarios(
             breakthrough_labels,
             direction_titles,
         )
+        enhanced_top, enhanced_all = _enhance_scenario_description_fields(
+            assessment=assessment,
+            profile=profile,
+            canvas=canvas,
+            breakthrough_labels=breakthrough_labels,
+            selected_directions=selected_directions,
+            top_scenarios=priority_result.top_scenarios,
+            all_scores=priority_result.all_scores,
+        )
         stored_scenarios = _upsert_scenario_recommendation(
             db=db,
             assessment_id=assessment.id,
             evaluated_count=priority_result.evaluated_count,
-            top_scenarios=priority_result.top_scenarios,
+            top_scenarios=enhanced_top,
             scoring_method=priority_result.scoring_method,
-            all_scores=priority_result.all_scores,
+            all_scores=enhanced_all,
         )
 
     return AssessmentScenarioRecommendationResponse(
@@ -1035,6 +1055,7 @@ def recommend_scenarios_with_priority(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="请先确认创新方向，再生成 AI 场景推荐。",
         )
+    canvas = _require_canvas(db, assessment_id)
     profile = _load_profile_from_assessment(assessment)
     breakthrough_keys = _load_breakthrough_selection_keys(db, assessment_id) or []
     breakthrough_labels = [ELEMENT_KEY_TO_TITLE.get(key, key) for key in breakthrough_keys]
@@ -1048,13 +1069,22 @@ def recommend_scenarios_with_priority(
         breakthrough_labels,
         direction_titles,
     )
+    enhanced_top, enhanced_all = _enhance_scenario_description_fields(
+        assessment=assessment,
+        profile=profile,
+        canvas=canvas,
+        breakthrough_labels=breakthrough_labels,
+        selected_directions=selected_directions,
+        top_scenarios=priority_result.top_scenarios,
+        all_scores=priority_result.all_scores,
+    )
     stored_scenarios = _upsert_scenario_recommendation(
         db=db,
         assessment_id=assessment.id,
         evaluated_count=priority_result.evaluated_count,
-        top_scenarios=priority_result.top_scenarios,
+        top_scenarios=enhanced_top,
         scoring_method=priority_result.scoring_method,
-        all_scores=priority_result.all_scores,
+        all_scores=enhanced_all,
     )
 
     return AssessmentScenarioRecommendationResponse(
@@ -1099,7 +1129,7 @@ def save_scenario_calibrations(
             detail="当前没有可校准的场景数据。",
         )
 
-    all_items = [ScenarioRecommendationItem.model_validate(item) for item in raw_all]
+    all_items = _load_ranked_scenario_items_from_record(record)
     cal_map: dict[str, tuple[float, float]] = {
         c.scenario_id: (c.priority_structuredness_x, c.priority_complexity_y)
         for c in body.calibrations
@@ -1152,9 +1182,11 @@ def save_scenario_calibrations(
         orig.industry_coefficient = s.industry_coefficient
         updated_items.append(orig)
 
-    # 取 scorer 输出的 Top 3（已应用所有排序/兜底规则）
-    top3_ids = {s.scene_id for s in result.top_3}
-    new_top3 = [orig_by_id[s.scene_id] for s in result.top_3 if s.scene_id in orig_by_id]
+    active_id_set = set(_load_active_scenario_ids_from_record(record, all_items))
+    active_ranked_items = [
+        item for item in updated_items if item.scenario_id in active_id_set
+    ]
+    new_top3 = active_ranked_items[:3]
 
     record.all_scores_json = json.dumps(
         [item.model_dump() for item in updated_items], ensure_ascii=False,
@@ -1165,6 +1197,10 @@ def save_scenario_calibrations(
     record.top_scenarios = json.dumps(
         [item.name for item in new_top3], ensure_ascii=False,
     )
+    record.active_scenario_ids_json = json.dumps(
+        [item.scenario_id for item in active_ranked_items],
+        ensure_ascii=False,
+    )
     db.add(record)
     db.commit()
     db.refresh(record)
@@ -1174,14 +1210,92 @@ def save_scenario_calibrations(
 
     return AssessmentScenarioRecommendationResponse(
         assessment=AssessmentResponse.model_validate(assessment, from_attributes=True),
-        scenario_recommendation=ScenarioRecommendationResult(
-            scoring_method=record.scoring_method,
-            evaluated_count=record.evaluated_count,
-            top_scenarios=new_top3,
-            all_scores=updated_items,
-            created_at=record.created_at,
-            updated_at=record.updated_at,
-        ),
+        scenario_recommendation=_build_scenario_recommendation_result_from_record(record),
+    )
+
+
+@router.put(
+    "/{assessment_id}/scenarios/pool",
+    response_model=AssessmentScenarioRecommendationResponse,
+    status_code=status.HTTP_200_OK,
+)
+def update_scenario_pool(
+    assessment_id: str,
+    payload: ScenarioPoolUpdateRequest,
+    db: Session = Depends(get_db),
+) -> AssessmentScenarioRecommendationResponse:
+    assessment = _get_assessment_or_404(db, assessment_id)
+    record = db.scalar(
+        select(ScenarioRecommendation).where(
+            ScenarioRecommendation.assessment_id == assessment_id
+        )
+    )
+    if record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="请先生成候选场景池后再调整场景池。",
+        )
+
+    ranked_items = _load_ranked_scenario_items_from_record(record)
+    if len(ranked_items) < 3:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="当前候选场景少于 3 个，暂时不能调整场景池。",
+        )
+
+    requested_ids = list(dict.fromkeys(payload.active_scenario_ids))
+    ranked_ids = [item.scenario_id for item in ranked_items]
+    ranked_id_set = set(ranked_ids)
+    unknown_ids = [
+        scenario_id for scenario_id in requested_ids if scenario_id not in ranked_id_set
+    ]
+    if unknown_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="场景池里包含未知场景 ID，请刷新候选场景后重试。",
+        )
+
+    requested_id_set = set(requested_ids)
+    normalized_active_ids = [
+        scenario_id for scenario_id in ranked_ids if scenario_id in requested_id_set
+    ]
+    if len(normalized_active_ids) < 3:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="有效场景池至少需要保留 3 个场景。",
+        )
+
+    previous_active_ids = _load_active_scenario_ids_from_record(record, ranked_items)
+    if previous_active_ids != normalized_active_ids:
+        active_id_set = set(normalized_active_ids)
+        active_ranked_items = [
+            item for item in ranked_items if item.scenario_id in active_id_set
+        ]
+        next_top_items = active_ranked_items[:3]
+        record.active_scenario_ids_json = json.dumps(
+            normalized_active_ids,
+            ensure_ascii=False,
+        )
+        record.all_scores_json = json.dumps(
+            [item.model_dump() for item in ranked_items],
+            ensure_ascii=False,
+        )
+        record.scenario_json = json.dumps(
+            [item.model_dump() for item in next_top_items],
+            ensure_ascii=False,
+        )
+        record.top_scenarios = json.dumps(
+            [item.name for item in next_top_items],
+            ensure_ascii=False,
+        )
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+        _clear_competitiveness_outputs(db, assessment_id)
+
+    return AssessmentScenarioRecommendationResponse(
+        assessment=AssessmentResponse.model_validate(assessment, from_attributes=True),
+        scenario_recommendation=_build_scenario_recommendation_result_from_record(record),
     )
 
 
@@ -1358,6 +1472,121 @@ def _parse_json_string_list(payload: str, detail_message: str) -> list[str]:
     return raw
 
 
+def _load_ranked_scenario_items_from_record(
+    record: ScenarioRecommendation,
+) -> list[ScenarioRecommendationItem]:
+    raw_items = _parse_json_raw(
+        record.all_scores_json or record.scenario_json,
+        "Failed to parse stored scenario recommendation for this assessment.",
+    )
+    if not isinstance(raw_items, list) or len(raw_items) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current scenario data is empty for this assessment.",
+        )
+
+    try:
+        return [
+            ScenarioRecommendationItem.model_validate(item)
+            for item in raw_items
+        ]
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to parse stored scenario recommendation for this assessment.",
+        ) from exc
+
+
+def _load_active_scenario_ids_from_record(
+    record: ScenarioRecommendation,
+    ranked_items: list[ScenarioRecommendationItem],
+) -> list[str]:
+    ranked_ids = [item.scenario_id for item in ranked_items]
+    if not ranked_ids:
+        return []
+
+    if not record.active_scenario_ids_json:
+        return ranked_ids
+
+    try:
+        parsed_active_ids = _parse_json_string_list(
+            record.active_scenario_ids_json,
+            "Failed to parse stored active scenario ids for this assessment.",
+        )
+    except HTTPException:
+        return ranked_ids
+
+    parsed_active_set = set(parsed_active_ids)
+    normalized_active_ids = [
+        scenario_id for scenario_id in ranked_ids if scenario_id in parsed_active_set
+    ]
+    if len(normalized_active_ids) >= min(3, len(ranked_ids)):
+        return normalized_active_ids
+    return ranked_ids
+
+
+def _build_scenario_recommendation_result_from_record(
+    record: ScenarioRecommendation,
+) -> ScenarioRecommendationResult:
+    ranked_items = _load_ranked_scenario_items_from_record(record)
+    active_ids = _load_active_scenario_ids_from_record(record, ranked_items)
+    active_id_set = set(active_ids)
+    active_items = [
+        item for item in ranked_items if item.scenario_id in active_id_set
+    ]
+    excluded_items = [
+        item for item in ranked_items if item.scenario_id not in active_id_set
+    ]
+
+    return ScenarioRecommendationResult(
+        scoring_method=record.scoring_method,
+        evaluated_count=record.evaluated_count,
+        top_scenarios=active_items[:3],
+        all_scores=active_items if record.all_scores_json else None,
+        active_count=len(active_items),
+        excluded_scores=excluded_items,
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+    )
+
+
+def _enhance_scenario_description_fields(
+    assessment: Assessment,
+    profile: CompanyProfileResult | None,
+    canvas: CanvasDiagnosisResult,
+    breakthrough_labels: list[str],
+    selected_directions: list,
+    top_scenarios: list[ScenarioRecommendationItem],
+    all_scores: list[ScenarioRecommendationItem] | None,
+) -> tuple[list[ScenarioRecommendationItem], list[ScenarioRecommendationItem] | None]:
+    if not top_scenarios:
+        return top_scenarios, all_scores
+
+    enhancer = LLMEnhancer()
+    enhanced_top = enhancer.enhance_scenario_descriptions(
+        assessment=assessment,
+        profile=profile,
+        canvas_diagnosis=canvas,
+        breakthrough_labels=breakthrough_labels,
+        selected_directions=selected_directions,
+        scenarios=top_scenarios,
+    )
+    if enhanced_top is None:
+        return top_scenarios, all_scores
+
+    enhanced_by_id = {item.scenario_id: item for item in enhanced_top}
+    merged_top = [
+        enhanced_by_id.get(item.scenario_id, item) for item in top_scenarios
+    ]
+    if all_scores is None:
+        return merged_top, None
+
+    merged_all = [
+        enhanced_by_id.get(item.scenario_id, item) for item in all_scores
+    ]
+    return merged_top, merged_all
+
+
 def _load_profile_from_assessment(
     assessment: Assessment,
 ) -> CompanyProfileResult | None:
@@ -1412,54 +1641,7 @@ def _load_scenario_recommendation(
     )
     if record is None:
         return None
-
-    raw_top_scenarios = _parse_json_raw(
-        record.scenario_json,
-        "Failed to parse stored scenario recommendation for this assessment.",
-    )
-    _parse_json_string_list(
-        record.top_scenarios,
-        "Failed to parse stored top scenario names for this assessment.",
-    )
-    if not isinstance(raw_top_scenarios, list):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to parse stored scenario recommendation for this assessment.",
-        )
-
-    try:
-        validated_scenarios = [
-            ScenarioRecommendationItem.model_validate(item)
-            for item in raw_top_scenarios
-        ]
-    except ValidationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to parse stored scenario recommendation for this assessment.",
-        ) from exc
-
-    raw_all_scores = _parse_json_raw(
-        record.all_scores_json,
-        "Failed to parse stored all_scores for this assessment.",
-    ) if record.all_scores_json else None
-    all_scores = None
-    if isinstance(raw_all_scores, list) and len(raw_all_scores) > 0:
-        try:
-            all_scores = [
-                ScenarioRecommendationItem.model_validate(item)
-                for item in raw_all_scores
-            ]
-        except ValidationError:
-            all_scores = None
-
-    return ScenarioRecommendationResult(
-        scoring_method=record.scoring_method,
-        evaluated_count=record.evaluated_count,
-        top_scenarios=validated_scenarios,
-        all_scores=all_scores,
-        created_at=record.created_at,
-        updated_at=record.updated_at,
-    )
+    return _build_scenario_recommendation_result_from_record(record)
 
 
 def _load_case_recommendation(
@@ -2383,22 +2565,23 @@ def _upsert_scenario_recommendation(
             [item.model_dump() for item in all_scores],
             ensure_ascii=False,
         )
+        record.active_scenario_ids_json = json.dumps(
+            [item.scenario_id for item in all_scores],
+            ensure_ascii=False,
+        )
     else:
         record.all_scores_json = None
+        record.active_scenario_ids_json = json.dumps(
+            [item.scenario_id for item in top_scenarios],
+            ensure_ascii=False,
+        )
 
     db.add(record)
     db.commit()
     db.refresh(record)
     _clear_reports_only(db, assessment_id)
 
-    return ScenarioRecommendationResult(
-        scoring_method=scoring_method,
-        evaluated_count=evaluated_count,
-        top_scenarios=top_scenarios,
-        all_scores=all_scores,
-        created_at=record.created_at,
-        updated_at=record.updated_at,
-    )
+    return _build_scenario_recommendation_result_from_record(record)
 
 
 def _match_and_store_cases(
