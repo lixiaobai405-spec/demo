@@ -75,7 +75,7 @@ function LoginPageContent() {
             登录
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            美泰 AI 商业创新智能体
+            美太 AI 商业创新智能体
           </p>
         </div>
 

@@ -1,124 +1,146 @@
 # AGENTS.md
 
-## Project Goal
+## Project Overview
 
-This repository implements a demo system called "Meitai AI Business Innovation Agent".
+This repository implements the "Meitai AI Business Innovation Agent" demo: a runnable consulting workflow that helps executives move from pre-class intake to AI business innovation planning, report generation, and post-class follow-up.
 
-The system helps business executives generate AI business innovation plans through:
-- guided company assessment
+The current product flow includes:
+- pre-class intake import and company assessment
+- company profile generation
 - business model canvas diagnosis
+- breakthrough factor recommendation and selection
+- innovation direction expansion and selection
+- differentiated competitiveness analysis
+- business endgame design
 - AI scenario recommendation
-- case matching
-- report generation (template or LLM-enhanced)
+- hierarchical case matching with source notes
+- 14-section final report generation and quality review
+- Markdown, DOCX, printable HTML, and PDF export
+- 30-day follow-up task management
+- biweekly case push and recalibration
+- instructor dashboard, batch comments, and CSV export
 
 ## Tech Stack
 
-- **Backend**: FastAPI + SQLAlchemy + SQLite (conda env: rag-env, Python 3.11)
-- **Frontend**: Next.js 15.5 + React 18.2 + Tailwind CSS
-- **AI**: OpenAI-compatible LLM API (configurable)
-- **RAG**: ChromaDB for case knowledge retrieval (optional)
+- Backend: FastAPI + SQLAlchemy + SQLite + optional ChromaDB
+- Frontend: Next.js 15.5 + React 18.2 + TypeScript + Tailwind CSS
+- AI: OpenAI-compatible API, defaulting to mock mode
+- Runtime expectation: conda env `rag-env`, Python 3.11
 
-## Port Conventions
+## Ports
 
-- **Frontend**: 3001 (NOT 3000 - hardcoded in package.json)
-- **Backend**: 8000
+- Frontend: `3001` by default. Do not change it to `3000`.
+- Backend: `8000` by default.
+- Some startup scripts can auto-fallback to another free port.
 
-## Quick Start
+## Common Commands
 
-```bash
-# Backend (requires conda env rag-env, Python 3.11)
+```powershell
+# One-click local start from repo root
+.\start.bat
+
+# Backend
+cd backend
+conda activate rag-env
+python run.py
+
+# Backend with fixed port
 cd backend
 conda activate rag-env
 python -m uvicorn app.main:app --reload --port 8000
 
-# Frontend (separate terminal)
+# Frontend
 cd frontend
 npm install
-npm run dev  # runs on port 3001
+npm run dev
+```
+
+## Checks
+
+Run the narrowest useful checks for the files changed.
+
+```powershell
+# Backend tests
+cd backend
+python -m pytest tests/ -v
+
+# Full-chain backend test
+cd backend
+python -m pytest tests/test_e2e_full_chain.py -v -s
+
+# Frontend checks
+cd frontend
+npm run typecheck
+npm run test
+npm run build
 ```
 
 ## Key Directories
 
-```
-backend/
-├── app/
-│   ├── api/routes/       # API endpoints
-│   ├── core/             # Config, LLM client
-│   ├── db/               # Database session
-│   ├── models/           # SQLAlchemy models
-│   ├── prompts/          # LLM prompts (NEW)
-│   ├── schemas/          # Pydantic schemas
-│   └── services/         # Business logic
-├── data/
-│   ├── meitai_demo.db    # SQLite database (gitignored)
-│   └── chroma/           # RAG vector store (gitignored)
-└── run.py                # 开发入口
+```text
+backend/app/api/routes/  API routes
+backend/app/core/        config, LLM client, optional mykey.py loading
+backend/app/db/          database session and setup
+backend/app/exporters/   report exporters
+backend/app/models/      SQLAlchemy models
+backend/app/prompts/     LLM prompts
+backend/app/rag/         optional RAG retrieval
+backend/app/schemas/     Pydantic schemas
+backend/app/services/    business logic
+backend/data/            local SQLite and Chroma data, gitignored
+backend/exports/         generated exports, gitignored
+backend/tests/           backend test suite
 
-frontend/
-├── src/
-│   ├── app/              # Next.js pages
-│   ├── components/       # React components
-│   └── lib/              # API client, types
-└── package.json          # port 3001 configured
-```
+frontend/src/app/        Next.js pages and routes
+frontend/src/components/ React components and component tests
+frontend/src/lib/        API client, shared types, utilities
 
-## Key API Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/assessments` | Create assessment |
-| GET | `/api/assessments/{id}` | Get assessment detail |
-| POST | `/api/assessments/{id}/canvas` | Save canvas data |
-| POST | `/api/assessments/{id}/scenarios` | Generate scenario recommendations |
-| POST | `/api/assessments/{id}/report?mode=template\|llm` | Generate report |
-| GET | `/api/reports/{id}` | Get report detail |
-| GET | `/api/reports/{id}/export/markdown` | Export as markdown |
-| GET | `/api/reports/{id}/export/docx` | Export as docx |
-| POST | `/rag/search` | RAG search (optional) |
-
-## Environment Variables
-
-```bash
-# Core
-APP_ENV=development
-DATABASE_URL=sqlite:///./backend/data/meitai_demo.db
-
-# LLM (required for LLM mode)
-LLM_MODE=openai|mock
-OPENAI_API_KEY=sk-xxx
-OPENAI_BASE_URL=https://api.openai.com/v1
-OPENAI_MODEL=gpt-4
-
-# RAG (optional, disabled by default)
-RAG_ENABLED=false
-CHROMA_PERSIST_DIR=./backend/data/chroma
-RAG_TOP_K=5
-
-# LLM Report (optional, disabled by default)
-LLM_REPORT_ENABLED=false
-LLM_REPORT_TIMEOUT_SECONDS=60
+knowledge/raw/           source YAML/Markdown knowledge base
+scripts/                 startup and utility scripts
+docs/                    architecture, status, and design docs
 ```
 
-## Report Generation Modes
+## Important API Areas
 
-1. **Template Mode (default)**: Fast, deterministic, no LLM required
-2. **LLM Mode (optional)**: Uses LLM for enhanced, personalized reports
-   - Requires `LLM_REPORT_ENABLED=true` and valid `OPENAI_API_KEY`
-   - Falls back to template mode if LLM unavailable
+- Core assessment flow: `/api/assessments`
+- Profile, canvas, breakthrough, directions, competitiveness, endgame, scenarios, cases, report context: under `/api/assessments/{id}/...`
+- Reports and exports: `/api/reports/{report_id}/...`
+- Follow-up, push, recalibration: under `/api/assessments/{id}/...`
+- Instructor workflows: `/api/instructor/...`
+- RAG routes use `/rag`, not `/api/rag`
 
-## Important Constraints
+Check `README.md` and `使用方法.md` for the full current endpoint list before adding or changing API behavior.
 
-- **DO NOT** delete or modify existing template report functionality
-- **DO NOT** remove fallback to template mode
-- **DO NOT** change port from 3001 to 3000
-- **DO NOT** enable RAG by default
-- **DO NOT** refactor project structure
+## Environment Rules
 
-## Before Finishing a Task
+- Default mode is mock: `LLM_MODE="mock"`.
+- Live mode uses `LLM_MODE="live"` with `OPENAI_API_KEY`, `OPENAI_BASE_URL`, and `OPENAI_MODEL`.
+- `.env` values override `backend/app/core/mykey.py`; both override config defaults.
+- `mykey.py` is local secret configuration and must not be committed.
+- Keep `RAG_ENABLED=false` by default.
+- Keep `LLM_REPORT_ENABLED=false` by default unless the user explicitly wants live LLM reports.
+
+## Report Rules
+
+- Preserve template report generation.
+- Preserve LLM-to-template fallback behavior.
+- Template reports are the deterministic baseline and should work without an API key.
+- The final report structure currently has 14 sections; do not remove sections casually.
+- Export paths include Markdown, DOCX, printable HTML, and PDF.
+
+## Constraints
+
+- Do not commit `.env`, `backend/app/core/mykey.py`, SQLite databases, Chroma stores, generated exports, `.next`, `node_modules`, or test caches.
+- Do not refactor the project structure unless the user explicitly asks.
+- Do not introduce a new state management library or UI framework without a clear request.
+- Prefer existing service, schema, route, and component patterns.
+- Keep RAG optional and disabled by default.
+- Keep frontend port conventions intact.
+
+## Before Finishing
 
 Summarize:
 - files changed
-- features implemented
-- how to run
-- checks performed
-- known limitations
+- behavior or documentation updated
+- commands/checks run
+- anything not verified
