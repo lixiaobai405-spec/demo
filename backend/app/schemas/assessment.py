@@ -143,6 +143,17 @@ class AssessmentCanvasResponse(BaseModel):
     canvas_diagnosis: CanvasDiagnosisResult
 
 
+class ScenarioBenefit(BaseModel):
+    text: str = ""
+    canvas: str = ""
+
+
+class ScenarioResource(BaseModel):
+    type: str = ""
+    label: str = ""
+    text: str = ""
+
+
 class ScenarioRecommendationItem(BaseModel):
     scenario_id: str
     name: str
@@ -151,6 +162,14 @@ class ScenarioRecommendationItem(BaseModel):
     canvas_elements: str = ""
     expected_effects: str = ""
     core_data_requirements: str = ""
+    # 新版结构化字段（优先使用，旧字段保留兼容）
+    canvas_element: str = ""
+    canvas_key: str = ""
+    positioning: str = ""
+    value_dimensions: list[str] = Field(default_factory=list)
+    value_text: str = ""
+    benefits: list[ScenarioBenefit] = Field(default_factory=list)
+    resources: list[ScenarioResource] = Field(default_factory=list)
     # 四象限优先级评分字段（可选，由 ScenePriorityScorer 填充）
     priority_structuredness_x: float | None = None
     priority_complexity_y: float | None = None

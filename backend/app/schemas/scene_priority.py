@@ -111,6 +111,14 @@ class ScenePriorityInput(BaseModel):
     canvas_elements: str = ""
     expected_effects: str = ""
     core_data_requirements: str = ""
+    # 新版结构化字段
+    canvas_element: str = ""
+    canvas_key: str = ""
+    positioning: str = ""
+    value_dimensions: list[str] = Field(default_factory=list)
+    value_text: str = ""
+    benefits: list[dict] = Field(default_factory=list)
+    resources: list[dict] = Field(default_factory=list)
 
 
 class ScenePriorityScore(BaseModel):

@@ -394,13 +394,42 @@ class LLMEnhancer:
         if not isinstance(raw_items, list) or not raw_items:
             return None
 
-        rewrite_by_id: dict[str, dict[str, str]] = {}
+        rewrite_by_id: dict[str, dict[str, object]] = {}
         for raw in raw_items:
             if not isinstance(raw, dict):
                 continue
             scenario_id = str(raw.get("scenario_id", "")).strip()
             if not scenario_id:
                 continue
+            # 解析 benefits 列表
+            raw_benefits = raw.get("benefits", [])
+            benefits_list: list[dict[str, str]] = []
+            if isinstance(raw_benefits, list):
+                for b in raw_benefits:
+                    if isinstance(b, dict):
+                        benefits_list.append({
+                            "text": str(b.get("text", "")).strip(),
+                            "canvas": str(b.get("canvas", "")).strip(),
+                        })
+            # 解析 resources 列表
+            raw_resources = raw.get("resources", [])
+            resources_list: list[dict[str, str]] = []
+            if isinstance(raw_resources, list):
+                for r in raw_resources:
+                    if isinstance(r, dict):
+                        resources_list.append({
+                            "type": str(r.get("type", "")).strip(),
+                            "label": str(r.get("label", "")).strip(),
+                            "text": str(r.get("text", "")).strip(),
+                        })
+            # 解析 value_dimensions
+            raw_dims = raw.get("value_dimensions", [])
+            dims_list: list[str] = []
+            if isinstance(raw_dims, list):
+                for d in raw_dims:
+                    if isinstance(d, str):
+                        dims_list.append(d.strip())
+
             rewrite_by_id[scenario_id] = {
                 "summary": str(raw.get("summary", "")).strip(),
                 "canvas_elements": str(raw.get("canvas_elements", "")).strip(),
@@ -408,6 +437,13 @@ class LLMEnhancer:
                 "core_data_requirements": str(
                     raw.get("core_data_requirements", "")
                 ).strip(),
+                "canvas_element": str(raw.get("canvas_element", "")).strip(),
+                "canvas_key": str(raw.get("canvas_key", "")).strip(),
+                "positioning": str(raw.get("positioning", "")).strip(),
+                "value_dimensions": dims_list,
+                "value_text": str(raw.get("value_text", "")).strip(),
+                "benefits": benefits_list,
+                "resources": resources_list,
             }
 
         if not rewrite_by_id:
@@ -421,18 +457,31 @@ class LLMEnhancer:
                 enhanced_items.append(item.model_copy(deep=True))
                 continue
             matched_count += 1
+            benefits_models = [
+                {"text": b["text"], "canvas": b["canvas"]}
+                for b in rewrite.get("benefits", []) if isinstance(b, dict)
+            ]
+            resources_models = [
+                {"type": r.get("type", ""), "label": r.get("label", ""), "text": r.get("text", "")}
+                for r in rewrite.get("resources", []) if isinstance(r, dict)
+            ]
             enhanced_items.append(
                 item.model_copy(
                     update={
-                        "summary": rewrite["summary"] or item.summary,
-                        "canvas_elements": rewrite["canvas_elements"]
+                        "summary": rewrite.get("summary") or item.summary,
+                        "canvas_elements": rewrite.get("canvas_elements")
                         or item.canvas_elements,
-                        "expected_effects": rewrite["expected_effects"]
+                        "expected_effects": rewrite.get("expected_effects")
                         or item.expected_effects,
-                        "core_data_requirements": rewrite[
-                            "core_data_requirements"
-                        ]
+                        "core_data_requirements": rewrite.get("core_data_requirements")
                         or item.core_data_requirements,
+                        "canvas_element": rewrite.get("canvas_element") or item.canvas_element,
+                        "canvas_key": rewrite.get("canvas_key") or item.canvas_key,
+                        "positioning": rewrite.get("positioning") or item.positioning,
+                        "value_dimensions": rewrite.get("value_dimensions") or item.value_dimensions,
+                        "value_text": rewrite.get("value_text") or item.value_text,
+                        "benefits": benefits_models or item.benefits,
+                        "resources": resources_models or item.resources,
                     }
                 )
             )

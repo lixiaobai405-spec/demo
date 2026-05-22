@@ -204,7 +204,22 @@ function compactScenarioSummary(summary?: string | null) {
 }
 
 function bubbleLabel(name: string) {
-  return name.replace(/\s+/g, "").slice(0, 4);
+  const compact = name.replace(/\s+/g, "");
+  // AI + 1-2个中文字 → 保留完整语义不截断
+  const aiCompound = compact.match(/^AI[一-龥]{1,2}/i);
+  if (aiCompound) {
+    return aiCompound[0].replace(/^ai/i, "AI");
+  }
+  // 首部英文缩写后跟连接词 → 只保留字母
+  const leadingLetters = compact.match(/^[A-Za-z]+/);
+  if (leadingLetters) {
+    const letters = leadingLetters[0].toUpperCase();
+    const nextChar = compact.slice(letters.length, letters.length + 1);
+    if (["与", "和", "及", "、"].includes(nextChar)) {
+      return letters;
+    }
+  }
+  return compact.slice(0, 4);
 }
 
 function clampScore(value: number) {
@@ -887,6 +902,19 @@ export function ScenarioQuadrantView({
           {top3Cards.map((item, index) => {
             const isOpen = expandedTopScenarioId === item.scenario_id;
             const meta = QUADRANT_META[item._quadrant];
+            const positioningText = item.positioning || compactScenarioSummary(item.summary);
+            const canvasTag = item.canvas_element || item.category;
+            // 三段式内容：新字段优先，旧字段 fallback
+            const valueContent = item.value_text || item.canvas_elements || "";
+            const hasBenefits = item.benefits && item.benefits.length > 0;
+            const hasResources = item.resources && item.resources.length > 0;
+            const benefitLines = hasBenefits
+              ? item.benefits!.map((b) => `· ${b.text} (→ ${b.canvas})`).join("\n")
+              : "";
+            const resourceLines = hasResources
+              ? item.resources!.map((r) => `· ${r.label}：${r.text}`).join("\n")
+              : "";
+
             return (
               <div
                 key={item.scenario_id}
@@ -912,9 +940,9 @@ export function ScenarioQuadrantView({
                       <span className="text-sm font-bold text-warm-text">
                         场景{SCENE_ORDINAL[index]} · {item.name}
                       </span>
-                      {item.category ? (
+                      {canvasTag ? (
                         <span className="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">
-                          {item.category}
+                          {canvasTag}
                         </span>
                       ) : null}
                     </div>
@@ -925,7 +953,7 @@ export function ScenarioQuadrantView({
                           : "italic text-warm-muted"
                       }`}
                     >
-                      {item.summary || "暂无战略定位描述"}
+                      {positioningText || "暂无战略定位描述"}
                     </p>
                   </div>
 
@@ -950,21 +978,22 @@ export function ScenarioQuadrantView({
                         idx="①"
                         title="战略价值"
                         subtitle="为什么值得做"
-                        content={item.canvas_elements}
+                        content={valueContent}
+                        valueDimensions={item.value_dimensions}
                         accent="emerald"
                       />
                       <TopScenarioSection
                         idx="②"
                         title="预期收益"
                         subtitle="做了能得到什么"
-                        content={item.expected_effects}
+                        content={hasBenefits ? benefitLines : (item.expected_effects || "")}
                         accent="amber"
                       />
                       <TopScenarioSection
                         idx="③"
                         title="资源准备"
                         subtitle="现在做需要什么"
-                        content={item.core_data_requirements}
+                        content={hasResources ? resourceLines : (item.core_data_requirements || "")}
                         accent="slate"
                       />
                     </div>
@@ -1069,12 +1098,14 @@ function TopScenarioSection({
   title,
   subtitle,
   content,
+  valueDimensions,
   accent,
 }: {
   idx: string;
   title: string;
   subtitle: string;
   content?: string | null;
+  valueDimensions?: string[] | null;
   accent: "emerald" | "amber" | "slate";
 }) {
   const numBg: Record<string, string> = {
@@ -1082,6 +1113,14 @@ function TopScenarioSection({
     amber: "bg-amber-50 text-amber-600",
     slate: "bg-warm-inset text-warm-text",
   };
+
+  const dimColors: Record<string, string> = {
+    "竞争格局": "bg-rose-50 text-rose-700",
+    "行业趋势": "bg-sky-50 text-sky-700",
+    "自身禀赋": "bg-violet-50 text-violet-700",
+  };
+
+  const hasDimensions = valueDimensions && valueDimensions.length > 0;
 
   return (
     <div className="px-5 py-4 [&:not(:last-child)]:border-b sm:[&:not(:last-child)]:border-b-0 sm:[&:not(:last-child)]:border-r border-warm-border-light">
@@ -1098,7 +1137,21 @@ function TopScenarioSection({
           <p className="text-[9px] text-warm-muted">{subtitle}</p>
         </div>
       </div>
-      <p className="text-xs leading-relaxed text-warm-text">
+      {hasDimensions ? (
+        <div className="flex gap-1.5 flex-wrap mb-2">
+          {valueDimensions!.map((d) => (
+            <span
+              key={d}
+              className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[9px] font-semibold ${
+                dimColors[d] ?? "bg-warm-inset text-warm-muted"
+              }`}
+            >
+              {d}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <p className="text-xs leading-relaxed text-warm-text whitespace-pre-line">
         {content || "待补充"}
       </p>
     </div>

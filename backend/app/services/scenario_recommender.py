@@ -154,6 +154,7 @@ class ScenarioRecommender:
         breakthrough_labels: list[str] | None = None,
         direction_titles: list[str] | None = None,
     ) -> ScenarioRecommendationItem:
+        canvas_key = definition.canvas_keywords[0] if definition.canvas_keywords else ""
         return ScenarioRecommendationItem(
             scenario_id=definition.id,
             name=definition.name,
@@ -172,6 +173,13 @@ class ScenarioRecommender:
                 direction_titles,
             ),
             core_data_requirements=self._build_data_requirement_text(definition),
+            canvas_element="",
+            canvas_key=canvas_key,
+            positioning=definition.summary or "",
+            value_dimensions=[],
+            value_text="",
+            benefits=[],
+            resources=[],
         )
 
     def _calc_score(
@@ -394,6 +402,7 @@ class ScenarioRecommender:
 
         # Step 4：转换为 ScenarioRecommendationItem，从原始 definition 补充内容字段
         def _score_to_item(ps, definition) -> ScenarioRecommendationItem:
+            canvas_key = definition.canvas_keywords[0] if definition and definition.canvas_keywords else ""
             return ScenarioRecommendationItem(
                 scenario_id=ps.scene_id,
                 name=ps.scene_name,
@@ -432,6 +441,13 @@ class ScenarioRecommender:
                 priority_recommendation=ps.recommendation_template,
                 industry_coefficient=ps.industry_coefficient,
                 recommendation_level=ps.recommendation_level.value if ps.recommendation_level else None,
+                canvas_element="",
+                canvas_key=canvas_key,
+                positioning=definition.summary if definition else "",
+                value_dimensions=[],
+                value_text="",
+                benefits=[],
+                resources=[],
             )
 
         top_scenarios = [

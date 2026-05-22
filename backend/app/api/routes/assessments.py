@@ -1158,6 +1158,13 @@ def save_scenario_calibrations(
             canvas_elements=item.canvas_elements or "",
             expected_effects=item.expected_effects or "",
             core_data_requirements=item.core_data_requirements or "",
+            canvas_element=item.canvas_element or "",
+            canvas_key=item.canvas_key or "",
+            positioning=item.positioning or "",
+            value_dimensions=item.value_dimensions or [],
+            value_text=item.value_text or "",
+            benefits=list(item.benefits) if item.benefits else [],
+            resources=list(item.resources) if item.resources else [],
         ))
 
     # 复用 ScenePriorityScorer 进行评分、排序、Q4 兜底、tie-break
