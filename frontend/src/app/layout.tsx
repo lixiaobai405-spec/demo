@@ -9,7 +9,7 @@ import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "美太 AI 商业创新智能体 Demo",
+  title: "美太AI商业创新智能体",
   description: "企业问卷与企业画像 Demo，验证前后端基础咨询链路。",
 };
 
