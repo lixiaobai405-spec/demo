@@ -196,6 +196,15 @@ function bubblePos(x: number, y: number) {
   };
 }
 
+function compactScenarioSummary(summary?: string | null) {
+  const text = (summary ?? "").replace(/\s+/g, "");
+  return text.length > 15 ? text.slice(0, 15) : text;
+}
+
+function bubbleLabel(name: string) {
+  return name.replace(/\s+/g, "").slice(0, 4);
+}
+
 function clampScore(value: number) {
   return Math.max(1, Math.min(5, Number(value.toFixed(1))));
 }
@@ -638,8 +647,8 @@ export function ScenarioQuadrantView({
                           <p className="truncate text-sm font-semibold text-warm-text">
                             {item.name}
                           </p>
-                          <p className="mt-1 line-clamp-2 text-xs leading-5 text-warm-muted">
-                            {item.summary}
+                          <p className="mt-1 text-xs leading-5 text-warm-muted">
+                            {compactScenarioSummary(item.summary)}
                           </p>
                         </button>
                       </div>
@@ -700,8 +709,8 @@ export function ScenarioQuadrantView({
                           <p className="truncate text-sm font-semibold text-warm-text">
                             {item.name}
                           </p>
-                          <p className="mt-1 line-clamp-2 text-xs leading-5 text-warm-muted">
-                            {item.summary}
+                          <p className="mt-1 text-xs leading-5 text-warm-muted">
+                            {compactScenarioSummary(item.summary)}
                           </p>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
@@ -812,12 +821,12 @@ export function ScenarioQuadrantView({
                           current === item.scenario_id ? null : item.scenario_id,
                         )
                       }
-                      className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full text-[0.6rem] font-bold text-white transition"
+                      className="absolute flex items-center justify-center -translate-x-1/2 -translate-y-1/2 rounded-full px-1 text-center text-[0.62rem] font-bold leading-tight text-white transition break-all"
                       style={{
                         left: position.left,
                         top: position.top,
-                        width: isTop3 ? "2.45rem" : "2.1rem",
-                        height: isTop3 ? "2.45rem" : "2.1rem",
+                        width: isTop3 ? "3.3rem" : "3rem",
+                        height: isTop3 ? "3.3rem" : "3rem",
                         backgroundColor: meta.bubbleColor,
                         boxShadow: isSelected
                           ? "0 0 0 3px rgba(255,255,255,0.9), 0 0 0 5px rgba(245,158,11,0.5)"
@@ -827,7 +836,7 @@ export function ScenarioQuadrantView({
                         zIndex: isSelected ? 12 : isTop3 ? 10 : 5,
                       }}
                     >
-                      {item.name.slice(0, 1)}
+                      {bubbleLabel(item.name)}
                     </button>
                   );
                 })}
