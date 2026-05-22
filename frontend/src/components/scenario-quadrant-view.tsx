@@ -99,7 +99,9 @@ const Y_DESCRIPTIONS: Record<number, string> = {
   5: "复杂度很高，落地阻力和改造成本都更高。",
 };
 
-const RANK_LABELS = ["Top 1", "Top 2", "Top 3"];
+const RANK_EMOJI = ["🥇", "🥈", "🥉"];
+const SCENE_ORDINAL = ["一", "二", "三"];
+const RANK_ACCENT_BG = ["bg-amber-400", "bg-slate-300", "bg-stone-400"];
 
 function calcQuadrant(x: number, y: number): QuadrantLabel {
   if (x >= QUADRANT_THRESHOLD && y >= QUADRANT_THRESHOLD) return "AI优先区";
@@ -232,7 +234,7 @@ export function ScenarioQuadrantView({
     buildScenarioBuckets(scenarioRecommendation).excluded,
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [expandedIds, setExpandedIds] = useState<string[]>([]);
+  const [expandedTopScenarioId, setExpandedTopScenarioId] = useState<string | null>(null);
   const [calibrationSaveStatus, setCalibrationSaveStatus] =
     useState<SaveStatus>("idle");
   const [poolSaveStatus, setPoolSaveStatus] = useState<SaveStatus>("idle");
@@ -281,6 +283,10 @@ export function ScenarioQuadrantView({
     () => [...activeScenarios, ...excludedScenarios],
     [activeScenarios, excludedScenarios],
   );
+
+  useEffect(() => {
+    setExpandedTopScenarioId((current) => current ?? top3Cards[0]?.scenario_id ?? null);
+  }, [top3Cards]);
 
   const activeCount = recommendation.active_count ?? activeScenarios.length;
   const excludedCount = excludedScenarios.length;
@@ -491,13 +497,14 @@ export function ScenarioQuadrantView({
     [activeScenarios, persistScenarioPool, poolLocked],
   );
 
-  const toggleExpanded = useCallback((scenarioId: string) => {
-    setExpandedIds((current) =>
-      current.includes(scenarioId)
-        ? current.filter((item) => item !== scenarioId)
-        : [...current, scenarioId],
-    );
-  }, []);
+  const handleToggleTopScenario = useCallback(
+    (scenarioId: string) => {
+      setExpandedTopScenarioId((current) =>
+        current === scenarioId ? null : scenarioId,
+      );
+    },
+    [],
+  );
 
   return (
     <div className="space-y-10">
@@ -846,102 +853,144 @@ export function ScenarioQuadrantView({
         </div>
       </div>
 
-      <div>
+      <section className="mx-auto w-full max-w-[820px]">
         <p className="section-label">最终推荐</p>
-        <h2 className="section-heading mb-4">Top 3 推荐场景</h2>
-        <div className="grid gap-4 xl:grid-cols-3">
+        <h2 className="section-heading">Top 3 推荐场景</h2>
+        <p className="mt-2 text-sm leading-7 text-warm-secondary">
+          基于您的商业画布诊断与突破要素分析，以下三个场景具备最高的战略价值与落地可行性。
+          点击任意场景卡片，查看战略价值 · 预期收益 · 资源准备的完整分析。
+        </p>
+
+        <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border border-warm-border-light bg-white px-5 py-3">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[9px] uppercase tracking-wider text-warm-muted">评估场景总数</span>
+            <span className="text-xs font-semibold text-warm-text">{recommendation.evaluated_count} 个候选场景</span>
+          </div>
+          <div className="h-7 w-px bg-warm-border-light shrink-0 hidden sm:block" />
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[9px] uppercase tracking-wider text-warm-muted">有效场景池</span>
+            <span className="text-xs font-semibold text-warm-text">{activeCount} 个</span>
+          </div>
+          <div className="h-7 w-px bg-warm-border-light shrink-0 hidden sm:block" />
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[9px] uppercase tracking-wider text-warm-muted">推荐逻辑</span>
+            <span className="text-xs font-semibold text-warm-text">战略价值 × 落地可行性</span>
+          </div>
+          <div className="h-7 w-px bg-warm-border-light shrink-0 hidden sm:block" />
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[9px] uppercase tracking-wider text-warm-muted">分析依据</span>
+            <span className="text-xs font-semibold text-warm-text">企业一手诊断信息</span>
+          </div>
+        </div>
+
+        <div className="mt-5 flex flex-col gap-3.5">
           {top3Cards.map((item, index) => {
+            const isOpen = expandedTopScenarioId === item.scenario_id;
             const meta = QUADRANT_META[item._quadrant];
-            const isExpanded = expandedIds.includes(item.scenario_id);
             return (
-              <article
+              <div
                 key={item.scenario_id}
-                className={`rounded-xl border-2 bg-warm-surface transition ${
-                  isExpanded ? `${meta.borderClass} shadow-md` : "border-warm-border-light"
+                className={`rounded-xl border bg-white overflow-hidden transition ${
+                  isOpen
+                    ? "border-emerald-300 shadow-md"
+                    : "border-warm-border-light hover:border-emerald-200 hover:shadow-sm"
                 }`}
               >
+                <div className={`h-1 ${RANK_ACCENT_BG[index] ?? "bg-warm-border-light"}`} />
+
                 <button
                   type="button"
-                  onClick={() => toggleExpanded(item.scenario_id)}
-                  className="w-full p-6 text-left"
+                  onClick={() => handleToggleTopScenario(item.scenario_id)}
+                  className={`flex items-center gap-3.5 px-5 py-4 w-full text-left transition ${
+                    isOpen ? "bg-emerald-50/60" : "hover:bg-warm-inset"
+                  }`}
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-warm-accent">
-                        {RANK_LABELS[index] ?? "Top"}
-                      </p>
-                      <h3 className="mt-1 font-heading text-xl font-bold text-warm-text">
-                        {item.name}
-                      </h3>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <p className="text-sm text-warm-accent">{item.category}</p>
-                        <span className={`badge text-[0.65rem] ${meta.badgeClass}`}>
-                          {item._quadrant}
+                  <span className="text-2xl shrink-0">{RANK_EMOJI[index]}</span>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-bold text-warm-text">
+                        场景{SCENE_ORDINAL[index]} · {item.name}
+                      </span>
+                      {item.category ? (
+                        <span className="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">
+                          {item.category}
                         </span>
-                        <span className="badge badge-warning text-[0.65rem]">
-                          {item._level}
-                        </span>
-                      </div>
+                      ) : null}
                     </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-2xl font-bold text-warm-text">{item._lpsDisplay}</p>
-                      <p className="text-[0.65rem] text-warm-muted">/ 10 分</p>
-                    </div>
+                    <p
+                      className={`mt-0.5 text-xs leading-relaxed ${
+                        isOpen
+                          ? "font-semibold text-emerald-800"
+                          : "italic text-warm-muted"
+                      }`}
+                    >
+                      {item.summary || "暂无战略定位描述"}
+                    </p>
                   </div>
-                  <p className="mt-4 text-sm leading-7 text-warm-secondary">
-                    {item.summary}
-                  </p>
-                  <div className="mt-3 text-xs text-warm-accent">
-                    {isExpanded ? "收起详情" : "展开详情"}
+
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span className="text-[10px] text-warm-muted">
+                      {isOpen ? "点击收起" : "点击展开"}
+                    </span>
+                    <span
+                      className={`text-xs text-warm-muted transition-transform duration-200 ${
+                        isOpen ? "rotate-180 text-emerald-600" : ""
+                      }`}
+                    >
+                      ▼
+                    </span>
                   </div>
                 </button>
 
-                {isExpanded ? (
-                  <div className="border-t border-warm-border-light px-6 pb-6">
-                    <div className="mt-4 space-y-3">
-                      {item.canvas_elements ? (
-                        <DetailCard title="对应突破与画布切入点" content={item.canvas_elements} />
-                      ) : null}
-                      {item.expected_effects ? (
-                        <DetailCard title="预期效果" content={item.expected_effects} />
-                      ) : null}
-                      {item.core_data_requirements ? (
-                        <DetailCard title="核心数据要求" content={item.core_data_requirements} />
-                      ) : null}
-                      <div className="rounded-xl bg-warm-inset px-4 py-3">
-                        <p className="text-xs uppercase tracking-[0.14em] text-warm-muted">四象限评分</p>
-                        <div className="mt-2 grid grid-cols-2 gap-2 text-sm text-warm-secondary">
-                          <div>
-                            <span className="text-warm-muted">结构化程度 X：</span>
-                            <span className="font-semibold text-warm-text">{item._x}</span>
-                          </div>
-                          <div>
-                            <span className="text-warm-muted">实施复杂度 Y：</span>
-                            <span className="font-semibold text-warm-text">{item._y}</span>
-                          </div>
-                          <div>
-                            <span className="text-warm-muted">QS：</span>
-                            <span className="font-semibold text-warm-text">{item._qs}</span>
-                          </div>
-                          <div>
-                            <span className="text-warm-muted">LPS：</span>
-                            <span className="font-semibold text-warm-text">
-                              {item._lpsDisplay} / 10
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      {item.priority_recommendation ? (
-                        <DetailCard title="推荐说明" content={item.priority_recommendation} />
-                      ) : null}
+                {isOpen ? (
+                  <div className="border-t border-warm-border-light">
+                    <div className="grid grid-cols-1 sm:grid-cols-3">
+                      <TopScenarioSection
+                        idx="①"
+                        title="战略价值"
+                        subtitle="为什么值得做"
+                        content={item.canvas_elements}
+                        accent="emerald"
+                      />
+                      <TopScenarioSection
+                        idx="②"
+                        title="预期收益"
+                        subtitle="做了能得到什么"
+                        content={item.expected_effects}
+                        accent="amber"
+                      />
+                      <TopScenarioSection
+                        idx="③"
+                        title="资源准备"
+                        subtitle="现在做需要什么"
+                        content={item.core_data_requirements}
+                        accent="slate"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between border-t border-warm-border-light bg-warm-inset px-5 py-2.5">
+                      <span className="text-[10px] italic text-warm-muted">
+                        该场景推荐依据：企业画布诊断信息 · 突破要素评分模型
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedId(item.scenario_id);
+                        }}
+                        className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[10px] font-bold text-emerald-700 transition hover:border-emerald-600 hover:bg-emerald-600 hover:text-white"
+                      >
+                        调整此场景 →
+                      </button>
                     </div>
                   </div>
                 ) : null}
-              </article>
+              </div>
             );
           })}
         </div>
-      </div>
+      </section>
     </div>
   );
 }
@@ -1011,6 +1060,47 @@ function ScoreEditor({
         <span>5</span>
       </div>
       <p className="mt-2 text-[0.7rem] leading-relaxed text-warm-muted">{description}</p>
+    </div>
+  );
+}
+
+function TopScenarioSection({
+  idx,
+  title,
+  subtitle,
+  content,
+  accent,
+}: {
+  idx: string;
+  title: string;
+  subtitle: string;
+  content?: string | null;
+  accent: "emerald" | "amber" | "slate";
+}) {
+  const numBg: Record<string, string> = {
+    emerald: "bg-emerald-50 text-emerald-700",
+    amber: "bg-amber-50 text-amber-600",
+    slate: "bg-warm-inset text-warm-text",
+  };
+
+  return (
+    <div className="px-5 py-4 [&:not(:last-child)]:border-b sm:[&:not(:last-child)]:border-b-0 sm:[&:not(:last-child)]:border-r border-warm-border-light">
+      <div className="flex items-center gap-1.5 mb-2.5">
+        <span
+          className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold shrink-0 ${numBg[accent] ?? numBg.slate}`}
+        >
+          {idx}
+        </span>
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-warm-text">
+            {title}
+          </p>
+          <p className="text-[9px] text-warm-muted">{subtitle}</p>
+        </div>
+      </div>
+      <p className="text-xs leading-relaxed text-warm-text">
+        {content || "待补充"}
+      </p>
     </div>
   );
 }
