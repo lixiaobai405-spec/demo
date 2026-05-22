@@ -103,6 +103,31 @@ const RANK_EMOJI = ["🥇", "🥈", "🥉"];
 const SCENE_ORDINAL = ["一", "二", "三"];
 const RANK_ACCENT_BG = ["bg-amber-400", "bg-slate-300", "bg-stone-400"];
 
+const CANVAS_KEY_ABBR: Record<string, string> = {
+  customer_segments: "CS",
+  value_propositions: "VP",
+  channels: "CH",
+  customer_relationships: "CR",
+  revenue_streams: "R$",
+  key_resources: "KR",
+  key_activities: "KA",
+  key_partnerships: "KP",
+  cost_structure: "C$",
+};
+
+const CANVAS_NAME_ABBR: Record<string, string> = {
+  客户细分: "CS",
+  价值主张: "VP",
+  渠道通路: "CH",
+  客户关系: "CR",
+  收入来源: "R$",
+  核心资源: "KR",
+  关键资源: "KR",
+  关键业务: "KA",
+  重要合作: "KP",
+  成本结构: "C$",
+};
+
 function calcQuadrant(x: number, y: number): QuadrantLabel {
   if (x >= QUADRANT_THRESHOLD && y >= QUADRANT_THRESHOLD) return "AI优先区";
   if (x >= QUADRANT_THRESHOLD && y < QUADRANT_THRESHOLD) return "自动化主战场";
@@ -203,6 +228,31 @@ function compactScenarioSummary(summary?: string | null) {
   return text.length > 15 ? text.slice(0, 15) : text;
 }
 
+function getCanvasLabel(item: ScenarioRecommendationItem) {
+  return (
+    item.canvas_element?.trim() ||
+    item.canvas_elements?.trim() ||
+    item.category?.trim() ||
+    ""
+  );
+}
+
+function getCanvasCode(item: ScenarioRecommendationItem) {
+  const label = getCanvasLabel(item);
+  const parenthesized = label.match(/[（(]\s*([A-Z]{1,2}\$?)\s*[）)]/i)?.[1];
+  if (parenthesized) return parenthesized.toUpperCase();
+
+  const directCode = label.match(/^(CS|VP|CH|CR|R\$|KR|KA|KP|C\$)$/i)?.[1];
+  if (directCode) return directCode.toUpperCase();
+
+  if (item.canvas_key && CANVAS_KEY_ABBR[item.canvas_key]) {
+    return CANVAS_KEY_ABBR[item.canvas_key];
+  }
+
+  const compactLabel = label.replace(/\s+/g, "");
+  return CANVAS_NAME_ABBR[compactLabel] ?? "";
+}
+
 function bubbleLabel(name: string) {
   const compact = name.replace(/\s+/g, "");
   // AI + 1-2个中文字 → 保留完整语义不截断
@@ -294,6 +344,10 @@ export function ScenarioQuadrantView({
         .filter(Boolean) as EditableScenario[],
     [recommendation.top_scenarios, activeScenarios],
   );
+  const top3CanvasCoverage = useMemo(() => {
+    const codes = top3Cards.map(getCanvasCode).filter(Boolean);
+    return Array.from(new Set(codes)).join(" · ") || "待确认";
+  }, [top3Cards]);
   const rankedScenarios = useMemo(
     () => [...activeScenarios, ...excludedScenarios],
     [activeScenarios, excludedScenarios],
@@ -862,9 +916,9 @@ export function ScenarioQuadrantView({
         </div>
       </div>
 
-      <section className="mx-auto w-full max-w-[820px]">
-        <p className="section-label">最终推荐</p>
-        <h2 className="section-heading">Top 3 推荐场景</h2>
+      <section className="mx-auto w-full max-w-[1440px]">
+        <p className="section-label">步骤二 · 点层产出</p>
+        <h2 className="section-heading">Top 3 AI 应用场景推荐</h2>
         <p className="mt-2 text-sm leading-7 text-warm-secondary">
           基于您的商业画布诊断与突破要素分析，以下三个场景具备最高的战略价值与落地可行性。
           点击任意场景卡片，查看战略价值 · 预期收益 · 资源准备的完整分析。
@@ -877,8 +931,8 @@ export function ScenarioQuadrantView({
           </div>
           <div className="h-7 w-px bg-warm-border-light shrink-0 hidden sm:block" />
           <div className="flex flex-col gap-0.5">
-            <span className="text-[9px] uppercase tracking-wider text-warm-muted">有效场景池</span>
-            <span className="text-xs font-semibold text-warm-text">{activeCount} 个</span>
+            <span className="text-[9px] uppercase tracking-wider text-warm-muted">覆盖画布要素</span>
+            <span className="text-xs font-semibold text-warm-text">{top3CanvasCoverage}</span>
           </div>
           <div className="h-7 w-px bg-warm-border-light shrink-0 hidden sm:block" />
           <div className="flex flex-col gap-0.5">
@@ -897,7 +951,7 @@ export function ScenarioQuadrantView({
             const isOpen = expandedTopScenarioId === item.scenario_id;
             const meta = QUADRANT_META[item._quadrant];
             const positioningText = item.positioning || compactScenarioSummary(item.summary);
-            const canvasTag = item.canvas_element || item.category;
+            const canvasTag = getCanvasLabel(item);
             // 三段式内容：新字段优先，旧字段 fallback
             const valueContent = item.value_text || item.canvas_elements || "";
             const hasBenefits = item.benefits && item.benefits.length > 0;
@@ -923,7 +977,7 @@ export function ScenarioQuadrantView({
                 <button
                   type="button"
                   onClick={() => handleToggleTopScenario(item.scenario_id)}
-                  className={`flex items-center gap-3.5 px-5 py-4 w-full text-left transition ${
+                  className={`flex items-center gap-4 px-6 py-5 w-full text-left transition ${
                     isOpen ? "bg-emerald-50/60" : "hover:bg-warm-inset"
                   }`}
                 >
@@ -931,17 +985,17 @@ export function ScenarioQuadrantView({
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-warm-text">
+                      <span className="text-base font-bold text-warm-text sm:text-xl">
                         场景{SCENE_ORDINAL[index]} · {item.name}
                       </span>
                       {canvasTag ? (
-                        <span className="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">
+                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-800">
                           {canvasTag}
                         </span>
                       ) : null}
                     </div>
                     <p
-                      className={`mt-0.5 text-xs leading-relaxed ${
+                      className={`mt-1 text-sm leading-relaxed ${
                         isOpen
                           ? "font-semibold text-emerald-800"
                           : "italic text-warm-muted"
@@ -992,8 +1046,8 @@ export function ScenarioQuadrantView({
                       />
                     </div>
 
-                    <div className="flex items-center justify-between border-t border-warm-border-light bg-warm-inset px-5 py-2.5">
-                      <span className="text-[10px] italic text-warm-muted">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-warm-border-light bg-warm-inset px-6 py-4">
+                      <span className="text-sm italic text-warm-muted">
                         该场景推荐依据：企业画布诊断信息 · 突破要素评分模型
                       </span>
                       <button
@@ -1002,7 +1056,7 @@ export function ScenarioQuadrantView({
                           e.stopPropagation();
                           setSelectedId(item.scenario_id);
                         }}
-                        className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[10px] font-bold text-emerald-700 transition hover:border-emerald-600 hover:bg-emerald-600 hover:text-white"
+                        className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700 transition hover:border-emerald-600 hover:bg-emerald-600 hover:text-white"
                       >
                         调整此场景 →
                       </button>
@@ -1117,26 +1171,26 @@ function TopScenarioSection({
   const hasDimensions = valueDimensions && valueDimensions.length > 0;
 
   return (
-    <div className="px-5 py-4 [&:not(:last-child)]:border-b sm:[&:not(:last-child)]:border-b-0 sm:[&:not(:last-child)]:border-r border-warm-border-light">
-      <div className="flex items-center gap-1.5 mb-2.5">
+    <div className="px-6 py-6 [&:not(:last-child)]:border-b sm:[&:not(:last-child)]:border-b-0 sm:[&:not(:last-child)]:border-r border-warm-border-light">
+      <div className="mb-4 flex items-center gap-2">
         <span
-          className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold shrink-0 ${numBg[accent] ?? numBg.slate}`}
+          className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${numBg[accent] ?? numBg.slate}`}
         >
           {idx}
         </span>
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-wider text-warm-text">
+          <p className="text-sm font-bold text-warm-text">
             {title}
           </p>
-          <p className="text-[9px] text-warm-muted">{subtitle}</p>
+          <p className="text-xs text-warm-muted">{subtitle}</p>
         </div>
       </div>
       {hasDimensions ? (
-        <div className="flex gap-1.5 flex-wrap mb-2">
+        <div className="mb-3 flex flex-wrap gap-2">
           {valueDimensions!.map((d) => (
             <span
               key={d}
-              className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[9px] font-semibold ${
+              className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-semibold ${
                 dimColors[d] ?? "bg-warm-inset text-warm-muted"
               }`}
             >
@@ -1145,7 +1199,7 @@ function TopScenarioSection({
           ))}
         </div>
       ) : null}
-      <p className="text-xs leading-relaxed text-warm-text whitespace-pre-line">
+      <p className="whitespace-pre-line text-sm leading-8 text-warm-text">
         {content || "待补充"}
       </p>
     </div>
