@@ -21,6 +21,9 @@ from app.services.quality_checker import QualityChecker
 
 REPORT_EXPORT_DIR = ROOT_DIR / "backend" / "exports" / "reports"
 
+# 统一隐藏的报告章节：历史报告和所有导出格式均过滤
+HIDDEN_REPORT_SECTION_KEYS = {"cases", "instructor_comments"}
+
 
 class ReportService:
     def __init__(self) -> None:
@@ -105,6 +108,10 @@ class ReportService:
 
     def to_document_response(self, record: GeneratedReport) -> ReportDocumentResponse:
         report_data = self._load_report_data(record)
+        report_data.sections = [
+            s for s in report_data.sections
+            if s.key not in HIDDEN_REPORT_SECTION_KEYS
+        ]
         metadata = self._record_metadata(record)
         content_markdown = record.content_markdown or self.markdown_exporter.render(report_data)
         content_html = record.content_html or self.html_exporter.render_fragment(report_data)
@@ -181,6 +188,10 @@ class ReportService:
 
     def build_print_html(self, record: GeneratedReport) -> str:
         report_data = self._load_report_data(record)
+        report_data.sections = [
+            s for s in report_data.sections
+            if s.key not in HIDDEN_REPORT_SECTION_KEYS
+        ]
         metadata = self._record_metadata(record)
         return self.html_exporter.render_print_document(
             report_data,
@@ -282,11 +293,28 @@ class ReportService:
         safe_company = safe_company or "report"
         return f"{safe_company}__{assessment_id}__{report_id}.{extension}"
 
+    @staticmethod
+    def _is_valid_pdf(path: Path) -> bool:
+        if not path.exists():
+            return False
+        if path.stat().st_size < 1024:
+            return False
+        try:
+            header = path.read_bytes()[:5]
+            return header == b"%PDF-"
+        except Exception:
+            return False
+
     def ensure_pdf_export(self, db: Session, record: GeneratedReport) -> Path:
+        # 如果已有缓存路径，先校验是否合法 PDF
         if record.export_pdf_path:
-            path = Path(record.export_pdf_path)
-            if path.exists():
-                return path
+            cached = Path(record.export_pdf_path)
+            if self._is_valid_pdf(cached):
+                return cached
+            # 缓存无效，清理坏文件和数据库记录
+            if cached.exists():
+                cached.unlink(missing_ok=True)
+            record.export_pdf_path = None
 
         response = self.to_document_response(record)
         html_content = self.html_exporter.render_print_document(
@@ -304,12 +332,37 @@ class ReportService:
 
         try:
             import pdfkit
-            pdfkit.from_string(html_content, str(path))
-        except Exception:
-            pass
+            options = {
+                "encoding": "UTF-8",
+                "page-size": "A4",
+                "margin-top": "12mm",
+                "margin-right": "12mm",
+                "margin-bottom": "12mm",
+                "margin-left": "12mm",
+                "quiet": "",
+            }
+            pdfkit.from_string(html_content, str(path), options=options)
+        except ImportError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="PDF 导出服务未安装（缺少 pdfkit 依赖）。",
+            )
+        except Exception as exc:
+            # 生成失败，清理可能产生的无效文件，不写入数据库
+            if path.exists() and not self._is_valid_pdf(path):
+                path.unlink(missing_ok=True)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"PDF 导出生成失败：{exc}",
+            )
 
-        if not path.exists() or path.stat().st_size < 100:
-            path.write_bytes(b"PDF generation requires pdfkit + wkhtmltopdf.\n")
+        # 生成后校验文件头
+        if not self._is_valid_pdf(path):
+            path.unlink(missing_ok=True)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="PDF 导出生成失败（文件无效）。请检查服务器 wkhtmltopdf 和中文字体是否正确安装。",
+            )
 
         record.export_pdf_path = str(path)
         db.add(record)

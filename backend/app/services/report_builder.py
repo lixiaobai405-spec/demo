@@ -47,10 +47,8 @@ class ReportBuilder:
             self._build_priority_scenarios_section(scenario_recommendation),
             self._build_scenario_planning_section(scenario_recommendation),
             self._build_competitiveness_section(profile, canvas_diagnosis, scenario_recommendation, competitiveness_result),
-            self._build_cases_section(case_recommendation),
             self._build_roadmap_section(roadmap),
             self._build_risk_section(profile, canvas_diagnosis, scenario_recommendation),
-            self._build_instructor_section(profile, scenario_recommendation, enrichment_result),
             self._build_endgame_section(endgame_result, profile, canvas_diagnosis),
         ]
 
