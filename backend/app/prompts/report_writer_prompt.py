@@ -14,10 +14,8 @@ class ReportWriterPrompt:
         "高优先级 AI 提效场景",
         "推荐场景详细规划",
         "差异化竞争力设计",
-        "参考案例与启示",
         "三阶段 AI 创新路线图",
         "风险与阻力",
-        "讲师点评区",
         "商业终局设计",
     ]
 
@@ -33,7 +31,7 @@ class ReportWriterPrompt:
    - 不能编造具体的ROI数字（可用"预计提升"、"有望改善"等定性表述）
    - 不能编造不存在的数据来源或案例
 3. **保持专业客观**：使用咨询行业规范用语，避免过度营销化表述
-4. **保留13个章节**：必须完整输出所有13个章节，不得删减或合并
+4. **保留11个章节**：必须完整输出所有11个章节，不得删减或合并
 
 ## 写作风格
 - 结构清晰，每个章节有明确的小标题
@@ -93,10 +91,6 @@ class ReportWriterPrompt:
 
         sections.append("\n## 推荐AI场景")
         sections.append(ReportWriterPrompt._format_scenarios(top_scenarios))
-
-        if case_recommendation:
-            sections.append("\n## 参考案例匹配")
-            sections.append(ReportWriterPrompt._format_cases(case_recommendation))
 
         sections.append("\n## 输出要求")
         sections.append(f"请基于以上输入，撰写完整的AI创新转型报告，包含以下{len(ReportWriterPrompt.REPORT_OUTLINE)}个章节：")

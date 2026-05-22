@@ -109,10 +109,8 @@ REPORT_OUTLINE = [
     "高优先级 AI 提效场景",
     "推荐场景详细规划",
     "差异化竞争力设计",
-    "参考案例与启示",
     "三阶段 AI 创新路线图",
     "风险与阻力",
-    "讲师点评区",
     "商业终局设计",
 ]
 
@@ -1158,6 +1156,13 @@ def save_scenario_calibrations(
             canvas_elements=item.canvas_elements or "",
             expected_effects=item.expected_effects or "",
             core_data_requirements=item.core_data_requirements or "",
+            canvas_element=item.canvas_element or "",
+            canvas_key=item.canvas_key or "",
+            positioning=item.positioning or "",
+            value_dimensions=item.value_dimensions or [],
+            value_text=item.value_text or "",
+            benefits=list(item.benefits) if item.benefits else [],
+            resources=list(item.resources) if item.resources else [],
         ))
 
     # 复用 ScenePriorityScorer 进行评分、排序、Q4 兜底、tie-break

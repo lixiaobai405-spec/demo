@@ -95,6 +95,17 @@ export type AssessmentCanvasResponse = {
   canvas_diagnosis: CanvasDiagnosisResult;
 };
 
+export type ScenarioBenefit = {
+  text: string;
+  canvas: string;
+};
+
+export type ScenarioResource = {
+  type: "data" | "org" | "invest" | "risk" | string;
+  label: string;
+  text: string;
+};
+
 export type ScenarioRecommendationItem = {
   scenario_id: string;
   name: string;
@@ -103,6 +114,14 @@ export type ScenarioRecommendationItem = {
   canvas_elements: string;
   expected_effects: string;
   core_data_requirements: string;
+  // 新版结构化字段
+  canvas_element?: string | null;
+  canvas_key?: string | null;
+  positioning?: string | null;
+  value_dimensions?: string[] | null;
+  value_text?: string | null;
+  benefits?: ScenarioBenefit[] | null;
+  resources?: ScenarioResource[] | null;
   // 四象限优先级评分字段（four_quadrant_v1 时填充）
   priority_structuredness_x?: number | null;
   priority_complexity_y?: number | null;

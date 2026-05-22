@@ -19,7 +19,7 @@ export function NavBar() {
             href="/"
             className="font-heading text-lg font-bold text-warm-text transition-colors hover:text-primary"
           >
-            美泰 AI
+            美太 AI
           </Link>
           <div className="hidden items-center gap-4 md:flex">
             <Link
