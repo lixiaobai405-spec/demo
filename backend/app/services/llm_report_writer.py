@@ -1,6 +1,6 @@
 """LLM-based deep writing for AI Innovation Reports.
 
-Parallel generation: 14 sections split into 3 groups, fired concurrently.
+Parallel generation: 13 sections split into 3 groups, fired concurrently.
 Each group failure falls back to template for that group only.
 """
 
@@ -36,8 +36,10 @@ REQUIRED_SECTIONS: list[tuple[str, str]] = [
     ("priority_scenarios", "高优先级 AI 提效场景"),
     ("scenario_planning", "推荐场景详细规划"),
     ("competitiveness", "差异化竞争力设计"),
+    ("cases", "参考案例与启示"),
     ("roadmap", "三阶段 AI 创新路线图"),
     ("risks", "风险与阻力"),
+    ("instructor_comments", "讲师点评区"),
     ("endgame", "商业终局设计"),
 ]
 
@@ -50,13 +52,13 @@ SECTION_GROUPS: list[dict[str, Any]] = [
     },
     {
         "name": "strategy",
-        "focus": "AI场景推荐、场景详细规划、差异化竞争力设计",
-        "section_keys": ["priority_scenarios", "scenario_planning", "competitiveness"],
+        "focus": "AI场景推荐、场景详细规划、差异化竞争力设计、参考案例",
+        "section_keys": ["priority_scenarios", "scenario_planning", "competitiveness", "cases"],
     },
     {
         "name": "execution",
-        "focus": "路线图、风险管控、商业终局",
-        "section_keys": ["roadmap", "risks", "endgame"],
+        "focus": "路线图、风险管控、讲师点评、商业终局",
+        "section_keys": ["roadmap", "risks", "instructor_comments", "endgame"],
     },
 ]
 

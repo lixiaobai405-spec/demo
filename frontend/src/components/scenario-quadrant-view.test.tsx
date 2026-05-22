@@ -101,11 +101,11 @@ describe("ScenarioQuadrantView", () => {
     const s4 = buildScenario("s4", "场景 4", 3, 2);
     const s5 = buildScenario("s5", "场景 5", 2, 3);
 
-    let resolvePoolUpdate: ((value: unknown) => void) | null = null;
+    let resolvePoolUpdate: (value: unknown) => void = () => {};
     updateScenarioPoolMock.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
-          resolvePoolUpdate = resolve;
+          resolvePoolUpdate = resolve as (value: unknown) => void;
         }),
     );
 
@@ -124,7 +124,7 @@ describe("ScenarioQuadrantView", () => {
 
     expect(await screen.findByText("有效 3 / 总 5")).toBeInTheDocument();
 
-    resolvePoolUpdate?.({
+    resolvePoolUpdate({
       assessment: { id: "assessment-1" },
       scenario_recommendation: {
         scoring_method: "four_quadrant_v1",

@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import threading
 from datetime import datetime, timezone
 from typing import Literal
@@ -45,9 +46,11 @@ from app.schemas.assessment import (
     ReportDocumentResponse,
     ScenarioCalibrationItem,
     ScenarioCalibrationRequest,
+    ScenarioBenefit,
     ScenarioPoolUpdateRequest,
     ScenarioRecommendationItem,
     ScenarioRecommendationResult,
+    ScenarioResource,
 )
 from app.schemas.breakthrough import (
     AssessmentBreakthroughResponse,
@@ -109,8 +112,10 @@ REPORT_OUTLINE = [
     "高优先级 AI 提效场景",
     "推荐场景详细规划",
     "差异化竞争力设计",
+    "参考案例与启示",
     "三阶段 AI 创新路线图",
     "风险与阻力",
+    "讲师点评区",
     "商业终局设计",
 ]
 
@@ -1161,8 +1166,8 @@ def save_scenario_calibrations(
             positioning=item.positioning or "",
             value_dimensions=item.value_dimensions or [],
             value_text=item.value_text or "",
-            benefits=list(item.benefits) if item.benefits else [],
-            resources=list(item.resources) if item.resources else [],
+            benefits=_scenario_benefit_payloads(item),
+            resources=_scenario_resource_payloads(item),
         ))
 
     # 复用 ScenePriorityScorer 进行评分、排序、Q4 兜底、tie-break
@@ -1191,7 +1196,10 @@ def save_scenario_calibrations(
     active_ranked_items = [
         item for item in updated_items if item.scenario_id in active_id_set
     ]
-    new_top3 = active_ranked_items[:3]
+    new_top3 = _select_top_scenarios_for_active_items(
+        active_ranked_items,
+        industry,
+    )
 
     record.all_scores_json = json.dumps(
         [item.model_dump() for item in updated_items], ensure_ascii=False,
@@ -1276,7 +1284,10 @@ def update_scenario_pool(
         active_ranked_items = [
             item for item in ranked_items if item.scenario_id in active_id_set
         ]
-        next_top_items = active_ranked_items[:3]
+        next_top_items = _select_top_scenarios_for_active_items(
+            active_ranked_items,
+            assessment.industry or "",
+        )
         record.active_scenario_ids_json = json.dumps(
             normalized_active_ids,
             ensure_ascii=False,
@@ -1491,15 +1502,478 @@ def _load_ranked_scenario_items_from_record(
         )
 
     try:
-        return [
-            ScenarioRecommendationItem.model_validate(item)
-            for item in raw_items
-        ]
+        items = [ScenarioRecommendationItem.model_validate(item) for item in raw_items]
+        return [_ensure_structured_scenario_fields_compat(item) for item in items]
     except ValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to parse stored scenario recommendation for this assessment.",
         ) from exc
+
+
+def _load_top_scenario_items_from_record(
+    record: ScenarioRecommendation,
+) -> list[ScenarioRecommendationItem]:
+    raw_items = _parse_json_raw(
+        record.scenario_json,
+        "Failed to parse stored top scenario recommendation for this assessment.",
+    )
+    if not isinstance(raw_items, list) or len(raw_items) == 0:
+        return []
+
+    try:
+        items = [ScenarioRecommendationItem.model_validate(item) for item in raw_items]
+        return [_ensure_structured_scenario_fields_compat(item) for item in items]
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to parse stored top scenario recommendation for this assessment.",
+        ) from exc
+
+
+_LEGACY_SECTION_MARKERS = (
+    "对应突破要素",
+    "战略定位",
+    "战略价值",
+    "预期收益",
+    "资源准备",
+)
+
+
+def _sanitize_legacy_text(value: str) -> str:
+    text = (value or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not text:
+        return ""
+    # Collapse excessive blank lines.
+    while "\n\n\n" in text:
+        text = text.replace("\n\n\n", "\n\n")
+    return text
+
+
+def _compact_one_liner(value: str, max_len: int = 28) -> str:
+    text = _sanitize_legacy_text(value)
+    if not text:
+        return ""
+    # Prefer the first non-empty line.
+    line = next((ln.strip() for ln in text.split("\n") if ln.strip()), "")
+    if not line:
+        return ""
+    # Strip common legacy section prefixes.
+    for prefix in ("战略定位", "对应突破要素", "战略价值", "预期收益", "资源准备"):
+        if prefix in line[:8]:
+            line = line.split(prefix, 1)[-1].lstrip("：: -—\t")
+            break
+    if len(line) <= max_len:
+        return line
+    return line[:max_len].rstrip("，。；;、,") + "…"
+
+
+def _extract_between_markers(
+    text: str,
+    start_markers: tuple[str, ...],
+    end_markers: tuple[str, ...],
+) -> str:
+    raw = _sanitize_legacy_text(text)
+    if not raw:
+        return ""
+
+    start_pos = None
+    start_marker_len = 0
+    for marker in start_markers:
+        idx = raw.find(marker)
+        if idx == -1:
+            continue
+        if start_pos is None or idx < start_pos:
+            start_pos = idx
+            start_marker_len = len(marker)
+    if start_pos is None:
+        return ""
+
+    content_start = start_pos + start_marker_len
+    # Skip delimiters after the marker.
+    while content_start < len(raw) and raw[content_start] in "：: \t\n】-—":
+        content_start += 1
+
+    content_end = len(raw)
+    for marker in end_markers:
+        idx = raw.find(marker, content_start)
+        if idx != -1:
+            content_end = min(content_end, idx)
+    return raw[content_start:content_end].strip()
+
+
+def _split_bullets(value: str, max_items: int = 4) -> list[str]:
+    import re
+
+    text = _sanitize_legacy_text(value)
+    if not text:
+        return []
+    lines: list[str] = []
+    for raw_line in text.split("\n"):
+        line = raw_line.strip()
+        if not line:
+            continue
+        # Remove typical bullet prefixes.
+        line = re.sub(r"^(?:[\\-\\*•]+|\\d+[\\.\\)\\]]|[①②③④⑤⑥⑦⑧⑨⑩]+)\\s*", "", line).strip()
+        if not line:
+            continue
+        lines.append(line)
+    # De-dup while preserving order.
+    seen: set[str] = set()
+    uniq: list[str] = []
+    for line in lines:
+        if line in seen:
+            continue
+        seen.add(line)
+        uniq.append(line)
+        if len(uniq) >= max_items:
+            break
+    return uniq
+
+
+def _ensure_structured_scenario_fields(
+    item: ScenarioRecommendationItem,
+) -> ScenarioRecommendationItem:
+    summary = _sanitize_legacy_text(item.summary or "")
+    canvas_elements = _sanitize_legacy_text(item.canvas_elements or "")
+    expected_effects = _sanitize_legacy_text(item.expected_effects or "")
+    core_data = _sanitize_legacy_text(item.core_data_requirements or "")
+
+    # 1) canvas_element: must be short, otherwise frontend uses canvas_elements as a tag.
+    if not item.canvas_element:
+        item.canvas_element = (item.category or "").strip()
+
+    # 2) positioning: short one-liner derived from summary; fallback to scenario name.
+    if not item.positioning:
+        item.positioning = _compact_one_liner(summary) or _compact_one_liner(item.name, max_len=18)
+
+    # 3) value_text: try to extract "战略价值" section from legacy canvas_elements; fallback to the whole canvas_elements.
+    if not item.value_text:
+        value_text = _extract_between_markers(
+            canvas_elements,
+            start_markers=("战略价值", "① 战略价值", "1. 战略价值", "1) 战略价值"),
+            end_markers=("预期收益", "② 预期收益", "2. 预期收益", "资源准备", "③ 资源准备", "3. 资源准备"),
+        )
+        if not value_text and canvas_elements:
+            # If canvas_elements is already short, keep it; otherwise pick the first paragraph.
+            paras = [p.strip() for p in canvas_elements.split("\n\n") if p.strip()]
+            value_text = paras[0] if paras else canvas_elements
+        item.value_text = value_text
+
+    # 4) benefits/resources: best-effort parsing from legacy expected_effects/core_data_requirements.
+    if not item.benefits:
+        benefit_text = _extract_between_markers(
+            expected_effects,
+            start_markers=("预期收益", "② 预期收益", "2. 预期收益"),
+            end_markers=("资源准备", "③ 资源准备", "3. 资源准备"),
+        ) or expected_effects
+        benefit_lines = _split_bullets(benefit_text)
+        if benefit_lines:
+            item.benefits = [ScenarioBenefit(text=line, canvas="") for line in benefit_lines]
+
+    if not item.resources:
+        resource_text = _extract_between_markers(
+            core_data,
+            start_markers=("资源准备", "③ 资源准备", "3. 资源准备"),
+            end_markers=(),
+        ) or core_data
+        resource_lines = _split_bullets(resource_text)
+        if resource_lines:
+            resources: list[ScenarioResource] = []
+            for line in resource_lines:
+                label = "准备"
+                text = line
+                if "：" in line:
+                    left, right = line.split("：", 1)
+                    if left.strip() and right.strip():
+                        label = left.strip()
+                        text = right.strip()
+                elif ":" in line:
+                    left, right = line.split(":", 1)
+                    if left.strip() and right.strip():
+                        label = left.strip()
+                        text = right.strip()
+                resources.append(ScenarioResource(type="resource", label=label, text=text))
+            item.resources = resources
+
+    # Keep dimensions empty; it's safe and doesn't change scoring.
+    return item
+
+
+_LEGACY_BREAKTHROUGH_MARKER_ASCII = "\u5bf9\u5e94\u7a81\u7834\u8981\u7d20"
+_LEGACY_DIRECTION_MARKER_ASCII = "\u5bf9\u5e94\u521b\u65b0\u65b9\u5411"
+_LEGACY_POSITIONING_MARKER_ASCII = "\u6218\u7565\u5b9a\u4f4d"
+_LEGACY_VALUE_MARKER_ASCII = "\u6218\u7565\u4ef7\u503c"
+_LEGACY_BENEFIT_MARKER_ASCII = "\u9884\u671f\u6536\u76ca"
+_LEGACY_RESOURCE_MARKER_ASCII = "\u8d44\u6e90\u51c6\u5907"
+_LEGACY_MARKERS_ASCII = (
+    _LEGACY_BREAKTHROUGH_MARKER_ASCII,
+    _LEGACY_DIRECTION_MARKER_ASCII,
+    _LEGACY_POSITIONING_MARKER_ASCII,
+    _LEGACY_VALUE_MARKER_ASCII,
+    _LEGACY_BENEFIT_MARKER_ASCII,
+    _LEGACY_RESOURCE_MARKER_ASCII,
+)
+_CANVAS_COMPAT_ALIASES: tuple[tuple[str, str, str], ...] = (
+    ("\u5ba2\u6237\u7ec6\u5206", "customer_segments", "CS"),
+    ("\u4ef7\u503c\u4e3b\u5f20", "value_propositions", "VP"),
+    ("\u6e20\u9053\u901a\u8def", "channels", "CH"),
+    ("\u5ba2\u6237\u5173\u7cfb", "customer_relationships", "CR"),
+    ("\u6536\u5165\u6765\u6e90", "revenue_streams", "R$"),
+    ("\u6838\u5fc3\u8d44\u6e90", "key_resources", "KR"),
+    ("\u5173\u952e\u8d44\u6e90", "key_resources", "KR"),
+    ("\u6838\u5fc3\u4e1a\u52a1", "key_activities", "KA"),
+    ("\u5173\u952e\u4e1a\u52a1", "key_activities", "KA"),
+    ("\u5173\u952e\u4e1a\u52a1\u6d3b\u52a8", "key_activities", "KA"),
+    ("\u91cd\u8981\u5408\u4f5c", "key_partnerships", "KP"),
+    ("\u5173\u952e\u5408\u4f5c\u4f19\u4f34", "key_partnerships", "KP"),
+    ("\u6210\u672c\u7ed3\u6784", "cost_structure", "C$"),
+)
+
+
+def _compat_strip_marker_prefix(value: str) -> str:
+    text = _sanitize_legacy_text(value)
+    if not text:
+        return ""
+    marker_pattern = "|".join(re.escape(marker) for marker in _LEGACY_MARKERS_ASCII)
+    text = re.sub(
+        rf"^(?:{marker_pattern})(?:\s*[\uff1a:]\s*|\s+)",
+        "",
+        text,
+        count=1,
+    )
+    return text.strip(" \t\n\uff0c\u3002\uff1b;-.")
+
+
+def _compat_compact_line(value: str, max_len: int = 18) -> str:
+    text = _compat_strip_marker_prefix(value)
+    if not text:
+        return ""
+    line = next((ln.strip() for ln in text.split("\n") if ln.strip()), "")
+    line = re.sub(r"\s+", " ", line).strip()
+    if not line:
+        return ""
+    if len(line) <= max_len:
+        return line
+    return line[:max_len].rstrip(" \t\n\uff0c\u3002\uff1b;") + "..."
+
+
+def _compat_extract_section(
+    text: str,
+    start_markers: tuple[str, ...],
+    end_markers: tuple[str, ...],
+) -> str:
+    raw = _sanitize_legacy_text(text)
+    if not raw:
+        return ""
+    start_pos = None
+    start_len = 0
+    for marker in start_markers:
+        idx = raw.find(marker)
+        if idx == -1:
+            continue
+        if start_pos is None or idx < start_pos:
+            start_pos = idx
+            start_len = len(marker)
+    if start_pos is None:
+        return ""
+    content_start = start_pos + start_len
+    while content_start < len(raw) and raw[content_start] in " \t\n\uff1a:;,\uff0c\u3002-":
+        content_start += 1
+    content_end = len(raw)
+    for marker in end_markers:
+        idx = raw.find(marker, content_start)
+        if idx != -1:
+            content_end = min(content_end, idx)
+    return raw[content_start:content_end].strip()
+
+
+def _compat_split_points(value: str, max_items: int = 4) -> list[str]:
+    text = _sanitize_legacy_text(value)
+    if not text:
+        return []
+    pieces = re.split(r"\n+|[；;](?!\d)", text)
+    points: list[str] = []
+    seen: set[str] = set()
+    for piece in pieces:
+        line = piece.strip()
+        if not line:
+            continue
+        line = re.sub(
+            r"^(?:[-*+•·]|\d+[.)\]]|[①②③④⑤⑥⑦⑧⑨⑩])\s*",
+            "",
+            line,
+        ).strip()
+        line = _compat_strip_marker_prefix(line)
+        if not line or line in seen:
+            continue
+        seen.add(line)
+        points.append(line)
+        if len(points) >= max_items:
+            break
+    return points
+
+
+def _compat_resolve_canvas_metadata(value: str) -> tuple[str, str, str]:
+    text = _sanitize_legacy_text(value)
+    if not text:
+        return "", "", ""
+    breakthrough_text = _compat_extract_section(
+        text,
+        start_markers=(_LEGACY_BREAKTHROUGH_MARKER_ASCII,),
+        end_markers=(
+            _LEGACY_DIRECTION_MARKER_ASCII,
+            _LEGACY_POSITIONING_MARKER_ASCII,
+            _LEGACY_VALUE_MARKER_ASCII,
+        ),
+    )
+    for haystack in (breakthrough_text, text):
+        for title, key, abbr in _CANVAS_COMPAT_ALIASES:
+            if title in haystack:
+                return title, key, abbr
+    return "", "", ""
+
+
+def _compat_render_canvas_label(title: str, abbr: str) -> str:
+    if not title:
+        return ""
+    return f"{title}\uff08{abbr}\uff09" if abbr else title
+
+
+def _compat_extract_positioning(summary: str, fallback_name: str) -> str:
+    text = _sanitize_legacy_text(summary)
+    if text:
+        match = re.search(
+            rf"{re.escape(_LEGACY_POSITIONING_MARKER_ASCII)}(?:\s*[\uff1a:]\s*|\s*[是为]\s*)([^。\n；;]{2,40})",
+            text,
+        )
+        if match:
+            return _compat_compact_line(match.group(1), max_len=18)
+    return _compat_compact_line(text, max_len=18) or _compat_compact_line(fallback_name, max_len=18)
+
+
+def _compat_needs_value_backfill(value_text: str) -> bool:
+    text = _sanitize_legacy_text(value_text)
+    if not text:
+        return True
+    noisy_markers = (
+        _LEGACY_BREAKTHROUGH_MARKER_ASCII,
+        _LEGACY_DIRECTION_MARKER_ASCII,
+        _LEGACY_POSITIONING_MARKER_ASCII,
+        _LEGACY_BENEFIT_MARKER_ASCII,
+        _LEGACY_RESOURCE_MARKER_ASCII,
+    )
+    return any(marker in text for marker in noisy_markers)
+
+
+def _compat_infer_resource_meta(value: str) -> tuple[str, str]:
+    text = _sanitize_legacy_text(value)
+    if re.search(r"\u98ce\u9669|\u504f\u5dee|\u5931\u8d25|\u5ef6\u8bef|\u8bef\u5224", text):
+        return "risk", "\u5173\u952e\u98ce\u9669"
+    if re.search(r"\u56e2\u961f|\u6d41\u7a0b|\u534f\u540c|\u7ec4\u7ec7|\u57f9\u8bad|\u8fd0\u8425", text):
+        return "org", "\u7ec4\u7ec7\u51c6\u5907"
+    if re.search(r"\u9884\u7b97|\u91c7\u8d2d|\u6295\u5165|\u6295\u8d44|\u5f00\u53d1|\u5efa\u8bbe", text):
+        return "invest", "\u6295\u5165\u95e8\u69db"
+    return "data", "\u6570\u636e\u57fa\u7840"
+
+
+def _ensure_structured_scenario_fields_compat(
+    item: ScenarioRecommendationItem,
+) -> ScenarioRecommendationItem:
+    summary = _sanitize_legacy_text(item.summary or "")
+    canvas_elements = _sanitize_legacy_text(item.canvas_elements or "")
+    expected_effects = _sanitize_legacy_text(item.expected_effects or "")
+    core_data = _sanitize_legacy_text(item.core_data_requirements or "")
+
+    canvas_title, canvas_key, canvas_abbr = _compat_resolve_canvas_metadata(
+        "\n".join(part for part in (item.canvas_element, canvas_elements) if part)
+    )
+    canvas_label = _compat_render_canvas_label(canvas_title, canvas_abbr)
+    benefit_canvas = (
+        f"{canvas_title} {canvas_abbr}".strip()
+        if canvas_title
+        else (canvas_abbr or (item.category or "").strip() or "\u4e1a\u52a1\u76ee\u6807")
+    )
+
+    if not item.canvas_element:
+        item.canvas_element = canvas_label or (item.category or "").strip()
+    if not item.canvas_key and canvas_key:
+        item.canvas_key = canvas_key
+
+    if not item.positioning or len(_sanitize_legacy_text(item.positioning)) > 40:
+        item.positioning = _compat_extract_positioning(summary, item.name)
+
+    if _compat_needs_value_backfill(item.value_text):
+        value_text = _compat_extract_section(
+            canvas_elements,
+            start_markers=(_LEGACY_VALUE_MARKER_ASCII,),
+            end_markers=(_LEGACY_BENEFIT_MARKER_ASCII, _LEGACY_RESOURCE_MARKER_ASCII),
+        )
+        if not value_text:
+            value_text = _sanitize_legacy_text(canvas_elements)
+        item.value_text = _compat_strip_marker_prefix(value_text)
+
+    if not item.benefits:
+        benefit_text = _compat_extract_section(
+            expected_effects,
+            start_markers=(_LEGACY_BENEFIT_MARKER_ASCII,),
+            end_markers=(_LEGACY_RESOURCE_MARKER_ASCII,),
+        ) or expected_effects
+        benefit_lines = _compat_split_points(benefit_text, max_items=4)
+        if benefit_lines:
+            item.benefits = [
+                ScenarioBenefit(text=line, canvas=benefit_canvas)
+                for line in benefit_lines
+            ]
+    else:
+        item.benefits = [
+            ScenarioBenefit(
+                text=benefit.text,
+                canvas=benefit.canvas or benefit_canvas,
+            )
+            for benefit in item.benefits
+        ]
+
+    if not item.resources:
+        resource_text = _compat_extract_section(
+            core_data,
+            start_markers=(_LEGACY_RESOURCE_MARKER_ASCII,),
+            end_markers=(),
+        ) or core_data
+        resource_lines = _compat_split_points(resource_text, max_items=4)
+        if resource_lines:
+            item.resources = []
+            for line in resource_lines:
+                normalized_line = _sanitize_legacy_text(line)
+                label = ""
+                text = normalized_line
+                match = re.match(r"^(.{1,8})[\uff1a:]\s*(.+)$", normalized_line)
+                if match:
+                    label = match.group(1).strip()
+                    text = match.group(2).strip()
+                resource_type, fallback_label = _compat_infer_resource_meta(
+                    label or text
+                )
+                item.resources.append(
+                    ScenarioResource(
+                        type=resource_type,
+                        label=label or fallback_label,
+                        text=text,
+                    )
+                )
+    else:
+        item.resources = [
+            ScenarioResource(
+                type=resource.type or _compat_infer_resource_meta(
+                    f"{resource.label} {resource.text}".strip()
+                )[0],
+                label=resource.label or _compat_infer_resource_meta(resource.text)[1],
+                text=resource.text,
+            )
+            for resource in item.resources
+        ]
+
+    return item
 
 
 def _load_active_scenario_ids_from_record(
@@ -1530,10 +2004,77 @@ def _load_active_scenario_ids_from_record(
     return ranked_ids
 
 
+def _scenario_benefit_payloads(item: ScenarioRecommendationItem) -> list[dict]:
+    if not item.benefits:
+        return []
+    return [
+        benefit.model_dump() if hasattr(benefit, "model_dump") else dict(benefit)
+        for benefit in item.benefits
+    ]
+
+
+def _scenario_resource_payloads(item: ScenarioRecommendationItem) -> list[dict]:
+    if not item.resources:
+        return []
+    return [
+        resource.model_dump() if hasattr(resource, "model_dump") else dict(resource)
+        for resource in item.resources
+    ]
+
+
+def _build_priority_inputs_from_items(
+    items: list[ScenarioRecommendationItem],
+    industry: str,
+) -> list[ScenePriorityInput]:
+    return [
+        ScenePriorityInput(
+            scene_id=item.scenario_id,
+            scene_name=item.name,
+            category=item.category,
+            summary=item.summary or "",
+            structuredness_x=float(item.priority_structuredness_x or 3.0),
+            complexity_y=float(item.priority_complexity_y or 3.0),
+            industry=industry,
+            canvas_elements=item.canvas_elements or "",
+            expected_effects=item.expected_effects or "",
+            core_data_requirements=item.core_data_requirements or "",
+            canvas_element=item.canvas_element or "",
+            canvas_key=item.canvas_key or "",
+            positioning=item.positioning or "",
+            value_dimensions=item.value_dimensions or [],
+            value_text=item.value_text or "",
+            benefits=_scenario_benefit_payloads(item),
+            resources=_scenario_resource_payloads(item),
+        )
+        for item in items
+    ]
+
+
+def _select_top_scenarios_for_active_items(
+    active_items: list[ScenarioRecommendationItem],
+    industry: str,
+) -> list[ScenarioRecommendationItem]:
+    if not active_items:
+        return []
+
+    scorer = ScenePriorityScorer()
+    priority_result = scorer.recommend_top3(
+        _build_priority_inputs_from_items(active_items, industry),
+    )
+    by_id = {item.scenario_id: item for item in active_items}
+    selected: list[ScenarioRecommendationItem] = []
+    for score in priority_result.top_3:
+        item = by_id.get(score.scene_id)
+        if item is not None:
+            selected.append(item)
+    return selected
+
+
 def _build_scenario_recommendation_result_from_record(
     record: ScenarioRecommendation,
 ) -> ScenarioRecommendationResult:
     ranked_items = _load_ranked_scenario_items_from_record(record)
+    stored_top_items = _load_top_scenario_items_from_record(record)
     active_ids = _load_active_scenario_ids_from_record(record, ranked_items)
     active_id_set = set(active_ids)
     active_items = [
@@ -1542,11 +2083,26 @@ def _build_scenario_recommendation_result_from_record(
     excluded_items = [
         item for item in ranked_items if item.scenario_id not in active_id_set
     ]
+    active_by_id = {item.scenario_id: item for item in active_items}
+    top_scenarios = [
+        active_by_id.get(item.scenario_id, item)
+        for item in stored_top_items
+        if item.scenario_id in active_id_set
+    ]
+    if len(top_scenarios) < min(3, len(active_items)):
+        seen_ids = {item.scenario_id for item in top_scenarios}
+        for item in active_items:
+            if item.scenario_id in seen_ids:
+                continue
+            top_scenarios.append(item)
+            seen_ids.add(item.scenario_id)
+            if len(top_scenarios) >= min(3, len(active_items)):
+                break
 
     return ScenarioRecommendationResult(
         scoring_method=record.scoring_method,
         evaluated_count=record.evaluated_count,
-        top_scenarios=active_items[:3],
+        top_scenarios=top_scenarios,
         all_scores=active_items if record.all_scores_json else None,
         active_count=len(active_items),
         excluded_scores=excluded_items,

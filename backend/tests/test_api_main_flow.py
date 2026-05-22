@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -943,6 +943,488 @@ def test_calibration_requires_existing_scenarios(
         json={"calibrations": [{"scenario_id": "test", "priority_structuredness_x": 3, "priority_complexity_y": 3}]},
     )
     assert cal_resp.status_code in (404, 400)
+
+
+def _load_scenario_record(assessment_id: str):
+    from app.models.scenario_recommendation import ScenarioRecommendation
+
+    db = db_session.SessionLocal()
+    try:
+        record = db.scalar(
+            select(ScenarioRecommendation).where(
+                ScenarioRecommendation.assessment_id == assessment_id
+            )
+        )
+        assert record is not None
+        return record
+    finally:
+        db.close()
+
+
+def _scenario_ids_from_json_list(raw_json: str) -> list[str]:
+    parsed = json.loads(raw_json)
+    assert isinstance(parsed, list)
+    return [item["scenario_id"] for item in parsed]
+
+
+def _make_legacy_scenario_item(
+    scenario_id: str,
+    name: str,
+    summary: str,
+    canvas_elements: str,
+    expected_effects: str,
+    core_data_requirements: str,
+    x: float,
+    y: float,
+) -> dict:
+    return {
+        "scenario_id": scenario_id,
+        "name": name,
+        "category": "legacy-test",
+        "summary": summary,
+        "canvas_elements": canvas_elements,
+        "expected_effects": expected_effects,
+        "core_data_requirements": core_data_requirements,
+        "priority_structuredness_x": x,
+        "priority_complexity_y": y,
+    }
+
+
+def _seed_legacy_scenario_record(assessment_id: str) -> list[dict]:
+    from app.models.scenario_recommendation import ScenarioRecommendation
+
+    legacy_items = [
+        _make_legacy_scenario_item(
+            "legacy-1",
+            "Legacy Top 1",
+            "该场景聚焦高价值会员经营。战略定位是高价值会员复购增长引擎。",
+            "对应突破要素：客户细分、渠道通路；对应创新方向：自动化营销；战略价值：通过聚焦高价值客户提升转化效率。",
+            "预期收益：提升复购率；缩短活动反馈周期；减少人工筛客时间。",
+            "资源准备：数据基础：需整合CRM会员系统数据；关键风险：会员标签口径不统一。",
+            4.0,
+            2.0,
+        ),
+        _make_legacy_scenario_item(
+            "legacy-2",
+            "Legacy Top 2",
+            "该场景聚焦门店补货优化。战略定位是门店补货协同加速器。",
+            "对应突破要素：关键业务活动、关键资源；对应创新方向：智能补货；战略价值：通过降低缺货和滞销改善经营效率。",
+            "预期收益：降低缺货率；减少滞销库存；提升门店周转效率。",
+            "资源准备：数据基础：需整合POS与库存数据；组织准备：补货规则需要门店和采购同步。",
+            4.0,
+            3.0,
+        ),
+        _make_legacy_scenario_item(
+            "legacy-3",
+            "Legacy Top 3",
+            "该场景聚焦客服知识复用。战略定位是服务知识标准化中枢。",
+            "对应突破要素：客户关系、关键资源；对应创新方向：知识沉淀；战略价值：通过统一知识口径提升服务响应速度。",
+            "预期收益：缩短培训周期；提升首问解决率；减少重复答疑。",
+            "资源准备：数据基础：需整合客服话术与工单数据；组织准备：需安排知识运营角色。",
+            3.0,
+            2.0,
+        ),
+        _make_legacy_scenario_item(
+            "legacy-4",
+            "Legacy Candidate 4",
+            "该场景聚焦会员流失预警。战略定位是流失风险前置预警器。",
+            "对应突破要素：客户关系、客户细分；对应创新方向：流失预警；战略价值：通过提前识别流失风险减少会员流失。",
+            "预期收益：提升挽回成功率；减少高价值会员流失；提升留存运营效率。",
+            "资源准备：数据基础：需整合交易与互动数据；关键风险：触达策略不当可能引发打扰。",
+            2.0,
+            5.0,
+        ),
+    ]
+
+    with db_session.SessionLocal() as session:
+        record = session.scalar(
+            select(ScenarioRecommendation).where(
+                ScenarioRecommendation.assessment_id == assessment_id
+            )
+        )
+        if record is None:
+            record = ScenarioRecommendation(
+                assessment_id=assessment_id,
+                scoring_method="four_quadrant_v1",
+                evaluated_count=len(legacy_items),
+                scenario_json="[]",
+                top_scenarios="[]",
+            )
+        record.scoring_method = "four_quadrant_v1"
+        record.evaluated_count = len(legacy_items)
+        record.scenario_json = json.dumps(legacy_items[:3], ensure_ascii=False)
+        record.top_scenarios = json.dumps(
+            [item["name"] for item in legacy_items[:3]],
+            ensure_ascii=False,
+        )
+        record.all_scores_json = json.dumps(legacy_items, ensure_ascii=False)
+        record.active_scenario_ids_json = json.dumps(
+            [item["scenario_id"] for item in legacy_items],
+            ensure_ascii=False,
+        )
+        session.add(record)
+        session.commit()
+
+    return legacy_items
+
+
+def _assert_structured_scenario_payload(item: dict) -> None:
+    assert item["positioning"]
+    assert item["value_text"]
+    assert _not_contains_legacy_markers(item["value_text"])
+    assert item["canvas_element"]
+    assert item["canvas_key"]
+    assert item["benefits"]
+    assert all(benefit["canvas"] for benefit in item["benefits"])
+    assert item["resources"]
+    assert all(resource["label"] for resource in item["resources"])
+    assert all(resource["type"] for resource in item["resources"])
+
+
+def _not_contains_legacy_markers(value: str) -> bool:
+    return "对应突破要素" not in value and "对应创新方向" not in value
+
+
+def _compute_expected_top3_ids_from_items(
+    items: list[dict],
+    industry: str,
+) -> list[str]:
+    from app.schemas.scene_priority import ScenePriorityInput
+    from app.services.scene_priority_scorer import ScenePriorityScorer
+
+    candidates: list[ScenePriorityInput] = []
+    for item in items:
+        candidates.append(
+            ScenePriorityInput(
+                scene_id=item["scenario_id"],
+                scene_name=item.get("name", ""),
+                category=item.get("category", ""),
+                summary=item.get("summary") or "",
+                structuredness_x=float(item.get("priority_structuredness_x") or 3.0),
+                complexity_y=float(item.get("priority_complexity_y") or 3.0),
+                industry=industry or "",
+                canvas_elements=item.get("canvas_elements") or "",
+                expected_effects=item.get("expected_effects") or "",
+                core_data_requirements=item.get("core_data_requirements") or "",
+                canvas_element=item.get("canvas_element") or "",
+                canvas_key=item.get("canvas_key") or "",
+                positioning=item.get("positioning") or "",
+                value_dimensions=item.get("value_dimensions") or [],
+                value_text=item.get("value_text") or "",
+                benefits=item.get("benefits") or [],
+                resources=item.get("resources") or [],
+            )
+        )
+
+    result = ScenePriorityScorer().recommend_top3(candidates)
+    return [score.scene_id for score in result.top_3]
+
+
+def test_legacy_record_detail_backfills_structured_fields(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+) -> None:
+    assessment_id = _prepare_for_scenarios(client, assessment_payload)
+    legacy_items = _seed_legacy_scenario_record(assessment_id)
+
+    detail_response = client.get(f"/api/assessments/{assessment_id}")
+
+    assert detail_response.status_code == 200
+    scenarios = detail_response.json()["scenario_recommendation"]
+    assert scenarios is not None
+    assert [item["scenario_id"] for item in scenarios["top_scenarios"]] == [
+        item["scenario_id"] for item in legacy_items[:3]
+    ]
+    for item in scenarios["top_scenarios"]:
+        _assert_structured_scenario_payload(item)
+
+
+def test_legacy_record_calibration_backfills_and_persists_structured_fields(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+) -> None:
+    assessment_id = _prepare_for_scenarios(client, assessment_payload)
+    _seed_legacy_scenario_record(assessment_id)
+
+    calibration_response = client.post(
+        f"/api/assessments/{assessment_id}/scenarios/calibrations",
+        json={
+            "calibrations": [
+                {
+                    "scenario_id": "legacy-4",
+                    "priority_structuredness_x": 5.0,
+                    "priority_complexity_y": 1.0,
+                }
+            ]
+        },
+    )
+
+    assert calibration_response.status_code == 200
+    calibrated = calibration_response.json()["scenario_recommendation"]
+    assert any(item["scenario_id"] == "legacy-4" for item in calibrated["top_scenarios"])
+    for item in calibrated["top_scenarios"]:
+        _assert_structured_scenario_payload(item)
+
+    detail_response = client.get(f"/api/assessments/{assessment_id}")
+    assert detail_response.status_code == 200
+    detail_top = detail_response.json()["scenario_recommendation"]["top_scenarios"]
+    assert any(item["scenario_id"] == "legacy-4" for item in detail_top)
+    for item in detail_top:
+        _assert_structured_scenario_payload(item)
+
+    record = _load_scenario_record(assessment_id)
+    persisted_top = json.loads(record.scenario_json)
+    persisted_all = json.loads(record.all_scores_json)
+    assert any(item["scenario_id"] == "legacy-4" for item in persisted_top)
+    for item in persisted_top + persisted_all:
+        _assert_structured_scenario_payload(item)
+
+
+def test_legacy_record_pool_update_backfills_and_persists_structured_fields(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+) -> None:
+    assessment_id = _prepare_for_scenarios(client, assessment_payload)
+    legacy_items = _seed_legacy_scenario_record(assessment_id)
+    removed_id = legacy_items[0]["scenario_id"]
+
+    pool_response = client.put(
+        f"/api/assessments/{assessment_id}/scenarios/pool",
+        json={
+            "active_scenario_ids": [
+                item["scenario_id"]
+                for item in legacy_items
+                if item["scenario_id"] != removed_id
+            ]
+        },
+    )
+
+    assert pool_response.status_code == 200
+    pooled = pool_response.json()["scenario_recommendation"]
+    assert all(item["scenario_id"] != removed_id for item in pooled["top_scenarios"])
+    assert any(item["scenario_id"] == removed_id for item in pooled["excluded_scores"])
+    for item in pooled["top_scenarios"]:
+        _assert_structured_scenario_payload(item)
+
+    detail_response = client.get(f"/api/assessments/{assessment_id}")
+    assert detail_response.status_code == 200
+    detail_scenarios = detail_response.json()["scenario_recommendation"]
+    assert all(item["scenario_id"] != removed_id for item in detail_scenarios["top_scenarios"])
+    for item in detail_scenarios["top_scenarios"]:
+        _assert_structured_scenario_payload(item)
+
+    record = _load_scenario_record(assessment_id)
+    persisted_top = json.loads(record.scenario_json)
+    persisted_all = json.loads(record.all_scores_json)
+    assert all(item["scenario_id"] != removed_id for item in persisted_top)
+    assert any(item["scenario_id"] == removed_id for item in persisted_all)
+    for item in persisted_top + persisted_all:
+        _assert_structured_scenario_payload(item)
+
+
+def _install_fake_priority_recommender(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Force a deterministic mismatch:
+    - stored scenario_json (true top3) = [t-1, t-2, t-3]
+    - stored all_scores_json prefix (ranked_items[:3]) = [a-1, a-2, a-3]
+    Current buggy code derives top_scenarios from all_scores[:3], so API responses
+    will return [a-1, a-2, a-3] instead of [t-1, t-2, t-3].
+    """
+    from app.schemas.assessment import ScenarioRecommendationItem, ScenarioRecommendationResult
+    from app.services.scenario_recommender import ScenarioRecommender
+
+    def _item(
+        scenario_id: str,
+        name: str,
+        x: float,
+        y: float,
+    ) -> ScenarioRecommendationItem:
+        return ScenarioRecommendationItem(
+            scenario_id=scenario_id,
+            name=name,
+            category="test",
+            summary=f"summary {scenario_id}",
+            canvas_elements=f"canvas {scenario_id}",
+            expected_effects=f"effects {scenario_id}",
+            core_data_requirements=f"data {scenario_id}",
+            priority_structuredness_x=x,
+            priority_complexity_y=y,
+            priority_qs=None,
+            priority_lps=None,
+            priority_lps_display=None,
+            priority_quadrant=None,
+            priority_tier=None,
+            priority_recommendation=None,
+            industry_coefficient=None,
+            recommendation_level=None,
+            canvas_element="",
+            canvas_key="",
+            positioning="",
+            value_dimensions=[],
+            value_text="",
+            benefits=[],
+            resources=[],
+        )
+
+    top_scenarios = [
+        _item("t-1", "Top-1", 5.0, 1.0),
+        _item("t-2", "Top-2", 4.0, 2.0),
+        _item("t-3", "Top-3", 4.0, 1.5),
+    ]
+    all_scores = [
+        _item("a-1", "Aux-1", 1.0, 5.0),
+        _item("a-2", "Aux-2", 1.0, 4.5),
+        _item("a-3", "Aux-3", 2.0, 5.0),
+        *top_scenarios,
+    ]
+
+    def _fake_recommend_with_priority(self, *args, **kwargs) -> ScenarioRecommendationResult:
+        return ScenarioRecommendationResult(
+            scoring_method="four_quadrant_v1",
+            evaluated_count=len(all_scores),
+            top_scenarios=top_scenarios,
+            all_scores=all_scores,
+        )
+
+    monkeypatch.setattr(ScenarioRecommender, "recommend_with_priority", _fake_recommend_with_priority)
+
+
+def test_top3_source_after_generate_detail_matches_record_scenario_json_not_all_scores_prefix(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fake_priority_recommender(monkeypatch)
+    assessment_id = _prepare_for_scenarios(client, assessment_payload)
+
+    gen_resp = client.post(f"/api/assessments/{assessment_id}/scenarios")
+    assert gen_resp.status_code == 200
+
+    record = _load_scenario_record(assessment_id)
+    stored_top_ids = _scenario_ids_from_json_list(record.scenario_json)
+    assert stored_top_ids == ["t-1", "t-2", "t-3"]
+    assert record.all_scores_json is not None
+    all_scores_prefix_ids = _scenario_ids_from_json_list(record.all_scores_json)[:3]
+    # Ensure the fixture actually triggers the mismatch this regression test is meant to lock in.
+    assert all_scores_prefix_ids != stored_top_ids
+
+    detail_resp = client.get(f"/api/assessments/{assessment_id}")
+    assert detail_resp.status_code == 200
+    detail_top_ids = [
+        item["scenario_id"]
+        for item in detail_resp.json()["scenario_recommendation"]["top_scenarios"]
+    ]
+    # Contract: top_scenarios must come from the persisted true Top3 (scenario_json),
+    # never derived from all_scores[:3].
+    assert detail_top_ids == stored_top_ids
+
+
+def test_top3_source_after_calibration_detail_matches_scorer_top3_not_all_scores_prefix(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fake_priority_recommender(monkeypatch)
+    assessment_id = _prepare_for_scenarios(client, assessment_payload)
+    assert client.post(f"/api/assessments/{assessment_id}/scenarios").status_code == 200
+
+    # Calibrate a non-prefix scenario to ensure it should become Top1 under scorer rules.
+    cal_resp = client.post(
+        f"/api/assessments/{assessment_id}/scenarios/calibrations",
+        json={
+            "calibrations": [
+                {
+                    "scenario_id": "t-1",
+                    "priority_structuredness_x": 5.0,
+                    "priority_complexity_y": 1.0,
+                }
+            ]
+        },
+    )
+    assert cal_resp.status_code == 200
+
+    record = _load_scenario_record(assessment_id)
+    assert record.all_scores_json is not None
+    stored_items = json.loads(record.all_scores_json)
+    assert isinstance(stored_items, list)
+    expected_top3_ids = _compute_expected_top3_ids_from_items(
+        stored_items,
+        industry=assessment_payload.get("industry", ""),
+    )
+    assert len(expected_top3_ids) >= 1
+
+    stored_top_ids = _scenario_ids_from_json_list(record.scenario_json)
+    detail_resp = client.get(f"/api/assessments/{assessment_id}")
+    assert detail_resp.status_code == 200
+    detail_top_ids = [
+        item["scenario_id"]
+        for item in detail_resp.json()["scenario_recommendation"]["top_scenarios"]
+    ]
+
+    # Contract: calibration re-ranking must use scorer Top3, not list slicing.
+    assert stored_top_ids == expected_top3_ids
+    assert detail_top_ids == expected_top3_ids
+
+
+def test_top3_source_after_scenario_pool_update_detail_matches_scorer_top3_not_all_scores_prefix(
+    client: TestClient,
+    assessment_payload: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fake_priority_recommender(monkeypatch)
+    assessment_id = _prepare_for_scenarios(client, assessment_payload)
+    assert client.post(f"/api/assessments/{assessment_id}/scenarios").status_code == 200
+
+    record = _load_scenario_record(assessment_id)
+    assert record.all_scores_json is not None
+    ranked_items = json.loads(record.all_scores_json)
+    assert isinstance(ranked_items, list)
+    all_ids = [item["scenario_id"] for item in ranked_items]
+    assert set(["t-1", "t-2", "t-3"]).issubset(set(all_ids))
+
+    expected_before = _compute_expected_top3_ids_from_items(
+        ranked_items,
+        industry=assessment_payload.get("industry", ""),
+    )
+    assert len(expected_before) >= 1
+
+    removed_id = expected_before[0]
+    active_ids = [scenario_id for scenario_id in all_ids if scenario_id != removed_id]
+    assert len(active_ids) >= 3
+
+    update_resp = client.put(
+        f"/api/assessments/{assessment_id}/scenarios/pool",
+        json={"active_scenario_ids": active_ids},
+    )
+    assert update_resp.status_code == 200
+
+    record_after = _load_scenario_record(assessment_id)
+    assert record_after.all_scores_json is not None
+    ranked_items_after = json.loads(record_after.all_scores_json)
+    assert isinstance(ranked_items_after, list)
+
+    active_set = set(json.loads(record_after.active_scenario_ids_json or "[]"))
+    active_items_after = [
+        item for item in ranked_items_after if item["scenario_id"] in active_set
+    ]
+    expected_after = _compute_expected_top3_ids_from_items(
+        active_items_after,
+        industry=assessment_payload.get("industry", ""),
+    )
+    assert len(expected_after) >= 1
+
+    stored_top_ids = _scenario_ids_from_json_list(record_after.scenario_json)
+    detail_resp = client.get(f"/api/assessments/{assessment_id}")
+    assert detail_resp.status_code == 200
+    detail_top_ids = [
+        item["scenario_id"]
+        for item in detail_resp.json()["scenario_recommendation"]["top_scenarios"]
+    ]
+
+    # Contract: pool updates must re-evaluate Top3 using the same scorer ordering,
+    # never derived from active_ranked_items[:3].
+    assert stored_top_ids == expected_after
+    assert detail_top_ids == expected_after
 
 
 def test_live_scenario_packaging_rewrites_top3_and_syncs_all_scores(
