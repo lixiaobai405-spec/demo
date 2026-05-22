@@ -669,9 +669,6 @@ export function ScenarioQuadrantView({
                           <p className="truncate text-sm font-semibold text-warm-text">
                             {item.name}
                           </p>
-                          <p className="mt-1 text-xs leading-5 text-warm-muted">
-                            {compactScenarioSummary(item.summary)}
-                          </p>
                         </button>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
@@ -730,9 +727,6 @@ export function ScenarioQuadrantView({
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold text-warm-text">
                             {item.name}
-                          </p>
-                          <p className="mt-1 text-xs leading-5 text-warm-muted">
-                            {compactScenarioSummary(item.summary)}
                           </p>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
