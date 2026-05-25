@@ -1,16 +1,27 @@
 """
-LLM API key configuration template for Meitai AI Business Innovation Agent.
+Local configuration template for Meitai AI Business Innovation Agent.
 
-→ 复制此文件为 mykey.py（已在 .gitignore 中）
-→ 填入真实凭证
-→ mykey.py 中的值会覆盖 .env 中的对应字段
+Copy this file to mykey.py (gitignored) and fill in real credentials.
+.env values override mykey.py when both are present.
 """
 
 llm_config = {
     "llm_mode": "live",                     # "mock" | "live"
-    "openai_api_key": "sk-你的真实key",
+    "openai_api_key": "sk-your-real-key",
     "openai_base_url": "https://api.openai.com/v1",
     "openai_model": "gpt-4o-mini",
-    "llm_report_enabled": True,             # 是否启用 LLM 增强报告
+    "llm_report_enabled": True,
     "llm_report_timeout_seconds": 60,
+
+    # Password reset email
+    "smtp_enabled": True,
+    "smtp_host": "smtp.qq.com",
+    "smtp_port": 465,
+    "smtp_username": "your_qq_mail@qq.com",
+    "smtp_password": "your_qq_smtp_auth_code",
+    "smtp_from_email": "your_qq_mail@qq.com",
+    "smtp_from_name": "Meitai AI",
+    "smtp_use_tls": False,
+    "smtp_use_ssl": True,
+    "password_reset_url": "http://localhost:3001/reset-password",
 }

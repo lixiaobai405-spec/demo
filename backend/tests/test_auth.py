@@ -417,6 +417,55 @@ def test_forgot_password_requires_existing_recovery_settings(client: TestClient)
     assert question_response.status_code == 404
 
 
+def test_forgot_password_requires_enabled_smtp(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+
+    from app.services import auth_service
+
+    register_response = client.post(
+        "/api/auth/register",
+        json=build_register_payload("smtp-off@test.com"),
+    )
+    assert register_response.status_code == 201, register_response.text
+
+    monkeypatch.setattr(
+        auth_service,
+        "settings",
+        SimpleNamespace(
+            smtp_enabled=False,
+            smtp_host="",
+            smtp_port=587,
+            smtp_username="",
+            smtp_password="",
+            smtp_from_email="",
+            smtp_from_name="Meitai AI",
+            smtp_use_tls=True,
+            smtp_use_ssl=False,
+            password_reset_url="",
+            frontend_origin="http://localhost:3001",
+            jwt_expire_minutes=1440,
+            jwt_secret_key="test-secret",
+            jwt_algorithm="HS256",
+        ),
+    )
+
+    response = client.post(
+        "/api/auth/forgot-password",
+        json={"email": "smtp-off@test.com"},
+    )
+
+    assert response.status_code == 503, response.text
+
+    with db_session.SessionLocal() as db:
+        user = db.query(User).filter(User.email == "smtp-off@test.com").first()
+        assert user is not None
+        assert user.reset_token is None
+        assert user.reset_token_expires_at is None
+
+
 def test_forgot_password_sends_reset_email_via_smtp(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
@@ -447,6 +496,9 @@ def test_forgot_password_sends_reset_email_via_smtp(
 
         def starttls(self):
             sent["starttls"] = True
+
+        def ehlo(self):
+            sent["ehlo"] = sent.get("ehlo", 0) + 1
 
         def login(self, username: str, password: str):
             sent["login"] = (username, password)
@@ -526,6 +578,9 @@ def test_forgot_password_smtp_failure_rolls_back_token(
             return False
 
         def starttls(self):
+            pass
+
+        def ehlo(self):
             pass
 
         def login(self, username: str, password: str):
