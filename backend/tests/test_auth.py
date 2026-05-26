@@ -623,3 +623,41 @@ def test_forgot_password_smtp_failure_rolls_back_token(
         assert user is not None
         assert user.reset_token is None
         assert user.reset_token_expires_at is None
+
+
+def test_reset_password_by_token_accepts_sqlite_naive_expiry(
+    client: TestClient,
+) -> None:
+    register_response = client.post(
+        "/api/auth/register",
+        json=build_register_payload(
+            "token-reset@test.com",
+            password="oldpass123",
+        ),
+    )
+    assert register_response.status_code == 201, register_response.text
+
+    with db_session.SessionLocal() as db:
+        user = db.query(User).filter(User.email == "token-reset@test.com").first()
+        assert user is not None
+        user.reset_token = "valid-reset-token"
+        user.reset_token_expires_at = datetime.utcnow() + timedelta(hours=1)
+        db.add(user)
+        db.commit()
+
+    reset_response = client.post(
+        "/api/auth/reset-password",
+        json={"token": "valid-reset-token", "new_password": "newpass123"},
+    )
+    assert reset_response.status_code == 200, reset_response.text
+
+    old_login = client.post(
+        "/api/auth/login",
+        json={"email": "token-reset@test.com", "password": "oldpass123"},
+    )
+    new_login = client.post(
+        "/api/auth/login",
+        json={"email": "token-reset@test.com", "password": "newpass123"},
+    )
+    assert old_login.status_code == 401
+    assert new_login.status_code == 200, new_login.text

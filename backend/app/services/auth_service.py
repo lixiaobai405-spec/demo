@@ -281,6 +281,12 @@ def request_password_reset(db: Session, email: str) -> None:
         ) from exc
 
 
+def _as_utc_aware(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
 def reset_password_by_token(db: Session, token: str, new_password: str) -> None:
     user = db.query(User).filter(User.reset_token == token).first()
     if user is None:
@@ -288,9 +294,10 @@ def reset_password_by_token(db: Session, token: str, new_password: str) -> None:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="重置链接无效或已过期，请重新申请找回。",
         )
+    expires_at = user.reset_token_expires_at
     if (
-        user.reset_token_expires_at is None
-        or user.reset_token_expires_at < datetime.now(timezone.utc)
+        expires_at is None
+        or _as_utc_aware(expires_at) < datetime.now(timezone.utc)
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
