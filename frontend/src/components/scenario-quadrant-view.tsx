@@ -102,31 +102,7 @@ const Y_DESCRIPTIONS: Record<number, string> = {
 const RANK_EMOJI = ["🥇", "🥈", "🥉"];
 const SCENE_ORDINAL = ["一", "二", "三"];
 const RANK_ACCENT_BG = ["bg-amber-400", "bg-slate-300", "bg-stone-400"];
-
-const CANVAS_KEY_ABBR: Record<string, string> = {
-  customer_segments: "CS",
-  value_propositions: "VP",
-  channels: "CH",
-  customer_relationships: "CR",
-  revenue_streams: "R$",
-  key_resources: "KR",
-  key_activities: "KA",
-  key_partnerships: "KP",
-  cost_structure: "C$",
-};
-
-const CANVAS_NAME_ABBR: Record<string, string> = {
-  客户细分: "CS",
-  价值主张: "VP",
-  渠道通路: "CH",
-  客户关系: "CR",
-  收入来源: "R$",
-  核心资源: "KR",
-  关键资源: "KR",
-  关键业务: "KA",
-  重要合作: "KP",
-  成本结构: "C$",
-};
+const MAX_SCENARIO_TEASER_LENGTH = 15;
 
 function calcQuadrant(x: number, y: number): QuadrantLabel {
   if (x >= QUADRANT_THRESHOLD && y >= QUADRANT_THRESHOLD) return "AI优先区";
@@ -223,9 +199,55 @@ function bubblePos(x: number, y: number) {
   };
 }
 
+function compactScenarioText(value?: string | null) {
+  const text = (value ?? "")
+    .replace(/\s+/g, "")
+    .replace(/^[-—:：，。；;、]+/, "")
+    .replace(/^是(?=.+)/, "");
+  const firstSentence = text.split(/[。；;]/)[0] ?? "";
+  const compact = firstSentence || text;
+  if (!compact) return "";
+  if (compact.length <= MAX_SCENARIO_TEASER_LENGTH) return compact;
+  return compact
+    .slice(0, MAX_SCENARIO_TEASER_LENGTH)
+    .replace(/[，。；;、:：—-]+$/, "");
+}
+
 function compactScenarioSummary(summary?: string | null) {
   const text = (summary ?? "").replace(/\s+/g, "");
-  return text.length > 15 ? text.slice(0, 15) : text;
+  if (!text) return "";
+
+  const layoutMatch = text.match(/环节布局[“"]([^”"]+)[”"]，?([^。；;]*)/);
+  if (layoutMatch?.[2]) {
+    return compactScenarioText(layoutMatch[2]);
+  }
+
+  const positioningMatch = text.match(/战略定位[：:]?([^。；;]*)/);
+  if (positioningMatch?.[1]) {
+    return compactScenarioText(positioningMatch[1]);
+  }
+
+  return compactScenarioText(text);
+}
+
+function isGenericScenarioTeaser(value?: string | null) {
+  const text = (value ?? "").replace(/\s+/g, "");
+  if (!text) return false;
+  return (
+    /^围绕[“"]?/.test(text) ||
+    /^在[^，。；;]{1,12}环节[，,](围绕|针对|布局)/.test(text)
+  );
+}
+
+function getScenarioTeaser(item: ScenarioRecommendationItem) {
+  const positioning = compactScenarioText(item.positioning);
+  if (positioning && !isGenericScenarioTeaser(item.positioning)) {
+    return positioning;
+  }
+  return (
+    compactScenarioSummary(item.summary) ||
+    compactScenarioText(item.name)
+  );
 }
 
 function getCanvasLabel(item: ScenarioRecommendationItem) {
@@ -235,22 +257,6 @@ function getCanvasLabel(item: ScenarioRecommendationItem) {
     item.category?.trim() ||
     ""
   );
-}
-
-function getCanvasCode(item: ScenarioRecommendationItem) {
-  const label = getCanvasLabel(item);
-  const parenthesized = label.match(/[（(]\s*([A-Z]{1,2}\$?)\s*[）)]/i)?.[1];
-  if (parenthesized) return parenthesized.toUpperCase();
-
-  const directCode = label.match(/^(CS|VP|CH|CR|R\$|KR|KA|KP|C\$)$/i)?.[1];
-  if (directCode) return directCode.toUpperCase();
-
-  if (item.canvas_key && CANVAS_KEY_ABBR[item.canvas_key]) {
-    return CANVAS_KEY_ABBR[item.canvas_key];
-  }
-
-  const compactLabel = label.replace(/\s+/g, "");
-  return CANVAS_NAME_ABBR[compactLabel] ?? "";
 }
 
 function bubbleLabel(name: string) {
@@ -344,10 +350,6 @@ export function ScenarioQuadrantView({
         .filter(Boolean) as EditableScenario[],
     [recommendation.top_scenarios, activeScenarios],
   );
-  const top3CanvasCoverage = useMemo(() => {
-    const codes = top3Cards.map(getCanvasCode).filter(Boolean);
-    return Array.from(new Set(codes)).join(" · ") || "待确认";
-  }, [top3Cards]);
   const rankedScenarios = useMemo(
     () => [...activeScenarios, ...excludedScenarios],
     [activeScenarios, excludedScenarios],
@@ -358,7 +360,6 @@ export function ScenarioQuadrantView({
   }, [top3Cards]);
 
   const activeCount = recommendation.active_count ?? activeScenarios.length;
-  const excludedCount = excludedScenarios.length;
   const canRemoveMore = activeScenarios.length > 3;
   const poolLocked =
     calibrationSaveStatus === "saving" ||
@@ -580,20 +581,19 @@ export function ScenarioQuadrantView({
       <div>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="section-label">候选场景池</p>
+            <p className="section-label section-label-normal">步骤1/2：场景池校准</p>
             <h2 className="section-heading">场景池校准与 Top 3 AI 推荐场景</h2>
           </div>
           <span className="badge badge-warning">四象限评分</span>
         </div>
         <p className="mt-3 text-sm leading-7 text-warm-secondary">
-          系统一共评估了 {recommendation.evaluated_count} 个候选场景；当前有效场景池保留{" "}
-          {activeCount} 个，已移出 {excludedCount} 个。你可以先校准场景的 X/Y 评分，再按需要把场景移出或加回；
-          后续 Top 3、差异化竞争力和商业终局都只基于当前有效场景池继续生成。
+          系统根据所选创新方向评估 {recommendation.evaluated_count} 个候选场景。您可以调整候选池中每个场景的 X/Y 评分，
+          并对场景进行增删，后续 Top 3 AI 推荐场景将基于有效场景池继续生成。
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
-        <div className="space-y-4">
+      <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
+        <div className="min-w-0 space-y-4">
           <section className="rounded-2xl border border-warm-border-light bg-warm-surface p-5">
             <h3 className="font-heading text-base font-bold text-warm-text">候选池校准</h3>
             {selected ? (
@@ -917,40 +917,18 @@ export function ScenarioQuadrantView({
       </div>
 
       <section className="mx-auto w-full max-w-[1440px]">
-        <p className="section-label">步骤二 · 点层产出</p>
+        <p className="section-label section-label-normal">步骤2/2：Top3 AI 应用场景推荐</p>
         <h2 className="section-heading">Top 3 AI 应用场景推荐</h2>
         <p className="mt-2 text-sm leading-7 text-warm-secondary">
-          基于您的商业画布诊断与突破要素分析，以下三个场景具备最高的战略价值与落地可行性。
-          点击任意场景卡片，查看战略价值 · 预期收益 · 资源准备的完整分析。
+          基于您所选的创新方向与场景池校准结果，筛选出以下 3 个最具战略价值与落地可行性的场景。
+          点击任意场景卡片，查看战略价值、预期收益、资源准备的完整分析。
         </p>
-
-        <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border border-warm-border-light bg-white px-5 py-3">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-[9px] uppercase tracking-wider text-warm-muted">评估场景总数</span>
-            <span className="text-xs font-semibold text-warm-text">{recommendation.evaluated_count} 个候选场景</span>
-          </div>
-          <div className="h-7 w-px bg-warm-border-light shrink-0 hidden sm:block" />
-          <div className="flex flex-col gap-0.5">
-            <span className="text-[9px] uppercase tracking-wider text-warm-muted">覆盖画布要素</span>
-            <span className="text-xs font-semibold text-warm-text">{top3CanvasCoverage}</span>
-          </div>
-          <div className="h-7 w-px bg-warm-border-light shrink-0 hidden sm:block" />
-          <div className="flex flex-col gap-0.5">
-            <span className="text-[9px] uppercase tracking-wider text-warm-muted">推荐逻辑</span>
-            <span className="text-xs font-semibold text-warm-text">战略价值 × 落地可行性</span>
-          </div>
-          <div className="h-7 w-px bg-warm-border-light shrink-0 hidden sm:block" />
-          <div className="flex flex-col gap-0.5">
-            <span className="text-[9px] uppercase tracking-wider text-warm-muted">分析依据</span>
-            <span className="text-xs font-semibold text-warm-text">企业一手诊断信息</span>
-          </div>
-        </div>
 
         <div className="mt-5 flex flex-col gap-3.5">
           {top3Cards.map((item, index) => {
             const isOpen = expandedTopScenarioId === item.scenario_id;
             const meta = QUADRANT_META[item._quadrant];
-            const positioningText = item.positioning || compactScenarioSummary(item.summary);
+            const positioningText = getScenarioTeaser(item);
             const canvasTag = getCanvasLabel(item);
             // 三段式内容：新字段优先，旧字段 fallback
             const valueContent = item.value_text || item.canvas_elements || "";
@@ -1046,21 +1024,6 @@ export function ScenarioQuadrantView({
                       />
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-warm-border-light bg-warm-inset px-6 py-4">
-                      <span className="text-sm italic text-warm-muted">
-                        该场景推荐依据：企业画布诊断信息 · 突破要素评分模型
-                      </span>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedId(item.scenario_id);
-                        }}
-                        className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700 transition hover:border-emerald-600 hover:bg-emerald-600 hover:text-white"
-                      >
-                        调整此场景 →
-                      </button>
-                    </div>
                   </div>
                 ) : null}
               </div>
