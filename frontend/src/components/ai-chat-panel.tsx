@@ -250,11 +250,12 @@ export function AIChatPanel() {
         />
       )}
 
-      <div
-        className={`fixed right-0 top-0 z-40 flex h-full w-full max-w-md flex-col border-l border-border bg-background shadow-2xl transition-transform duration-300 ${
-          open ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
+      <div className="pointer-events-none fixed inset-y-0 right-0 z-40 w-full max-w-md overflow-hidden">
+        <div
+          className={`pointer-events-auto flex h-full w-full flex-col border-l border-border bg-background shadow-2xl transition-transform duration-300 ${
+            open ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div>
             <p className="text-sm font-semibold text-warm-text">AI 商业顾问</p>
@@ -412,6 +413,7 @@ export function AIChatPanel() {
           <p className="mt-2 text-[11px] leading-5 text-warm-muted">
             支持 PDF、DOCX、TXT、Markdown。附件会先抽取文本，再和当前问题一起发送给 AI。
           </p>
+        </div>
         </div>
       </div>
     </>

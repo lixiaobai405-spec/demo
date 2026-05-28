@@ -6,11 +6,51 @@ from pydantic import BaseModel, Field
 
 from app.core.config import ROOT_DIR
 from app.models.assessment import Assessment
-from app.schemas.assessment import CompanyProfileResult, ScenarioRecommendationItem, ScenarioRecommendationResult
+from app.schemas.assessment import (
+    CompanyProfileResult,
+    ScenarioBenefit,
+    ScenarioRecommendationItem,
+    ScenarioRecommendationResult,
+    ScenarioResource,
+)
 from app.schemas.scene_priority import ScenePriorityInput
 from app.services.scene_priority_scorer import ScenePriorityScorer
 
 SCENARIO_LIBRARY_PATH = ROOT_DIR / "knowledge" / "raw" / "ai_scenarios.yaml"
+MAX_POSITIONING_LENGTH = 15
+
+_CANVAS_META: dict[str, tuple[str, str, str]] = {
+    "客户细分": ("客户细分（CS）", "customer_segments", "客户细分 CS"),
+    "价值主张": ("价值主张（VP）", "value_propositions", "价值主张 VP"),
+    "渠道": ("渠道通路（CH）", "channels", "渠道通路 CH"),
+    "渠道通路": ("渠道通路（CH）", "channels", "渠道通路 CH"),
+    "客户关系": ("客户关系（CR）", "customer_relationships", "客户关系 CR"),
+    "收入来源": ("收入来源（R$）", "revenue_streams", "收入来源 R$"),
+    "关键资源": ("关键资源（KR）", "key_resources", "关键资源 KR"),
+    "核心资源": ("关键资源（KR）", "key_resources", "关键资源 KR"),
+    "关键活动": ("关键业务（KA）", "key_activities", "关键业务 KA"),
+    "关键业务": ("关键业务（KA）", "key_activities", "关键业务 KA"),
+    "重要合作": ("重要合作（KP）", "key_partnerships", "重要合作 KP"),
+    "关键合作伙伴": ("重要合作（KP）", "key_partnerships", "重要合作 KP"),
+    "成本结构": ("成本结构（C$）", "cost_structure", "成本结构 C$"),
+}
+
+
+def _compact_one_liner(value: str, max_len: int = MAX_POSITIONING_LENGTH) -> str:
+    text = re.sub(r"\s+", "", (value or "").strip())
+    if not text:
+        return ""
+    text = re.split(r"[。；;]", text, maxsplit=1)[0]
+    if len(text) <= max_len:
+        return text
+    return text[:max_len].rstrip("，、；;。")
+
+
+def _benefit_text(goal: str) -> str:
+    goal = goal.strip()
+    if goal.startswith(("提升", "提高", "优化", "降低", "减少", "稳定", "增加", "缩短")):
+        return f"有望{goal}"
+    return f"有望提升{goal}"
 
 
 # ── 轻量预期价值量化（P2.1）────────────────────────────
@@ -154,7 +194,7 @@ class ScenarioRecommender:
         breakthrough_labels: list[str] | None = None,
         direction_titles: list[str] | None = None,
     ) -> ScenarioRecommendationItem:
-        canvas_key = definition.canvas_keywords[0] if definition.canvas_keywords else ""
+        canvas_element, canvas_key, _ = self._resolve_canvas_meta(definition)
         return ScenarioRecommendationItem(
             scenario_id=definition.id,
             name=definition.name,
@@ -173,13 +213,17 @@ class ScenarioRecommender:
                 direction_titles,
             ),
             core_data_requirements=self._build_data_requirement_text(definition),
-            canvas_element="",
+            canvas_element=canvas_element,
             canvas_key=canvas_key,
-            positioning=definition.summary or "",
+            positioning=self._build_positioning(definition),
             value_dimensions=[],
-            value_text="",
-            benefits=[],
-            resources=[],
+            value_text=self._build_value_text(
+                definition,
+                direction_titles,
+                breakthrough_labels,
+            ),
+            benefits=self._build_benefits(definition),
+            resources=self._build_resources(definition),
         )
 
     def _calc_score(
@@ -402,7 +446,11 @@ class ScenarioRecommender:
 
         # Step 4：转换为 ScenarioRecommendationItem，从原始 definition 补充内容字段
         def _score_to_item(ps, definition) -> ScenarioRecommendationItem:
-            canvas_key = definition.canvas_keywords[0] if definition and definition.canvas_keywords else ""
+            canvas_element, canvas_key, _ = (
+                self._resolve_canvas_meta(definition)
+                if definition
+                else ("", "", "")
+            )
             return ScenarioRecommendationItem(
                 scenario_id=ps.scene_id,
                 name=ps.scene_name,
@@ -441,13 +489,21 @@ class ScenarioRecommender:
                 priority_recommendation=ps.recommendation_template,
                 industry_coefficient=ps.industry_coefficient,
                 recommendation_level=ps.recommendation_level.value if ps.recommendation_level else None,
-                canvas_element="",
+                canvas_element=canvas_element,
                 canvas_key=canvas_key,
-                positioning=definition.summary if definition else "",
+                positioning=self._build_positioning(definition) if definition else "",
                 value_dimensions=[],
-                value_text="",
-                benefits=[],
-                resources=[],
+                value_text=(
+                    self._build_value_text(
+                        definition,
+                        direction_titles,
+                        breakthrough_labels,
+                    )
+                    if definition
+                    else ""
+                ),
+                benefits=self._build_benefits(definition) if definition else [],
+                resources=self._build_resources(definition) if definition else [],
             )
 
         top_scenarios = [
@@ -512,6 +568,72 @@ class ScenarioRecommender:
 
     def _build_data_requirement_text(self, definition: ScenarioDefinition) -> str:
         return f"关键数据：{self._join_values(definition.data_requirements[:3], '、', '待补充数据口径')}"
+
+    def _resolve_canvas_meta(self, definition: ScenarioDefinition) -> tuple[str, str, str]:
+        for keyword in definition.canvas_keywords:
+            normalized = keyword.strip()
+            if normalized in _CANVAS_META:
+                return _CANVAS_META[normalized]
+        return definition.category, "", definition.category
+
+    def _build_positioning(self, definition: ScenarioDefinition) -> str:
+        return (
+            _compact_one_liner(definition.summary)
+            or _compact_one_liner(definition.name)
+            or definition.category
+        )
+
+    def _build_value_text(
+        self,
+        definition: ScenarioDefinition,
+        direction_titles: list[str] | None,
+        breakthrough_labels: list[str] | None,
+    ) -> str:
+        directions = self._join_values(direction_titles, "、", "所选创新方向")
+        breakthroughs = self._join_values(
+            breakthrough_labels,
+            "、",
+            definition.category,
+        )
+        canvas_keywords = self._join_values(
+            definition.canvas_keywords[:2],
+            "、",
+            definition.category,
+        )
+        return (
+            f"围绕{directions}，以{definition.name}切入{canvas_keywords}，"
+            f"优先解决{breakthroughs}中的高频经营问题。"
+        )
+
+    def _build_benefits(self, definition: ScenarioDefinition) -> list[ScenarioBenefit]:
+        _, _, benefit_canvas = self._resolve_canvas_meta(definition)
+        goals = definition.goal_keywords[:2] or [definition.category]
+        benefits = [
+            ScenarioBenefit(text=_benefit_text(goal), canvas=benefit_canvas)
+            for goal in goals
+        ]
+        if len(benefits) < 2:
+            benefits.append(
+                ScenarioBenefit(
+                    text=f"预计可减少{definition.category}环节反复沟通",
+                    canvas=benefit_canvas,
+                )
+            )
+        return benefits[:3]
+
+    def _build_resources(self, definition: ScenarioDefinition) -> list[ScenarioResource]:
+        resources = [
+            ScenarioResource(type="data", label="数据基础", text=requirement)
+            for requirement in definition.data_requirements[:2]
+        ]
+        resources.append(
+            ScenarioResource(
+                type="org",
+                label="组织准备",
+                text=f"由{definition.category}负责人牵头确认试点口径",
+            )
+        )
+        return resources[:3]
 
     def _join_values(
         self,
