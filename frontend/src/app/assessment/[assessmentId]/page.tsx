@@ -4,6 +4,10 @@ import { getAssessmentDetail } from "@/lib/api";
 import { assessmentKeys } from "@/hooks/use-assessment";
 import { AssessmentWorkspace } from "@/components/assessment-workspace";
 
+export function formatShortAssessmentId(assessmentId: string) {
+  return assessmentId.slice(0, 8);
+}
+
 export default async function AssessmentDetailPage({
   params,
 }: {
@@ -38,15 +42,13 @@ export default async function AssessmentDetailPage({
                 <h1 className="font-heading text-4xl font-bold tracking-tight text-warm-text">
                   主流程工作台
                 </h1>
-                <p className="text-base leading-7 text-warm-secondary sm:text-lg">
-                  当前页面会根据 URL 中的 assessment_id 恢复企业画像、商业画布、
-                  场景推荐和报告状态，支持刷新回看与重新生成。
-                </p>
               </div>
 
               <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-6 py-4 text-sm text-amber-800">
                 <p className="font-medium">当前 Assessment</p>
-                <p className="mt-2 break-all font-mono text-amber-700/90">{assessmentId}</p>
+                <p className="mt-2 font-mono text-amber-700/90">
+                  {formatShortAssessmentId(assessmentId)}
+                </p>
               </div>
             </div>
           </section>

@@ -12,9 +12,10 @@ function buildCanvasDiagnosis(): CanvasDiagnosisResult {
   return {
     generation_mode: "mock",
     overall_score: 81,
-    weakest_blocks: ["客户关系"],
+    weakest_blocks: ["Key Activities", "Value Propositions", "Customer Segments"],
     recommended_focus: [
       "客户细分（CS）：客户画像粗粒度：仅凭人口属性（如宝妈）无法精确指导营销；高价值客户识别缺失；未区分复购频次、客单价等，无法聚焦资源；细分维度单一，未结合购物偏好、家庭结构等深层属性。—— 建议优先完善该模块数据基础并启动 AI 试点。",
+      "Key Activities: 核心流程如会员运营与到家配送缺乏标准化SOP，客服响应慢反映知识沉淀与复用不足。",
     ],
     created_at: null,
     updated_at: null,
@@ -23,7 +24,7 @@ function buildCanvasDiagnosis(): CanvasDiagnosisResult {
       blocks: [
         {
           key: "value_propositions",
-          title: "价值主张",
+          title: "Value Propositions",
           current_state: "完整现状",
           diagnosis:
             "价值主张差异化不足，尚未形成清晰的客户价值表达。第二句不应展示。",
@@ -45,10 +46,20 @@ describe("BusinessCanvasGrid", () => {
 
     expect(screen.queryByText(/overall score/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/待补充/i)).not.toBeInTheDocument();
-    expect(screen.getByText("客户关系")).toBeInTheDocument();
+    expect(screen.getAllByText("关键活动").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("价值主张").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("客户细分").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText("Key Activities")).not.toBeInTheDocument();
+    expect(screen.queryByText("Value Propositions")).not.toBeInTheDocument();
+    expect(screen.queryByText("Customer Segments")).not.toBeInTheDocument();
     expect(
       screen.getByText(
         "客户细分：客户画像粗粒度：仅凭人口属性（如宝妈）无法精确指导营销；高价值客户识别缺失；未区分复购频次、客单价等，无法聚焦资源；细分维度单一，未结合购物偏好、家庭结构等深层属性。",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "关键活动：核心流程如会员运营与到家配送缺乏标准化SOP，客服响应慢反映知识沉淀与复用不足。",
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/（CS）/)).not.toBeInTheDocument();

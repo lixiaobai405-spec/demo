@@ -2,6 +2,30 @@ import React from "react";
 
 import type { CanvasDiagnosisResult } from "@/lib/types";
 
+const CANVAS_TITLE_BY_KEY: Record<string, string> = {
+  key_partnerships: "关键伙伴",
+  key_activities: "关键活动",
+  key_resources: "关键资源",
+  value_propositions: "价值主张",
+  customer_relationships: "客户关系",
+  channels: "渠道通路",
+  customer_segments: "客户细分",
+  cost_structure: "成本结构",
+  revenue_streams: "收入来源",
+};
+
+const CANVAS_TITLE_ALIASES: Record<string, string> = {
+  "key partnerships": "关键伙伴",
+  "key activities": "关键活动",
+  "key resources": "关键资源",
+  "value propositions": "价值主张",
+  "customer relationships": "客户关系",
+  channels: "渠道通路",
+  "customer segments": "客户细分",
+  "cost structure": "成本结构",
+  "revenue streams": "收入来源",
+};
+
 export function BusinessCanvasGrid({
   canvasDiagnosis,
 }: {
@@ -38,6 +62,7 @@ export function BusinessCanvasGrid({
               title="当前薄弱模块"
               items={canvasDiagnosis.weakest_blocks}
               emptyLabel="暂无薄弱模块"
+              formatItem={formatCanvasElementName}
             />
             <ListSection
               title="建议优先动作"
@@ -56,7 +81,7 @@ export function BusinessCanvasGrid({
             className="rounded-xl border border-warm-border-light bg-warm-inset p-6"
           >
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-warm-accent">
-              {block.title}
+              {formatCanvasElementName(block.title || block.key)}
             </p>
             <div className="mt-4 space-y-4 text-sm leading-7 text-warm-text">
               <CanvasDetail label="当前状态" content={block.current_state} />
@@ -133,9 +158,17 @@ function formatRecommendedFocus(item: string): string {
     return truncateText(withoutTail, 100);
   }
 
-  const element = match[1].trim();
+  const element = formatCanvasElementName(match[1].trim());
   const sentence = truncateText(match[2].trim(), 100);
   return `${element}：${sentence}`;
+}
+
+function formatCanvasElementName(value: string): string {
+  const trimmed = value.trim();
+  const normalized = trimmed.toLowerCase().replace(/[_-]+/g, " ");
+  const key = trimmed.toLowerCase();
+
+  return CANVAS_TITLE_BY_KEY[key] ?? CANVAS_TITLE_ALIASES[normalized] ?? trimmed;
 }
 
 function truncateText(value: string, maxLength: number): string {
