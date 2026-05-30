@@ -92,10 +92,6 @@ function buildModuleCards(
           label: "串联逻辑描述",
           value: buildSolutionChainLogic(result),
         },
-        {
-          label: "各 AI 点如何协同增效",
-          value: buildSynergyDescription(result),
-        },
       ],
     },
     {

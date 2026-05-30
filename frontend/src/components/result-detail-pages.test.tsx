@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Mock } from "vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,6 +9,7 @@ import { CompetitivenessPageContent } from "@/components/competitiveness-page-co
 
 const useAssessmentDetailMock = vi.fn();
 const useCompetitivenessMock = vi.fn();
+const updateCompetitivenessMock = vi.fn();
 
 vi.mock("next/link", () => ({
   default: ({
@@ -47,7 +48,7 @@ vi.mock("@/hooks", () => ({
   useCompetitiveness: (...args: unknown[]) => useCompetitivenessMock(...args),
   useGenerateCompetitiveness: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useGenerateEndgame: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useUpdateCompetitiveness: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateCompetitiveness: () => ({ mutateAsync: updateCompetitivenessMock, isPending: false }),
   useUpdateEndgame: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
@@ -193,14 +194,16 @@ describe("result detail page content", () => {
     expect(screen.getAllByText("Store knowledge copilot").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("renders the competitiveness page and allows opening manual edit mode", () => {
+  it("renders the competitiveness page and allows opening manual edit mode", async () => {
+    const refetchMock = vi.fn();
     (useAssessmentDetailMock as Mock).mockReturnValue({
       isLoading: false,
       isError: false,
       data: buildDetail(),
       error: null,
-      refetch: vi.fn(),
+      refetch: refetchMock,
     });
+    updateCompetitivenessMock.mockResolvedValue(buildCompetitiveness());
 
     renderWithQueryClient(
       <CompetitivenessPageContent assessmentId="assessment-1" />,
@@ -215,6 +218,25 @@ describe("result detail page content", () => {
       screen.getByRole("button", { name: /手动编辑竞争力报告/ }),
     );
 
-    expect(screen.getByRole("textbox")).toBeInTheDocument();
+    expect(screen.getByLabelText("当前 VP")).toBeInTheDocument();
+    expect(screen.getByLabelText("强化 VP")).toBeInTheDocument();
+    expect(screen.getByLabelText("差异化定位")).toBeInTheDocument();
+    expect(screen.queryByText(/vp_reconstruction/)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("当前 VP"), {
+      target: { value: "Updated current VP" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存修改并清除下游" }));
+
+    await waitFor(() => {
+      expect(updateCompetitivenessMock).toHaveBeenCalledWith({
+        assessmentId: "assessment-1",
+        payload: expect.objectContaining({
+          vp_reconstruction: expect.objectContaining({
+            current_vp: "Updated current VP",
+          }),
+        }),
+      });
+    });
   });
 });

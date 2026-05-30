@@ -43,6 +43,7 @@ export function BusinessCanvasGrid({
               title="建议优先动作"
               items={canvasDiagnosis.recommended_focus}
               emptyLabel="暂无建议动作"
+              formatItem={formatRecommendedFocus}
             />
           </div>
         </section>
@@ -59,8 +60,14 @@ export function BusinessCanvasGrid({
             </p>
             <div className="mt-4 space-y-4 text-sm leading-7 text-warm-text">
               <CanvasDetail label="当前状态" content={block.current_state} />
-              <CanvasDetail label="诊断判断" content={block.diagnosis} />
-              <CanvasDetail label="AI 机会" content={block.ai_opportunity} />
+              <CanvasDetail
+                label="诊断判断"
+                content={formatCompleteShortSentence(block.diagnosis, 100)}
+              />
+              <CanvasDetail
+                label="AI 机会"
+                content={formatCompleteShortSentence(block.ai_opportunity, 80)}
+              />
             </div>
           </article>
         ))}
@@ -88,10 +95,12 @@ function ListSection({
   title,
   items,
   emptyLabel,
+  formatItem = (item) => item,
 }: {
   title: string;
   items: string[];
   emptyLabel: string;
+  formatItem?: (item: string) => string;
 }) {
   const visibleItems = items.filter((item) => item.trim().length > 0);
 
@@ -105,7 +114,7 @@ function ListSection({
               key={`${title}-${index}`}
               className="rounded-xl border border-warm-border-light bg-white px-4 py-3 text-sm text-warm-text"
             >
-              {item}
+              {formatItem(item)}
             </li>
           ))}
         </ul>
@@ -114,4 +123,56 @@ function ListSection({
       )}
     </div>
   );
+}
+
+function formatRecommendedFocus(item: string): string {
+  const withoutTail = item.split("——")[0]?.trim() ?? item.trim();
+  const match = withoutTail.match(/^([^（(:：]+)(?:（[^）]*）)?[：:]\s*(.+)$/);
+
+  if (!match) {
+    return truncateText(withoutTail, 100);
+  }
+
+  const element = match[1].trim();
+  const sentence = truncateText(match[2].trim(), 100);
+  return `${element}：${sentence}`;
+}
+
+function truncateText(value: string, maxLength: number): string {
+  return value.length > maxLength ? value.slice(0, maxLength) : value;
+}
+
+function formatCompleteShortSentence(value: string, maxLength: number): string {
+  const cleaned = value.replace(/\s+/g, " ").trim();
+  const sentence = firstCompleteSentence(cleaned, maxLength);
+
+  if (sentence) {
+    return sentence;
+  }
+
+  if (cleaned.length <= maxLength) {
+    return ensureSentencePunctuation(cleaned);
+  }
+
+  return ensureSentencePunctuation(
+    cleaned.slice(0, maxLength).replace(/[，；、：:,. ]+$/, ""),
+  );
+}
+
+function firstCompleteSentence(value: string, maxLength: number): string {
+  const match = value.match(/[。！？!?]/);
+  if (!match || match.index === undefined) {
+    return "";
+  }
+
+  const sentence = value.slice(0, match.index + match[0].length).trim();
+  return sentence.length <= maxLength ? sentence : "";
+}
+
+function ensureSentencePunctuation(value: string): string {
+  if (!value || /[。！？!?]$/.test(value)) {
+    return value;
+  }
+
+  return `${value}。`;
 }

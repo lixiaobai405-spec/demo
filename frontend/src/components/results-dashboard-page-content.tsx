@@ -189,7 +189,7 @@ export function ResultsDashboardPageContent({
 
         <section className="space-y-4">
           <div>
-            <p className="section-label">面</p>
+            <p className="section-label">线</p>
             <h2 className="section-heading">差异化竞争力报告</h2>
           </div>
           {competitivenessData ? (

@@ -13,7 +13,9 @@ function buildCanvasDiagnosis(): CanvasDiagnosisResult {
     generation_mode: "mock",
     overall_score: 81,
     weakest_blocks: ["客户关系"],
-    recommended_focus: ["优化客户分层"],
+    recommended_focus: [
+      "客户细分（CS）：客户画像粗粒度：仅凭人口属性（如宝妈）无法精确指导营销；高价值客户识别缺失；未区分复购频次、客单价等，无法聚焦资源；细分维度单一，未结合购物偏好、家庭结构等深层属性。—— 建议优先完善该模块数据基础并启动 AI 试点。",
+    ],
     created_at: null,
     updated_at: null,
     canvas: {
@@ -23,8 +25,10 @@ function buildCanvasDiagnosis(): CanvasDiagnosisResult {
           key: "value_propositions",
           title: "价值主张",
           current_state: "完整现状",
-          diagnosis: "完整诊断",
-          ai_opportunity: "完整机会",
+          diagnosis:
+            "价值主张差异化不足，尚未形成清晰的客户价值表达。第二句不应展示。",
+          ai_opportunity:
+            "优先用客户反馈和消费数据提炼高价值卖点。第二个 AI 机会不应展示。",
           missing_information: "这里不应展示",
         },
       ],
@@ -42,6 +46,21 @@ describe("BusinessCanvasGrid", () => {
     expect(screen.queryByText(/overall score/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/待补充/i)).not.toBeInTheDocument();
     expect(screen.getByText("客户关系")).toBeInTheDocument();
-    expect(screen.getByText("优化客户分层")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "客户细分：客户画像粗粒度：仅凭人口属性（如宝妈）无法精确指导营销；高价值客户识别缺失；未区分复购频次、客单价等，无法聚焦资源；细分维度单一，未结合购物偏好、家庭结构等深层属性。",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/（CS）/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/——/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/建议优先完善/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText("价值主张差异化不足，尚未形成清晰的客户价值表达。"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("优先用客户反馈和消费数据提炼高价值卖点。"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/第二句不应展示/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/第二个 AI 机会不应展示/)).not.toBeInTheDocument();
   });
 });
