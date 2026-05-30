@@ -1,10 +1,11 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Mock } from "vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const useAssessmentDetailMock = vi.fn();
+const updateEndgameMock = vi.fn();
 
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof import("react")>("react");
@@ -39,7 +40,7 @@ vi.mock("@/hooks/use-toast", () => ({
 
 vi.mock("@/hooks", () => ({
   useAssessmentDetail: (...args: unknown[]) => useAssessmentDetailMock(...args),
-  useUpdateEndgame: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateEndgame: () => ({ mutateAsync: updateEndgameMock, isPending: false }),
 }));
 
 vi.mock("@/components/endgame-panel", () => ({
@@ -71,7 +72,7 @@ describe("EndgamePage", () => {
     vi.clearAllMocks();
   });
 
-  it("shows a manual edit button and opens the editor for endgame content", () => {
+  it("shows a manual edit button and opens the structured editor for endgame content", async () => {
     (useAssessmentDetailMock as Mock).mockReturnValue({
       isLoading: false,
       isError: false,
@@ -162,6 +163,7 @@ describe("EndgamePage", () => {
         },
       },
     });
+    updateEndgameMock.mockResolvedValue({});
 
     renderWithQueryClient(
       <EndgamePage
@@ -177,6 +179,28 @@ describe("EndgamePage", () => {
       screen.getByRole("button", { name: /手动编辑终局报告/ }),
     );
 
-    expect(screen.getByRole("textbox")).toBeInTheDocument();
+    expect(screen.getByText("私域设计")).toBeInTheDocument();
+    expect(screen.getByText("生态设计")).toBeInTheDocument();
+    expect(screen.getByText("OPC 数据设计")).toBeInTheDocument();
+    expect(screen.getByLabelText("当前状态")).toBeInTheDocument();
+    expect(screen.getByLabelText("目标模式")).toBeInTheDocument();
+    expect(screen.queryByText("商业终局 JSON")).not.toBeInTheDocument();
+    expect(screen.queryByText(/private_domain/)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("目标模式"), {
+      target: { value: "Updated target model" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存修改并清除下游" }));
+
+    await waitFor(() => {
+      expect(updateEndgameMock).toHaveBeenCalledWith({
+        assessmentId: "assessment-1",
+        payload: expect.objectContaining({
+          private_domain: expect.objectContaining({
+            target_model: "Updated target model",
+          }),
+        }),
+      });
+    });
   });
 });

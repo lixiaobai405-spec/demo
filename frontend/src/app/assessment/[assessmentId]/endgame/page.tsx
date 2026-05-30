@@ -8,7 +8,7 @@ import { useAssessmentDetail, useUpdateEndgame } from "@/hooks";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EndgamePanel } from "@/components/endgame-panel";
-import { GeneratedJsonEditor } from "@/components/generated-json-editor";
+import { EndgameEditor } from "@/components/endgame-editor";
 import { SyncFeedbackPanel } from "@/components/sync-feedback-panel";
 import { toast } from "@/hooks/use-toast";
 import { formatMutationError } from "@/lib/api";
@@ -26,11 +26,11 @@ export default function EndgamePage({
   const [isEditing, setIsEditing] = useState(false);
 
   const handleSaveEndgame = useCallback(
-    async (payload: unknown) => {
+    async (payload: UpdateEndgamePayload) => {
       try {
         await updateEndgame.mutateAsync({
           assessmentId,
-          payload: payload as UpdateEndgamePayload,
+          payload,
         });
         toast({
           title: "商业终局设计已更新",
@@ -142,15 +142,11 @@ export default function EndgamePage({
             </div>
 
             {isEditing ? (
-              <GeneratedJsonEditor
-                title="商业终局 JSON"
-                description="适合手动修订私域、生态、OPC、三阶段策略和多路径推演。"
-                value={editableEndgame}
+              <EndgameEditor
+                value={editableEndgame!}
                 isSaving={updateEndgame.isPending}
                 onSave={handleSaveEndgame}
-                isEditing={isEditing}
-                onEditingChange={setIsEditing}
-                showToggleButton={false}
+                onCancel={() => setIsEditing(false)}
               />
             ) : (
               <EndgamePanel data={endgameData} />
