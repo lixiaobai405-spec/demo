@@ -18,6 +18,7 @@ from app.services.scene_priority_scorer import ScenePriorityScorer
 
 SCENARIO_LIBRARY_PATH = ROOT_DIR / "knowledge" / "raw" / "ai_scenarios.yaml"
 MAX_POSITIONING_LENGTH = 15
+MAX_SCENARIO_POOL_SIZE = 18
 
 _CANVAS_META: dict[str, tuple[str, str, str]] = {
     "客户细分": ("客户细分（CS）", "customer_segments", "客户细分 CS"),
@@ -514,13 +515,32 @@ class ScenarioRecommender:
             _score_to_item(ps, definition_map.get(ps.scene_id))
             for ps in priority_result.all_scores
         ]
+        all_scores = self._limit_scenario_pool(all_scores, top_scenarios)
 
         return ScenarioRecommendationResult(
             scoring_method="four_quadrant_v1",
-            evaluated_count=priority_result.total_candidates,
+            evaluated_count=len(all_scores),
             top_scenarios=top_scenarios,
             all_scores=all_scores,
         )
+
+    def _limit_scenario_pool(
+        self,
+        all_scores: list[ScenarioRecommendationItem],
+        top_scenarios: list[ScenarioRecommendationItem],
+    ) -> list[ScenarioRecommendationItem]:
+        top_ids = {item.scenario_id for item in top_scenarios}
+
+        ranked = sorted(
+            all_scores,
+            key=lambda item: (
+                item.scenario_id not in top_ids,
+                -(item.priority_lps_display or 0),
+                -(item.priority_qs or 0),
+                item.name,
+            ),
+        )
+        return ranked[:MAX_SCENARIO_POOL_SIZE]
 
     def _build_template_summary(
         self,

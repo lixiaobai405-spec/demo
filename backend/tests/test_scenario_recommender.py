@@ -1,6 +1,6 @@
 from app.models.assessment import Assessment
 from app.models.user import User  # noqa: F401
-from app.services.scenario_recommender import ScenarioRecommender
+from app.services.scenario_recommender import MAX_SCENARIO_POOL_SIZE, ScenarioRecommender
 
 
 def _assessment() -> Assessment:
@@ -43,3 +43,19 @@ def test_priority_recommendation_populates_card_ready_fields() -> None:
         assert all(resource.type for resource in item.resources)
         assert all(resource.label for resource in item.resources)
         assert all(resource.text for resource in item.resources)
+
+
+def test_priority_recommendation_limits_scenario_pool_to_18() -> None:
+    result = ScenarioRecommender().recommend_with_priority(
+        assessment=_assessment(),
+        direction_categories=["客户经营", "财务经营", "零售运营"],
+        breakthrough_labels=["客户关系", "收入来源"],
+        direction_titles=["智能会员运营", "现金流风险预警"],
+    )
+
+    assert result.evaluated_count == MAX_SCENARIO_POOL_SIZE
+    assert result.all_scores is not None
+    assert len(result.all_scores) == MAX_SCENARIO_POOL_SIZE
+    assert {item.scenario_id for item in result.top_scenarios}.issubset(
+        {item.scenario_id for item in result.all_scores},
+    )
