@@ -31,8 +31,7 @@ const recLevelColor = (level: string) => {
  */
 export function EndgamePanel({ data }: { data: EndgameResponse }) {
   const { result } = data;
-  const { industry_essence, private_domain, ecosystem, opc, three_stage_strategy, strategic_paths, overall_narrative } =
-    result;
+  const { industry_essence, private_domain, ecosystem, opc, three_stage_strategy, strategic_paths } = result;
 
   return (
     <div className="card">
@@ -46,19 +45,10 @@ export function EndgamePanel({ data }: { data: EndgameResponse }) {
 
       {industry_essence ? (
         <div className="mt-6 rounded-xl border-l-4 border-warm-accent bg-warm-accent/5 p-5">
-          <p className="text-xs tracking-[0.14em] text-warm-accent">第一性原理</p>
+          <p className="text-xs tracking-[0.14em] text-warm-accent">行业商业终局判断</p>
           <p className="mt-2 text-sm leading-6 text-warm-text">{industry_essence}</p>
         </div>
       ) : null}
-
-      <div className="mt-6 rounded-xl border border-warm-accent/15 bg-warm-accent/5 p-6">
-        <p className="text-xs tracking-[0.14em] text-warm-muted">总体判断</p>
-        <div className="mt-3 space-y-2">
-          {overall_narrative.split("\n").filter(Boolean).map((line, i) => (
-            <p key={i} className="text-sm leading-6 text-warm-text">{line}</p>
-          ))}
-        </div>
-      </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
         <div className="rounded-xl border border-warm-accent/15 bg-warm-accent/5 p-6">

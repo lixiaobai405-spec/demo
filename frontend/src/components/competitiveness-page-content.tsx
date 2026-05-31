@@ -11,8 +11,8 @@ import {
 } from "@/hooks";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CompetitivenessEditor } from "@/components/competitiveness-editor";
 import { CompetitivenessPanel } from "@/components/competitiveness-panel";
-import { GeneratedJsonEditor } from "@/components/generated-json-editor";
 import { SyncFeedbackPanel } from "@/components/sync-feedback-panel";
 import { toast } from "@/hooks/use-toast";
 import { formatMutationError } from "@/lib/api";
@@ -158,15 +158,11 @@ export function CompetitivenessPageContent({
             </div>
 
             {isEditing ? (
-              <GeneratedJsonEditor
-                title="差异化竞争力 JSON"
-                description="适合手动修订系统方案命名、VP 重构、竞争力串联逻辑和三阶段提升路径。"
-                value={editableCompetitiveness}
+              <CompetitivenessEditor
+                value={editableCompetitiveness!}
                 isSaving={updateCompetitiveness.isPending}
                 onSave={handleSaveCompetitiveness}
-                isEditing={isEditing}
-                onEditingChange={setIsEditing}
-                showToggleButton={false}
+                onCancel={() => setIsEditing(false)}
               />
             ) : (
               <CompetitivenessPanel

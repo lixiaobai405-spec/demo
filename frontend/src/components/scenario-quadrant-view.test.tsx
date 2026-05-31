@@ -198,7 +198,8 @@ describe("ScenarioQuadrantView", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "移出" })[3]);
 
-    expect(await screen.findByText("有效 3 / 总 5")).toBeInTheDocument();
+    expect(await screen.findByText("总 5")).toBeInTheDocument();
+    expect(screen.queryByText("有效 3 / 总 5")).not.toBeInTheDocument();
 
     resolvePoolUpdate({
       assessment: { id: "assessment-1" },
@@ -261,7 +262,8 @@ describe("ScenarioQuadrantView", () => {
       });
     });
 
-    expect(await screen.findByText("有效 4 / 总 5")).toBeInTheDocument();
+    expect(await screen.findByText("总 5")).toBeInTheDocument();
+    expect(screen.queryByText("有效 4 / 总 5")).not.toBeInTheDocument();
     expect(screen.getAllByText("场景 4").length).toBeGreaterThan(0);
   });
 });

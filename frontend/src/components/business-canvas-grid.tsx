@@ -2,6 +2,30 @@ import React from "react";
 
 import type { CanvasDiagnosisResult } from "@/lib/types";
 
+const CANVAS_TITLE_BY_KEY: Record<string, string> = {
+  key_partnerships: "关键伙伴",
+  key_activities: "关键活动",
+  key_resources: "关键资源",
+  value_propositions: "价值主张",
+  customer_relationships: "客户关系",
+  channels: "渠道通路",
+  customer_segments: "客户细分",
+  cost_structure: "成本结构",
+  revenue_streams: "收入来源",
+};
+
+const CANVAS_TITLE_ALIASES: Record<string, string> = {
+  "key partnerships": "关键伙伴",
+  "key activities": "关键活动",
+  "key resources": "关键资源",
+  "value propositions": "价值主张",
+  "customer relationships": "客户关系",
+  channels: "渠道通路",
+  "customer segments": "客户细分",
+  "cost structure": "成本结构",
+  "revenue streams": "收入来源",
+};
+
 export function BusinessCanvasGrid({
   canvasDiagnosis,
 }: {
@@ -38,11 +62,13 @@ export function BusinessCanvasGrid({
               title="当前薄弱模块"
               items={canvasDiagnosis.weakest_blocks}
               emptyLabel="暂无薄弱模块"
+              formatItem={formatCanvasElementName}
             />
             <ListSection
               title="建议优先动作"
               items={canvasDiagnosis.recommended_focus}
               emptyLabel="暂无建议动作"
+              formatItem={formatRecommendedFocus}
             />
           </div>
         </section>
@@ -55,12 +81,18 @@ export function BusinessCanvasGrid({
             className="rounded-xl border border-warm-border-light bg-warm-inset p-6"
           >
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-warm-accent">
-              {block.title}
+              {formatCanvasElementName(block.title || block.key)}
             </p>
             <div className="mt-4 space-y-4 text-sm leading-7 text-warm-text">
               <CanvasDetail label="当前状态" content={block.current_state} />
-              <CanvasDetail label="诊断判断" content={block.diagnosis} />
-              <CanvasDetail label="AI 机会" content={block.ai_opportunity} />
+              <CanvasDetail
+                label="诊断判断"
+                content={formatCompleteShortSentence(block.diagnosis, 100)}
+              />
+              <CanvasDetail
+                label="AI 机会"
+                content={formatCompleteShortSentence(block.ai_opportunity, 80)}
+              />
             </div>
           </article>
         ))}
@@ -88,10 +120,12 @@ function ListSection({
   title,
   items,
   emptyLabel,
+  formatItem = (item) => item,
 }: {
   title: string;
   items: string[];
   emptyLabel: string;
+  formatItem?: (item: string) => string;
 }) {
   const visibleItems = items.filter((item) => item.trim().length > 0);
 
@@ -105,7 +139,7 @@ function ListSection({
               key={`${title}-${index}`}
               className="rounded-xl border border-warm-border-light bg-white px-4 py-3 text-sm text-warm-text"
             >
-              {item}
+              {formatItem(item)}
             </li>
           ))}
         </ul>
@@ -114,4 +148,64 @@ function ListSection({
       )}
     </div>
   );
+}
+
+function formatRecommendedFocus(item: string): string {
+  const withoutTail = item.split("——")[0]?.trim() ?? item.trim();
+  const match = withoutTail.match(/^([^（(:：]+)(?:（[^）]*）)?[：:]\s*(.+)$/);
+
+  if (!match) {
+    return truncateText(withoutTail, 100);
+  }
+
+  const element = formatCanvasElementName(match[1].trim());
+  const sentence = truncateText(match[2].trim(), 100);
+  return `${element}：${sentence}`;
+}
+
+function formatCanvasElementName(value: string): string {
+  const trimmed = value.trim();
+  const normalized = trimmed.toLowerCase().replace(/[_-]+/g, " ");
+  const key = trimmed.toLowerCase();
+
+  return CANVAS_TITLE_BY_KEY[key] ?? CANVAS_TITLE_ALIASES[normalized] ?? trimmed;
+}
+
+function truncateText(value: string, maxLength: number): string {
+  return value.length > maxLength ? value.slice(0, maxLength) : value;
+}
+
+function formatCompleteShortSentence(value: string, maxLength: number): string {
+  const cleaned = value.replace(/\s+/g, " ").trim();
+  const sentence = firstCompleteSentence(cleaned, maxLength);
+
+  if (sentence) {
+    return sentence;
+  }
+
+  if (cleaned.length <= maxLength) {
+    return ensureSentencePunctuation(cleaned);
+  }
+
+  return ensureSentencePunctuation(
+    cleaned.slice(0, maxLength).replace(/[，；、：:,. ]+$/, ""),
+  );
+}
+
+function firstCompleteSentence(value: string, maxLength: number): string {
+  const match = value.match(/[。！？!?]/);
+  if (!match || match.index === undefined) {
+    return "";
+  }
+
+  const sentence = value.slice(0, match.index + match[0].length).trim();
+  return sentence.length <= maxLength ? sentence : "";
+}
+
+function ensureSentencePunctuation(value: string): string {
+  if (!value || /[。！？!?]$/.test(value)) {
+    return value;
+  }
+
+  return `${value}。`;
 }

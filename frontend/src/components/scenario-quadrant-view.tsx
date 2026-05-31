@@ -359,7 +359,6 @@ export function ScenarioQuadrantView({
     setExpandedTopScenarioId((current) => current ?? top3Cards[0]?.scenario_id ?? null);
   }, [top3Cards]);
 
-  const activeCount = recommendation.active_count ?? activeScenarios.length;
   const canRemoveMore = activeScenarios.length > 3;
   const poolLocked =
     calibrationSaveStatus === "saving" ||
@@ -687,7 +686,7 @@ export function ScenarioQuadrantView({
             <div className="flex items-center justify-between">
               <h3 className="font-heading text-base font-bold text-warm-text">有效场景池</h3>
               <span className="rounded-full bg-warm-inset px-2.5 py-0.5 text-xs text-warm-muted">
-                有效 {activeCount} / 总 {recommendation.evaluated_count}
+                总 {recommendation.evaluated_count}
               </span>
             </div>
             <p className="mt-2 text-xs leading-6 text-warm-muted">

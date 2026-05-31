@@ -44,7 +44,9 @@ CANVAS_SYSTEM_PROMPT = """
 2. 输出必须覆盖 9 个标准画布模块。
 3. 缺失信息明确写"待补充"。
 4. 每个模块都要输出：current_state、diagnosis、ai_opportunity、missing_information。
-5. 输出必须是 JSON，格式如下：
+5. diagnosis 必须是一句完整中文句子，100字以内，不要列多点，不要用分号堆叠。
+6. ai_opportunity 必须是一句完整中文句子，80字以内，只说最重要的1个 AI 机会。
+7. 输出必须是 JSON，格式如下：
    overall_summary
    blocks: [
      {
@@ -84,6 +86,61 @@ revenue_streams
 """.strip()
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
+
+
+def normalize_canvas_text_constraints(
+    canvas: BusinessModelCanvasResult,
+) -> BusinessModelCanvasResult:
+    """Keep canvas diagnosis and AI opportunity concise without mid-sentence cuts."""
+    return BusinessModelCanvasResult(
+        overall_summary=canvas.overall_summary,
+        blocks=[
+            CanvasBlockResult(
+                key=block.key,
+                title=block.title,
+                current_state=block.current_state,
+                diagnosis=_complete_short_sentence(block.diagnosis, 100),
+                ai_opportunity=_complete_short_sentence(block.ai_opportunity, 80),
+                missing_information=block.missing_information,
+            )
+            for block in canvas.blocks
+        ],
+    )
+
+
+def _complete_short_sentence(value: str, max_length: int) -> str:
+    cleaned = " ".join(value.split()).strip()
+
+    sentence = _first_complete_sentence(cleaned, max_length)
+    if sentence:
+        return sentence
+
+    if len(cleaned) <= max_length and _ends_with_sentence_punctuation(cleaned):
+        return cleaned
+
+    if len(cleaned) <= max_length:
+        return _ensure_sentence_punctuation(cleaned)
+
+    return _ensure_sentence_punctuation(cleaned[:max_length].rstrip("，；、：:,. "))
+
+
+def _first_complete_sentence(value: str, max_length: int) -> str:
+    for match in re.finditer(r"[。！？!?]", value):
+        candidate = value[: match.end()].strip()
+        if len(candidate) <= max_length:
+            return candidate
+        break
+    return ""
+
+
+def _ends_with_sentence_punctuation(value: str) -> bool:
+    return value.endswith(("。", "！", "？", "!", "?"))
+
+
+def _ensure_sentence_punctuation(value: str) -> str:
+    if not value:
+        return value
+    return value if _ends_with_sentence_punctuation(value) else f"{value}。"
 
 
 class LLMClient:
@@ -126,7 +183,9 @@ class LLMClient:
         profile: CompanyProfileResult,
     ) -> tuple[BusinessModelCanvasResult, str]:
         if self._use_mock_mode():
-            return self._build_mock_canvas(assessment, profile), "mock"
+            return normalize_canvas_text_constraints(
+                self._build_mock_canvas(assessment, profile),
+            ), "mock"
 
         cache_key = self._cache_key("canvas", assessment.id)
         cached = self._cache.get(cache_key)
@@ -138,6 +197,7 @@ class LLMClient:
             system_prompt=CANVAS_SYSTEM_PROMPT,
             user_prompt=self._build_canvas_prompt(assessment, profile),
         )
+        canvas = normalize_canvas_text_constraints(canvas)
         result = (canvas, "live")
         self._cache[cache_key] = result
         return result
