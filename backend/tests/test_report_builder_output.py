@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import json
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -32,6 +33,39 @@ from app.schemas.endgame import (
     ThreeStageStrategyStage,
 )
 from app.services.report_builder import ReportBuilder
+from app.services.llm_report_writer import LLMReportWriter
+
+
+def test_llm_report_writer_validates_only_target_group_sections() -> None:
+    writer = LLMReportWriter()
+    payload = {
+        "sections": [
+            {
+                "title": "当前商业模式画布诊断",
+                "content": "围绕价值主张、客户关系和关键资源说明当前画布诊断。",
+                "bullets": ["价值主张需要聚焦", "关键资源可进一步数字化"],
+            },
+            {
+                "title": "突破要素",
+                "content": "建议优先围绕客户触达和运营效率选择突破要素。",
+                "bullets": ["客户触达", "运营效率"],
+            },
+        ],
+        "warnings": [],
+    }
+
+    sections, warnings, fatal = writer._parse_llm_response(
+        json.dumps(payload, ensure_ascii=False),
+        expected_sections=[
+            ("canvas_diagnosis", "当前商业模式画布诊断"),
+            ("breakthrough", "突破要素"),
+        ],
+    )
+
+    assert fatal is False
+    assert warnings == []
+    assert sections is not None
+    assert [section.key for section in sections] == ["canvas_diagnosis", "breakthrough"]
 
 
 def _long_text(prefix: str) -> str:

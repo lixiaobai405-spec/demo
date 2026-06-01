@@ -402,7 +402,15 @@ class LLMReportWriter:
         if llm_response is None:
             raise RuntimeError("LLM returned empty response")
 
-        parsed, parse_warnings, fatal = self._parse_llm_response(llm_response)
+        expected_sections = [
+            (key, dict(REQUIRED_SECTIONS)[key])
+            for key in group["section_keys"]
+            if key in dict(REQUIRED_SECTIONS)
+        ]
+        parsed, parse_warnings, fatal = self._parse_llm_response(
+            llm_response,
+            expected_sections=expected_sections,
+        )
         warnings.extend(parse_warnings)
         if fatal or parsed is None:
             raise RuntimeError(f"Failed to parse group '{group['name']}': {'; '.join(parse_warnings)}")
@@ -448,9 +456,11 @@ class LLMReportWriter:
     def _parse_llm_response(
         self,
         raw_response: str,
+        expected_sections: list[tuple[str, str]] | None = None,
     ) -> tuple[list[ReportSectionData] | None, list[str], bool]:
         warnings: list[str] = []
         fatal_error = False
+        required_sections = expected_sections or REQUIRED_SECTIONS
 
         try:
             json_str = self._extract_json_object(raw_response)
@@ -527,7 +537,7 @@ class LLMReportWriter:
             sections_by_title[title] = section
 
         missing_titles = [
-            title for _, title in REQUIRED_SECTIONS if title not in sections_by_title
+            title for _, title in required_sections if title not in sections_by_title
         ]
         if missing_titles:
             warnings.append(
@@ -536,7 +546,7 @@ class LLMReportWriter:
             fatal_error = True
 
         ordered_sections: list[ReportSectionData] = []
-        for key, title in REQUIRED_SECTIONS:
+        for key, title in required_sections:
             section = sections_by_title.get(title)
             if section is None:
                 continue
@@ -546,7 +556,7 @@ class LLMReportWriter:
                 fatal_error = True
             ordered_sections.append(section)
 
-        if len(ordered_sections) != len(REQUIRED_SECTIONS):
+        if len(ordered_sections) != len(required_sections):
             fatal_error = True
 
         return ordered_sections if ordered_sections else None, self._deduplicate_warnings(warnings), fatal_error
