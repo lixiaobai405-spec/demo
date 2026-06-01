@@ -161,7 +161,7 @@ class HtmlExporter:
             )
 
         note_html = ""
-        if section.note:
+        if section.note and section.key != "competitiveness":
             note_html = (
                 f"<div style='margin-top:18px;padding:14px 18px;border-radius:14px;background:{c['accent_light']};color:{c['text_secondary']};font-size:13px;line-height:1.8;border-left:4px solid {c['accent']};'>"
                 f"<strong>备注：</strong>{escape(section.note)}</div>"
