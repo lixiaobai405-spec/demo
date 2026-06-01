@@ -2835,6 +2835,7 @@ def _upsert_endgame_analysis(
     record.strategic_paths_json = json.dumps(
         [p.model_dump() for p in result.strategic_paths], ensure_ascii=False
     )
+    record.industry_essence = result.industry_essence
     record.overall_narrative = result.overall_narrative
 
     db.add(record)
@@ -2874,7 +2875,7 @@ def _build_endgame_result_from_record(
 
     return EndgameResult(
         generation_mode=record.generation_mode,
-        industry_essence=_derive_industry_essence(industry),
+        industry_essence=record.industry_essence or _derive_industry_essence(industry),
         private_domain=PrivateDomainDesign.model_validate(pd_raw),
         ecosystem=EcosystemDesign.model_validate(eco_raw),
         opc=OPCDesign.model_validate(opc_raw),
