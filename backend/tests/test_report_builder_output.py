@@ -243,6 +243,15 @@ def test_report_builder_does_not_emit_ellipsis_or_removed_labels() -> None:
         endgame_result=_build_endgame(),
     )
 
+    assert [section.key for section in report.sections] == [
+        "canvas_diagnosis",
+        "breakthrough",
+        "direction_expansion",
+        "priority_scenarios",
+        "competitiveness",
+        "endgame",
+    ]
+
     payload = report.model_dump_json()
 
     assert "..." not in payload
@@ -251,10 +260,16 @@ def test_report_builder_does_not_emit_ellipsis_or_removed_labels() -> None:
     assert "待补充信息" not in payload
     assert "投资需求" not in payload
     assert "时间范围" not in payload
+    assert "企业基本画像" not in payload
+    assert "AI 成熟度评估" not in payload
+    assert "推荐场景详细规划" not in payload
+    assert "参考案例与启示" not in payload
+    assert "三阶段 AI 创新路线图" not in payload
+    assert "风险与阻力" not in payload
+    assert "讲师点评区" not in payload
 
     # 验证四象限评分字段出现在报告中
     assert "四象限优先级评分" in payload
     assert "自动化主战场" in payload
     assert "象限归属" in payload
     assert "综合优先级得分" in payload
-    assert "推荐意见" in payload

@@ -104,18 +104,11 @@ from app.schemas.assessment import AssessmentCardItem, AssessmentListResponse
 router = APIRouter(prefix="/api/assessments", tags=["assessments"])
 
 REPORT_OUTLINE = [
-    "企业基本画像",
     "当前商业模式画布诊断",
     "突破要素",
     "创新方向延展",
-    "AI 成熟度评估",
     "高优先级 AI 提效场景",
-    "推荐场景详细规划",
     "差异化竞争力设计",
-    "参考案例与启示",
-    "三阶段 AI 创新路线图",
-    "风险与阻力",
-    "讲师点评区",
     "商业终局设计",
 ]
 

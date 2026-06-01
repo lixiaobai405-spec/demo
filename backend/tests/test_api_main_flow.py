@@ -265,7 +265,14 @@ def test_main_flow_template_report_and_exports(
     context_body = context_response.json()
     assert context_body["assessment_id"] == assessment_id
     assert len(context_body["top_scenarios"]) >= 1
-    assert len(context_body["report_outline"]) == 13
+    assert context_body["report_outline"] == [
+        "当前商业模式画布诊断",
+        "突破要素",
+        "创新方向延展",
+        "高优先级 AI 提效场景",
+        "差异化竞争力设计",
+        "商业终局设计",
+    ]
     assert len(context_body["selected_breakthrough_elements"]) == 2
 
     report_response = client.post(f"/api/assessments/{assessment_id}/report?mode=template")
@@ -275,7 +282,15 @@ def test_main_flow_template_report_and_exports(
     assert report_body["generation_mode"] == "template"
     assert report_body["used_llm"] is False
     assert report_body["content_json"]["generated_with"] == "template"
-    assert len(report_body["sections"]) == 13
+    assert len(report_body["sections"]) == 6
+    assert [section["key"] for section in report_body["sections"]] == [
+        "canvas_diagnosis",
+        "breakthrough",
+        "direction_expansion",
+        "priority_scenarios",
+        "competitiveness",
+        "endgame",
+    ]
 
     detail_response = client.get(f"/api/assessments/{assessment_id}")
     assert detail_response.status_code == 200
@@ -1892,4 +1907,4 @@ def test_live_llm_report_success_path_is_opt_in(
     assert report_body["generation_mode"] == "llm"
     assert report_body["used_llm"] is True
     assert report_body["content_json"]["generated_with"] == "llm"
-    assert len(report_body["sections"]) == 13
+    assert len(report_body["sections"]) == 6

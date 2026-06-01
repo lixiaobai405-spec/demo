@@ -1,6 +1,6 @@
 """LLM-based deep writing for AI Innovation Reports.
 
-Parallel generation: 13 sections split into 3 groups, fired concurrently.
+Parallel generation: dashboard-aligned sections split into groups, fired concurrently.
 Each group failure falls back to template for that group only.
 """
 
@@ -28,18 +28,11 @@ from app.services.report_builder import ReportBuilder
 logger = logging.getLogger(__name__)
 
 REQUIRED_SECTIONS: list[tuple[str, str]] = [
-    ("company_profile", "企业基本画像"),
     ("canvas_diagnosis", "当前商业模式画布诊断"),
     ("breakthrough", "突破要素"),
     ("direction_expansion", "创新方向延展"),
-    ("ai_readiness", "AI 成熟度评估"),
     ("priority_scenarios", "高优先级 AI 提效场景"),
-    ("scenario_planning", "推荐场景详细规划"),
     ("competitiveness", "差异化竞争力设计"),
-    ("cases", "参考案例与启示"),
-    ("roadmap", "三阶段 AI 创新路线图"),
-    ("risks", "风险与阻力"),
-    ("instructor_comments", "讲师点评区"),
     ("endgame", "商业终局设计"),
 ]
 
@@ -47,18 +40,18 @@ REQUIRED_SECTIONS: list[tuple[str, str]] = [
 SECTION_GROUPS: list[dict[str, Any]] = [
     {
         "name": "foundation",
-        "focus": "企业基本画像、商业模式画布诊断、突破要素、创新方向、AI成熟度",
-        "section_keys": ["company_profile", "canvas_diagnosis", "breakthrough", "direction_expansion", "ai_readiness"],
+        "focus": "商业模式画布诊断、突破要素、创新方向",
+        "section_keys": ["canvas_diagnosis", "breakthrough", "direction_expansion"],
     },
     {
         "name": "strategy",
-        "focus": "AI场景推荐、场景详细规划、差异化竞争力设计、参考案例",
-        "section_keys": ["priority_scenarios", "scenario_planning", "competitiveness", "cases"],
+        "focus": "AI场景推荐、差异化竞争力设计",
+        "section_keys": ["priority_scenarios", "competitiveness"],
     },
     {
         "name": "execution",
-        "focus": "路线图、风险管控、讲师点评、商业终局",
-        "section_keys": ["roadmap", "risks", "instructor_comments", "endgame"],
+        "focus": "商业终局",
+        "section_keys": ["endgame"],
     },
 ]
 

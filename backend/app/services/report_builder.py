@@ -33,24 +33,16 @@ class ReportBuilder:
             canvas_diagnosis=canvas_diagnosis,
             scenario_recommendation=scenario_recommendation,
         )
-        roadmap = self._build_roadmap(canvas_diagnosis, scenario_recommendation)
         breakthrough_labels = self._resolve_breakthrough_labels(breakthrough_keys or [])
         direction_labels = direction_labels or []
         canvas_blocks = canvas_diagnosis.canvas.blocks
 
         sections = [
-            self._build_company_profile_section(profile),
             self._build_canvas_section(canvas_diagnosis),
             self._build_breakthrough_section(breakthrough_labels, canvas_blocks),
             self._build_direction_section(direction_labels),
-            self._build_ai_readiness_section(ai_readiness_score, profile, canvas_diagnosis),
             self._build_priority_scenarios_section(scenario_recommendation),
-            self._build_scenario_planning_section(scenario_recommendation),
             self._build_competitiveness_section(profile, canvas_diagnosis, scenario_recommendation, competitiveness_result),
-            self._build_cases_section(case_recommendation),
-            self._build_roadmap_section(roadmap),
-            self._build_risk_section(profile, canvas_diagnosis, scenario_recommendation),
-            self._build_instructor_section(profile, scenario_recommendation, enrichment_result),
             self._build_endgame_section(endgame_result, profile, canvas_diagnosis),
         ]
 
