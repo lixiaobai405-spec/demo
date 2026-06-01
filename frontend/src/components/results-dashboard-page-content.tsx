@@ -51,6 +51,35 @@ function dedupeScenarioEffects(summary: string, expectedEffects: string) {
   return uniqueSegments.join("；") + "。";
 }
 
+function dedupeScenarioEffectsAcrossCards(
+  expectedEffects: string,
+  previousEffects: string[],
+) {
+  if (previousEffects.length === 0) {
+    return expectedEffects;
+  }
+
+  const normalizedPrevious = previousEffects.map(normalizeScenarioText);
+  const segments = expectedEffects
+    .split(/[；;。]/)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+  const uniqueSegments = segments.filter((segment) => {
+    const normalizedSegment = normalizeScenarioText(segment);
+    return (
+      normalizedSegment &&
+      !normalizedPrevious.some((previous) => previous.includes(normalizedSegment))
+    );
+  });
+
+  if (uniqueSegments.length === 0) {
+    return expectedEffects;
+  }
+
+  return uniqueSegments.join("；") + "。";
+}
+
 function dedupeScenarioSummary(summary: string, previousSummaries: string[]) {
   if (previousSummaries.length === 0) {
     return summary;
@@ -132,6 +161,12 @@ export function ResultsDashboardPageContent({
     dedupeScenarioSummary(
       scenario.summary,
       topScenarios.slice(0, index).map((item) => item.summary),
+    ),
+  );
+  const dedupedScenarioEffects = topScenarios.map((scenario, index) =>
+    dedupeScenarioEffectsAcrossCards(
+      scenario.expected_effects,
+      topScenarios.slice(0, index).map((item) => item.expected_effects),
     ),
   );
   const competitivenessData = detail.competitiveness ?? null;
@@ -231,6 +266,9 @@ export function ResultsDashboardPageContent({
                     scenario={scenario}
                     index={index}
                     summary={dedupedScenarioSummaries[index] ?? scenario.summary}
+                    expectedEffects={
+                      dedupedScenarioEffects[index] ?? scenario.expected_effects
+                    }
                   />
                 ))}
               </div>
@@ -319,15 +357,14 @@ function ScenarioSummaryCard({
   scenario,
   index,
   summary,
+  expectedEffects,
 }: {
   scenario: ScenarioRecommendationItem;
   index: number;
   summary: string;
+  expectedEffects: string;
 }) {
-  const dedupedEffects = dedupeScenarioEffects(
-    summary,
-    scenario.expected_effects,
-  );
+  const dedupedEffects = dedupeScenarioEffects(summary, expectedEffects);
 
   return (
     <article className="rounded-2xl border border-warm-border-light bg-warm-surface p-6">
