@@ -364,9 +364,11 @@ class ReportBuilder:
                 ReportCardData(
                     title="核心竞争力提升路径",
                     subtitle="短中长期推进",
-                    content=f"短期：{cr.delivery_strategy.phase_1_quick_win}",
-                    highlight=f"中期：{cr.delivery_strategy.phase_2_scale}",
-                    bullets=[f"长期：{cr.delivery_strategy.phase_3_moat}"],
+                    content="\n".join([
+                        f"短期：{cr.delivery_strategy.phase_1_quick_win}",
+                        f"中期：{cr.delivery_strategy.phase_2_scale}",
+                        f"长期：{cr.delivery_strategy.phase_3_moat}",
+                    ]),
                 ),
             ]
 
