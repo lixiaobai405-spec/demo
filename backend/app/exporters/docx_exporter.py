@@ -104,11 +104,6 @@ class DocxExporter:
         if section.table:
             self._render_table(document, section.table)
 
-        if section.note:
-            note = document.add_paragraph()
-            note.add_run("备注：").bold = True
-            note.add_run(section.note)
-
     def _render_card(self, document: Document, card: ReportCardData) -> None:
         document.add_heading(card.title, level=2)
         if card.subtitle:

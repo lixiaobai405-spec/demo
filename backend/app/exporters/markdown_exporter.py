@@ -42,9 +42,6 @@ class MarkdownExporter:
         if section.table:
             lines.extend(self._render_table(section.table))
 
-        if section.note:
-            lines.extend(["", f"> 备注：{section.note}", ""])
-
         return lines
 
     def _render_card(self, card: ReportCardData) -> list[str]:
