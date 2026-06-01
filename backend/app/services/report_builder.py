@@ -693,12 +693,15 @@ class ReportBuilder:
         return ReportSectionData(
             key="endgame",
             title="商业终局设计",
-            content=er.overall_narrative,
+            content="本评估的核心商业终局判断如下：",
             bullets=[
                 f"私域目标模型：{pd.target_model}",
                 f"客户留存飞轮：{pd.customer_retention_loop}",
                 f"生态定位：{eco.ecosystem_positioning}",
                 f"OPC运营平台：{opc.data_flywheel_effect}",
+                f"三阶段推进：{er.three_stage_strategy.stage_1.title}先{er.three_stage_strategy.stage_1.focus}，"
+                f"{er.three_stage_strategy.stage_2.title}再{er.three_stage_strategy.stage_2.focus}，"
+                f"{er.three_stage_strategy.stage_3.title}最终{er.three_stage_strategy.stage_3.focus}。",
                 f"推荐路径含有 {len(er.strategic_paths)} 种策略可选",
             ],
             cards=path_cards if path_cards else None,
