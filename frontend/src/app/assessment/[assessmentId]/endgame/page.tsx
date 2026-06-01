@@ -89,11 +89,7 @@ export default function EndgamePage({
   const industry = detail.assessment.industry;
   const endgameData = detail.endgame;
   const editableEndgame = endgameData
-    ? (({
-        generation_mode: _generationMode,
-        industry_essence: _industryEssence,
-        ...rest
-      }) => rest)(endgameData.result)
+    ? (({ generation_mode: _generationMode, ...rest }) => rest)(endgameData.result)
     : null;
 
   return (
