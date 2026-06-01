@@ -32,9 +32,14 @@ function normalizeScenarioText(value: string) {
   return value.replace(/\s+/g, "").replace(/[：:；;，,。.!！?？]/g, "");
 }
 
+function stripScenarioEffectLeadIn(expectedEffects: string) {
+  return expectedEffects.replace(/^支撑方向：.*?[；;]/, "").trim();
+}
+
 function dedupeScenarioEffects(summary: string, expectedEffects: string) {
   const normalizedSummary = normalizeScenarioText(summary);
-  const segments = expectedEffects
+  const cleanedEffects = stripScenarioEffectLeadIn(expectedEffects);
+  const segments = cleanedEffects
     .split(/[；;。]/)
     .map((segment) => segment.trim())
     .filter(Boolean);
@@ -45,7 +50,7 @@ function dedupeScenarioEffects(summary: string, expectedEffects: string) {
   });
 
   if (uniqueSegments.length === 0) {
-    return expectedEffects;
+    return cleanedEffects || expectedEffects;
   }
 
   return uniqueSegments.join("；") + "。";
@@ -55,12 +60,15 @@ function dedupeScenarioEffectsAcrossCards(
   expectedEffects: string,
   previousEffects: string[],
 ) {
+  const cleanedEffects = stripScenarioEffectLeadIn(expectedEffects);
   if (previousEffects.length === 0) {
-    return expectedEffects;
+    return cleanedEffects || expectedEffects;
   }
 
-  const normalizedPrevious = previousEffects.map(normalizeScenarioText);
-  const segments = expectedEffects
+  const normalizedPrevious = previousEffects.map((effect) =>
+    normalizeScenarioText(stripScenarioEffectLeadIn(effect)),
+  );
+  const segments = cleanedEffects
     .split(/[；;。]/)
     .map((segment) => segment.trim())
     .filter(Boolean);
@@ -74,7 +82,7 @@ function dedupeScenarioEffectsAcrossCards(
   });
 
   if (uniqueSegments.length === 0) {
-    return expectedEffects;
+    return cleanedEffects || expectedEffects;
   }
 
   return uniqueSegments.join("；") + "。";
