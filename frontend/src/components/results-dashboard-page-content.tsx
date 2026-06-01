@@ -28,6 +28,55 @@ function resolveBreakthroughLabel(value: string) {
   return BREAKTHROUGH_LABELS[value] ?? value;
 }
 
+function normalizeScenarioText(value: string) {
+  return value.replace(/\s+/g, "").replace(/[：:；;，,。.!！?？]/g, "");
+}
+
+function dedupeScenarioEffects(summary: string, expectedEffects: string) {
+  const normalizedSummary = normalizeScenarioText(summary);
+  const segments = expectedEffects
+    .split(/[；;。]/)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+  const uniqueSegments = segments.filter((segment) => {
+    const normalizedSegment = normalizeScenarioText(segment);
+    return normalizedSegment && !normalizedSummary.includes(normalizedSegment);
+  });
+
+  if (uniqueSegments.length === 0) {
+    return expectedEffects;
+  }
+
+  return uniqueSegments.join("；") + "。";
+}
+
+function dedupeScenarioSummary(summary: string, previousSummaries: string[]) {
+  if (previousSummaries.length === 0) {
+    return summary;
+  }
+
+  const normalizedPrevious = previousSummaries.map(normalizeScenarioText);
+  const segments = summary
+    .split(/[；;。]/)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+  const uniqueSegments = segments.filter((segment) => {
+    const normalizedSegment = normalizeScenarioText(segment);
+    return (
+      normalizedSegment &&
+      !normalizedPrevious.some((previous) => previous.includes(normalizedSegment))
+    );
+  });
+
+  if (uniqueSegments.length === 0) {
+    return summary;
+  }
+
+  return uniqueSegments.join("；") + "。";
+}
+
 export function ResultsDashboardPageContent({
   assessmentId,
 }: {
@@ -79,6 +128,12 @@ export function ResultsDashboardPageContent({
   const selectedDirections =
     detail.direction_selection?.selected_directions ?? [];
   const topScenarios = detail.scenario_recommendation?.top_scenarios ?? [];
+  const dedupedScenarioSummaries = topScenarios.map((scenario, index) =>
+    dedupeScenarioSummary(
+      scenario.summary,
+      topScenarios.slice(0, index).map((item) => item.summary),
+    ),
+  );
   const competitivenessData = detail.competitiveness ?? null;
   const endgameData = detail.endgame ?? null;
 
@@ -175,6 +230,7 @@ export function ResultsDashboardPageContent({
                     key={scenario.scenario_id}
                     scenario={scenario}
                     index={index}
+                    summary={dedupedScenarioSummaries[index] ?? scenario.summary}
                   />
                 ))}
               </div>
@@ -262,10 +318,17 @@ function SummaryCard({
 function ScenarioSummaryCard({
   scenario,
   index,
+  summary,
 }: {
   scenario: ScenarioRecommendationItem;
   index: number;
+  summary: string;
 }) {
+  const dedupedEffects = dedupeScenarioEffects(
+    summary,
+    scenario.expected_effects,
+  );
+
   return (
     <article className="rounded-2xl border border-warm-border-light bg-warm-surface p-6">
       <div className="flex items-start justify-between gap-4">
@@ -281,8 +344,8 @@ function ScenarioSummaryCard({
       </div>
 
       <div className="mt-4 space-y-3">
-        <ScenarioField label="场景描述" content={scenario.summary} />
-        <ScenarioField label="预期效果" content={scenario.expected_effects} />
+        <ScenarioField label="场景描述" content={summary} />
+        <ScenarioField label="预期效果" content={dedupedEffects} />
         {scenario.canvas_elements ? (
           <ScenarioField label="切入模块" content={scenario.canvas_elements} />
         ) : null}
