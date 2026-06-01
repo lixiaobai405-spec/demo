@@ -150,18 +150,6 @@ export function EndgameEditor({ value, isSaving, onSave, onCancel }: Props) {
               }))
             }
           />
-          <div className="mt-4">
-            <TextAreaField
-              label="总体叙事"
-              value={draft.overall_narrative}
-              onChange={(nextValue) =>
-                setDraft((current) => ({
-                  ...current,
-                  overall_narrative: nextValue,
-                }))
-              }
-            />
-          </div>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-3">
