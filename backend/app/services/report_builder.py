@@ -220,37 +220,16 @@ class ReportBuilder:
             for item in scenario_recommendation.top_scenarios
         )
 
-        if is_four_quadrant and has_priority:
-            columns = [
-                "推荐场景", "类别", "象限归属", "结构化程度",
-                "实施复杂度", "综合优先级得分", "推荐等级", "核心数据需求",
+        columns = ["推荐场景", "场景描述", "预期效果", "切入模块"]
+        rows = [
+            [
+                item.name,
+                item.summary,
+                item.expected_effects,
+                item.canvas_elements,
             ]
-            rows = []
-            for item in scenario_recommendation.top_scenarios:
-                rows.append([
-                    item.name,
-                    item.category,
-                    getattr(item, "priority_quadrant", "") or "",
-                    str(getattr(item, "priority_structuredness_x", "") or ""),
-                    str(getattr(item, "priority_complexity_y", "") or ""),
-                    str(getattr(item, "priority_lps_display", "") or ""),
-                    getattr(item, "recommendation_level", None) or getattr(item, "priority_tier", None) is not None and {
-                        1: "立即启动", 2: "规划推进", 3: "观察",
-                    }.get(getattr(item, "priority_tier"), "观察") or "",
-                    item.core_data_requirements,
-                ])
-        else:
-            columns = ["推荐场景", "类别", "对应画布要素", "预期效果", "核心数据需求"]
-            rows = [
-                [
-                    item.name,
-                    item.category,
-                    item.canvas_elements,
-                    item.expected_effects,
-                    item.core_data_requirements,
-                ]
-                for item in scenario_recommendation.top_scenarios
-            ]
+            for item in scenario_recommendation.top_scenarios
+        ]
 
         table = ReportTableData(columns=columns, rows=rows)
 
