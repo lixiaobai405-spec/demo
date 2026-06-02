@@ -50,11 +50,6 @@ class HtmlExporter:
         <h1 style="margin:20px 0 10px;font-family:'Noto Serif SC','PingFang SC',serif;font-size:36px;line-height:1.25;font-weight:700;">{escape(report_data.title)}</h1>
         <p style="margin:0;color:#D5C8B5;font-size:15px;line-height:1.6;">{escape(report_data.subtitle)}</p>
       </div>
-      <div style="min-width:200px;padding:20px 22px;border-radius:18px;background:rgba(255,255,255,0.08);text-align:center;">
-        <div style="font-size:11px;color:#C4B59D;letter-spacing:0.1em;text-transform:uppercase;">AI 就绪度</div>
-        <div style="margin-top:6px;font-size:44px;font-weight:800;line-height:1;">{report_data.ai_readiness_score}</div>
-        <p style="margin:10px 0 0;color:#C4B59D;font-size:13px;line-height:1.7;">{escape(report_data.ai_readiness_summary)}</p>
-      </div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:22px;">
       {self._meta_tag(f"企业：{report_data.company_name}")}
