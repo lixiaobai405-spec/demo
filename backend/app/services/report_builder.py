@@ -12,6 +12,7 @@ from app.schemas.assessment import (
     ScenarioRecommendationResult,
 )
 from app.schemas.breakthrough import ELEMENT_KEY_TO_TITLE
+from app.schemas.direction import DirectionSuggestion
 
 
 class ReportBuilder:
@@ -24,6 +25,7 @@ class ReportBuilder:
         case_recommendation: CaseRecommendationResult | None,
         breakthrough_keys: list[str] | None = None,
         direction_labels: list[str] | None = None,
+        selected_directions: list[DirectionSuggestion] | None = None,
         competitiveness_result = None,
         enrichment_result = None,
         endgame_result = None,
@@ -35,12 +37,13 @@ class ReportBuilder:
         )
         breakthrough_labels = self._resolve_breakthrough_labels(breakthrough_keys or [])
         direction_labels = direction_labels or []
+        selected_directions = selected_directions or []
         canvas_blocks = canvas_diagnosis.canvas.blocks
 
         sections = [
             self._build_canvas_section(canvas_diagnosis),
             self._build_breakthrough_section(breakthrough_labels, canvas_blocks),
-            self._build_direction_section(direction_labels),
+            self._build_direction_section(direction_labels, selected_directions),
             self._build_priority_scenarios_section(scenario_recommendation),
             self._build_competitiveness_section(profile, canvas_diagnosis, scenario_recommendation, competitiveness_result),
             self._build_endgame_section(endgame_result, profile, canvas_diagnosis),
@@ -817,6 +820,7 @@ class ReportBuilder:
     def _build_direction_section(
         self,
         direction_labels: list[str],
+        selected_directions: list[DirectionSuggestion],
     ) -> ReportSectionData:
         if not direction_labels:
             return ReportSectionData(
@@ -827,6 +831,11 @@ class ReportBuilder:
             )
 
         joined = "、".join(direction_labels[:10])
+        description_by_title = {
+            item.title.strip(): item.description.strip()
+            for item in selected_directions
+            if item.title.strip() and item.description.strip()
+        }
         return ReportSectionData(
             key="direction_expansion",
             title="创新方向延展",
@@ -842,7 +851,7 @@ class ReportBuilder:
             cards=[
                 ReportCardData(
                     title=label,
-                    content=f"选定创新方向：{label}。详细描述和预期影响请参考方向延展工作台。",
+                    content=description_by_title.get(label.strip(), ""),
                 )
                 for label in direction_labels
             ],

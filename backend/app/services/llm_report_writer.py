@@ -23,6 +23,7 @@ from app.schemas.assessment import (
     ReportTableData,
     ScenarioRecommendationResult,
 )
+from app.schemas.direction import DirectionSuggestion
 from app.services.report_builder import ReportBuilder
 
 logger = logging.getLogger(__name__)
@@ -131,6 +132,7 @@ class LLMReportWriter:
         case_recommendation: CaseRecommendationResult | None,
         breakthrough_keys: list[str] | None = None,
         direction_labels: list[str] | None = None,
+        selected_directions: list[DirectionSuggestion] | None = None,
         competitiveness_result = None,
         enrichment_result = None,
         endgame_result = None,
@@ -156,6 +158,7 @@ class LLMReportWriter:
                 case_recommendation,
                 breakthrough_keys,
                 direction_labels,
+                selected_directions,
                 competitiveness_result,
                 enrichment_result,
                 endgame_result,
@@ -170,6 +173,7 @@ class LLMReportWriter:
             case_recommendation=case_recommendation,
             breakthrough_keys=breakthrough_keys,
             direction_labels=direction_labels,
+            selected_directions=selected_directions,
             competitiveness_result=competitiveness_result,
             enrichment_result=enrichment_result,
             endgame_result=endgame_result,
@@ -198,6 +202,7 @@ class LLMReportWriter:
             case_recommendation,
             breakthrough_keys,
             direction_labels,
+            selected_directions,
             competitiveness_result,
             enrichment_result,
             endgame_result,
@@ -213,6 +218,7 @@ class LLMReportWriter:
         case_recommendation: CaseRecommendationResult | None,
         breakthrough_keys: list[str] | None,
         direction_labels: list[str] | None,
+        selected_directions: list[DirectionSuggestion] | None,
         competitiveness_result,
         enrichment_result,
         endgame_result,
@@ -226,6 +232,7 @@ class LLMReportWriter:
             case_recommendation=case_recommendation,
             breakthrough_keys=breakthrough_keys,
             direction_labels=direction_labels,
+            selected_directions=selected_directions,
             competitiveness_result=competitiveness_result,
             enrichment_result=enrichment_result,
             endgame_result=endgame_result,

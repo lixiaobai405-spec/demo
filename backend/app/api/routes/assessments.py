@@ -1358,6 +1358,7 @@ def generate_report(
 
     breakthrough_keys = _load_breakthrough_selection_keys(db, assessment_id) or []
     direction_labels = _load_direction_labels(db, assessment_id)
+    selected_directions = _load_selected_directions(db, assessment_id)
     competitiveness_record = _load_competitiveness_analysis(db, assessment_id)
     competitiveness_result = _build_competitiveness_result_from_record(competitiveness_record) if competitiveness_record else None
 
@@ -1394,6 +1395,7 @@ def generate_report(
         case_recommendation=cases,
         breakthrough_keys=breakthrough_keys,
         direction_labels=direction_labels,
+        selected_directions=selected_directions,
         competitiveness_result=competitiveness_result,
         enrichment_result=enrichment,
         endgame_result=endgame_result,
@@ -2497,8 +2499,6 @@ def _load_direction_labels(
     db: Session,
     assessment_id: str,
 ) -> list[str] | None:
-    from app.schemas.direction import DirectionSuggestion
-
     record = _load_direction_selection_record(db, assessment_id)
     if record is None:
         return None
@@ -2513,6 +2513,33 @@ def _load_direction_labels(
     ]
     labels = [l for l in labels if l]
     return labels if labels else None
+
+
+def _load_selected_directions(
+    db: Session,
+    assessment_id: str,
+) -> list[DirectionSuggestion] | None:
+    from app.schemas.direction import DirectionSuggestion
+
+    record = _load_direction_selection_record(db, assessment_id)
+    if record is None:
+        return None
+
+    raw_directions = _parse_json_raw(
+        record.directions_json,
+        "Failed to parse direction selection for report export.",
+    )
+    selected_directions: list[DirectionSuggestion] = []
+    for item in raw_directions:
+        if isinstance(item, DirectionSuggestion):
+            selected_directions.append(item)
+            continue
+        if isinstance(item, dict):
+            try:
+                selected_directions.append(DirectionSuggestion.model_validate(item))
+            except Exception:
+                continue
+    return selected_directions if selected_directions else None
 
 
 def _upsert_direction_selection(
