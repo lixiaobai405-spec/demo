@@ -36,6 +36,19 @@ function stripScenarioEffectLeadIn(expectedEffects: string) {
   return expectedEffects.replace(/^支撑方向：.*?[；;]/, "").trim();
 }
 
+function trimScenarioSummaryLeadIn(summary: string) {
+  const trimmed = summary.trim();
+  if (!trimmed.includes("围绕") || !trimmed.includes("结合")) {
+    return trimmed;
+  }
+
+  const shortened = trimmed.replace(
+    /^围绕[\s\S]+?结合[\s\S]+?(?:[，,；;。]\s*)?(?=在)/,
+    "",
+  );
+  return shortened.length > 0 ? shortened : trimmed;
+}
+
 function dedupeScenarioEffects(summary: string, expectedEffects: string) {
   const normalizedSummary = normalizeScenarioText(summary);
   const cleanedEffects = stripScenarioEffectLeadIn(expectedEffects);
@@ -165,10 +178,13 @@ export function ResultsDashboardPageContent({
   const selectedDirections =
     detail.direction_selection?.selected_directions ?? [];
   const topScenarios = detail.scenario_recommendation?.top_scenarios ?? [];
+  const trimmedScenarioSummaries = topScenarios.map((scenario) =>
+    trimScenarioSummaryLeadIn(scenario.summary),
+  );
   const dedupedScenarioSummaries = topScenarios.map((scenario, index) =>
     dedupeScenarioSummary(
-      scenario.summary,
-      topScenarios.slice(0, index).map((item) => item.summary),
+      trimmedScenarioSummaries[index] ?? scenario.summary,
+      trimmedScenarioSummaries.slice(0, index),
     ),
   );
   const dedupedScenarioEffects = topScenarios.map((scenario, index) =>

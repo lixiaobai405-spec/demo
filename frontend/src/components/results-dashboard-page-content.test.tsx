@@ -258,7 +258,7 @@ describe("ResultsDashboardPageContent", () => {
     expect(screen.getByText("Membership AI｜Personalized member experience")).toBeInTheDocument();
     expect(screen.getByText("Store Copilot")).toBeInTheDocument();
     expect(screen.getByText("Assist frontline staff with fast answers")).toBeInTheDocument();
-    expect(screen.getByText("Reduce training time")).toBeInTheDocument();
+    expect(screen.getByText("Reduce training time。")).toBeInTheDocument();
     expect(screen.getByText("Competitiveness ready")).toBeInTheDocument();
     expect(screen.getByText("Endgame ready")).toBeInTheDocument();
     expect(
@@ -269,5 +269,100 @@ describe("ResultsDashboardPageContent", () => {
     ).toHaveTextContent("面");
     expect(screen.getByText("Export actions report-1")).toBeInTheDocument();
     expect(screen.queryByText("无结果")).not.toBeInTheDocument();
+  });
+
+  it("removes repeated scenario summary setup text from the results dashboard", () => {
+    const repeatedSetup =
+      "围绕“客户数据平台与智能分群推荐引擎、基于位置的个性化触达引擎、AI驱动的供应商发现与匹配引擎”，结合“关键资源、渠道通路、关键合作伙伴”";
+
+    (useAssessmentDetailMock as Mock).mockReturnValue({
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+      data: {
+        assessment: {
+          id: "assessment-1",
+          company_name: "Test Retail",
+          industry: "Retail",
+        },
+        company_profile: null,
+        canvas_diagnosis: null,
+        breakthrough_selection: [],
+        direction_expansion: null,
+        direction_selection: null,
+        scenario_recommendation: {
+          scoring_method: "rule_based_v1",
+          evaluated_count: 3,
+          top_scenarios: [
+            {
+              scenario_id: "scenario-1",
+              name: "回款风险预警",
+              category: "财务经营",
+              summary: `${repeatedSetup}，在财务经营环节布局“回款风险预警”，对账期异常、逾期概率和重点客户回款风险进行监控与预警。`,
+              canvas_elements: "关键资源",
+              expected_effects: "降低逾期回款比例",
+              core_data_requirements: "客户账期数据",
+            },
+            {
+              scenario_id: "scenario-2",
+              name: "销售线索优先级排序",
+              category: "销售增长",
+              summary: `${repeatedSetup}；在销售增长环节布局“销售线索优先级排序”，基于线索来源、跟进行为和成交历史，对销售线索进行优先级排序。`,
+              canvas_elements: "渠道通路",
+              expected_effects: "提升销售转化效率",
+              core_data_requirements: "销售线索数据",
+            },
+            {
+              scenario_id: "scenario-3",
+              name: "门店销量预测",
+              category: "零售运营",
+              summary: `${repeatedSetup}。在零售运营环节布局“门店销量预测”，对门店或区域销量进行预测。`,
+              canvas_elements: "关键合作伙伴",
+              expected_effects: "优化库存周转",
+              core_data_requirements: "门店销售数据",
+            },
+          ],
+          created_at: null,
+          updated_at: null,
+        },
+        competitiveness: null,
+        endgame: null,
+        case_recommendation: null,
+        generated_report: null,
+        progress: {
+          has_profile: true,
+          has_canvas: true,
+          has_breakthrough: true,
+          has_directions: true,
+          has_competitiveness: false,
+          has_endgame: false,
+          has_scenarios: true,
+          has_report: false,
+          ready_for_report: false,
+        },
+      },
+    });
+
+    renderWithQueryClient(
+      <ResultsDashboardPageContent assessmentId="assessment-1" />,
+    );
+
+    expect(
+      screen.queryByText((content) => content.includes(repeatedSetup)),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "在财务经营环节布局“回款风险预警”，对账期异常、逾期概率和重点客户回款风险进行监控与预警。",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "在销售增长环节布局“销售线索优先级排序”，基于线索来源、跟进行为和成交历史，对销售线索进行优先级排序。",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("在零售运营环节布局“门店销量预测”，对门店或区域销量进行预测。"),
+    ).toBeInTheDocument();
   });
 });
