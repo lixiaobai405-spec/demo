@@ -1,4 +1,4 @@
-﻿# Current Status
+# Current Status
 
 最后更新：2026-05-05
 
@@ -87,11 +87,11 @@
 
 | 组件 | 端口 | 启动方式 |
 |------|:---:|------|
-| 后端 | 8000 | `source /e/Anaconda3/Scripts/activate && conda activate meitai-project && python -m uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8000 --reload` |
+| 后端 | 8000 | `source /e/Anaconda3/Scripts/activate && conda activate rag-env && python -m uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8000 --reload` |
 | 前端 | 3001 | `cd frontend && npx next dev -p 3001` |
 | Docker | 8000 + 3001 | `docker-compose up` |
 
-**重要**：后端必须在 conda 环境 `meitai-project`（Python 3.11 + SQLAlchemy 2.0）下运行，系统默认 Python 3.7 不兼容。
+**重要**：后端必须在 conda 环境 `rag-env`（Python 3.11 + SQLAlchemy 2.0）下运行，系统默认 Python 3.7 不兼容。
 
 ## 环境变量
 
@@ -221,7 +221,7 @@ CORS 当前允许的来源（`backend/app/main.py`）：
 
 ```bash
 cd backend
-conda run -n meitai-project python -m pytest tests/ -v
+python -m pytest tests/ -v
 # 19 passed, 1 skipped (4.51s)
 ```
 
@@ -286,7 +286,7 @@ npx vitest run
 
 ### 后端修复
 - CORS 添加 `http://192.168.112.1:3001` 来源
-- `assessments.py` walrus operator 展开（Python 3.7 兼容，meitai-project 3.11 不需要但保留）
+- `assessments.py` walrus operator 展开（Python 3.7 兼容，rag-env 3.11 不需要但保留）
 - `.env` + `.env.local` 创建
 
 ### 验证通过

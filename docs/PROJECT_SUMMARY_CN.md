@@ -1,4 +1,4 @@
-﻿# 项目总结文档
+# 项目总结文档
 
 ## 1. 项目概述
 
@@ -322,11 +322,11 @@ RAG_TOP_K="5"
 
 ## 7.3 启动命令
 
-### 后端（需要 conda 环境 meitai-project, Python 3.11）
+### 后端（需要 conda 环境 rag-env, Python 3.11）
 
 ```powershell
 cd backend
-conda activate meitai-project
+conda activate rag-env
 python -m uvicorn app.main:app --reload --port 8000
 ```
 

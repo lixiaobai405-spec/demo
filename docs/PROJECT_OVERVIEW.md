@@ -1,4 +1,4 @@
-﻿# 美太 AI 商业创新智能体 — 项目架构与实现总览
+# 美太 AI 商业创新智能体 — 项目架构与实现总览
 
 > 最后更新：2025-07-01
 
@@ -267,9 +267,9 @@ docker compose up
 ### 本机启动
 
 ```bash
-# 后端 (端口 8000) — 需要 conda 环境 meitai-project (Python 3.11)
+# 后端 (端口 8000) — 需要 conda 环境 rag-env (Python 3.11)
 cd backend
-conda activate meitai-project
+conda activate rag-env
 python -m uvicorn app.main:app --reload --port 8000
 
 # 前端 (端口 3001)

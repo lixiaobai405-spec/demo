@@ -1,4 +1,4 @@
-﻿# AGENTS.md
+# AGENTS.md
 
 ## Project Overview
 
@@ -25,7 +25,7 @@ The current product flow includes:
 - Backend: FastAPI + SQLAlchemy + SQLite + optional ChromaDB
 - Frontend: Next.js 15.5 + React 18.2 + TypeScript + Tailwind CSS
 - AI: OpenAI-compatible API, defaulting to mock mode
-- Runtime expectation: conda env `meitai-project`, Python 3.11
+- Runtime expectation: conda env `rag-env`, Python 3.11
 
 ## Ports
 
@@ -41,12 +41,12 @@ The current product flow includes:
 
 # Backend
 cd backend
-conda activate meitai-project
+conda activate rag-env
 python run.py
 
 # Backend with fixed port
 cd backend
-conda activate meitai-project
+conda activate rag-env
 python -m uvicorn app.main:app --reload --port 8000
 
 # Frontend
@@ -55,30 +55,18 @@ npm install
 npm run dev
 ```
 
-## Local Command Rules
-
-- Never use `rg` / `ripgrep` in this repository. It is blocked in this local Windows environment and may fail with `Access is denied`.
-- Use PowerShell-native alternatives instead:
-  - File search: `Get-ChildItem -Recurse`
-  - Text search: `Select-String`
-  - File reading: `Get-Content`
-- Do not stop the task just because `rg` is unavailable; switch directly to the PowerShell-native commands above.
-
 ## Checks
 
 Run the narrowest useful checks for the files changed.
 
-Backend tests must always run through the Anaconda environment `meitai-project`.
-Prefer `conda run -n meitai-project ...` so tests do not accidentally use the global Python environment.
-
 ```powershell
 # Backend tests
 cd backend
-conda run -n meitai-project python -m pytest tests/ -v
+python -m pytest tests/ -v
 
 # Full-chain backend test
 cd backend
-conda run -n meitai-project python -m pytest tests/test_e2e_full_chain.py -v -s
+python -m pytest tests/test_e2e_full_chain.py -v -s
 
 # Frontend checks
 cd frontend
@@ -143,17 +131,6 @@ Check `README.md` and `使用方法.md` for the full current endpoint list befor
 ## Constraints
 
 - Do not commit `.env`, `backend/app/core/mykey.py`, SQLite databases, Chroma stores, generated exports, `.next`, `node_modules`, or test caches.
-- Do not stage, commit, or push changes from these protected paths unless the user explicitly overrides this rule in the same turn:
-  - `docs/`
-  - `.claude/`
-  - `plans/`
-  - `规划.docx`
-  - `使用方法.md`
-  - `使用说明.md`
-  - `CLAUDE.md`
-  - `docker-compose.yml`
-  - `mykey.py.example`
-- Before every commit or push, run `git status` and make sure none of the protected paths above are staged.
 - Do not refactor the project structure unless the user explicitly asks.
 - Do not introduce a new state management library or UI framework without a clear request.
 - Prefer existing service, schema, route, and component patterns.
