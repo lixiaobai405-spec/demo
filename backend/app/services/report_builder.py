@@ -1,3 +1,5 @@
+import re
+
 from app.models.assessment import Assessment
 from app.schemas.assessment import (
     CanvasDiagnosisResult,
@@ -215,21 +217,41 @@ class ReportBuilder:
         scenario_recommendation: ScenarioRecommendationResult,
     ) -> ReportSectionData:
         is_four_quadrant = scenario_recommendation.scoring_method == "four_quadrant_v1"
-        has_priority = any(
-            getattr(item, "priority_lps_display", None) is not None
-            for item in scenario_recommendation.top_scenarios
-        )
 
         columns = ["推荐场景", "场景描述", "预期效果", "切入模块"]
-        rows = [
-            [
-                item.name,
-                item.summary,
-                item.expected_effects,
-                item.canvas_elements,
-            ]
+        trimmed_summaries = [
+            self._trim_scenario_summary_lead_in(item.summary)
             for item in scenario_recommendation.top_scenarios
         ]
+        display_summaries = [
+            self._dedupe_scenario_summary(
+                trimmed_summaries[index],
+                trimmed_summaries[:index],
+            )
+            for index, _item in enumerate(scenario_recommendation.top_scenarios)
+        ]
+        display_effects = [
+            self._dedupe_scenario_effects(
+                display_summaries[index],
+                self._dedupe_scenario_effects_across_rows(
+                    item.expected_effects,
+                    [
+                        previous.expected_effects
+                        for previous in scenario_recommendation.top_scenarios[:index]
+                    ],
+                ),
+            )
+            for index, item in enumerate(scenario_recommendation.top_scenarios)
+        ]
+        rows = []
+        for index, item in enumerate(scenario_recommendation.top_scenarios):
+            row = [
+                item.name,
+                display_summaries[index],
+                display_effects[index],
+                item.canvas_elements,
+            ]
+            rows.append(row)
 
         table = ReportTableData(columns=columns, rows=rows)
 
@@ -249,6 +271,114 @@ class ReportBuilder:
             content=content,
             table=table,
         )
+
+    @staticmethod
+    def _normalize_scenario_text(value: str) -> str:
+        return re.sub(r"[：:；;，,。.!！?？\s]+", "", value)
+
+    @staticmethod
+    def _strip_scenario_effect_lead_in(expected_effects: str) -> str:
+        return re.sub(r"^支撑方向：.*?[；;]", "", expected_effects).strip()
+
+    def _trim_scenario_summary_lead_in(self, summary: str) -> str:
+        trimmed = summary.strip()
+        if "围绕" not in trimmed or "结合" not in trimmed:
+            return trimmed
+
+        shortened = re.sub(
+            r"^围绕[\s\S]+?结合[\s\S]+?(?:[，,；;。]\s*)?(?=在)",
+            "",
+            trimmed,
+        ).strip()
+        return shortened or trimmed
+
+    def _dedupe_scenario_summary(
+        self,
+        summary: str,
+        previous_summaries: list[str],
+    ) -> str:
+        if not previous_summaries:
+            return summary
+
+        normalized_previous = [
+            self._normalize_scenario_text(previous)
+            for previous in previous_summaries
+        ]
+        segments = [
+            segment.strip()
+            for segment in re.split(r"[；;。]", summary)
+            if segment.strip()
+        ]
+        unique_segments = [
+            segment
+            for segment in segments
+            if self._normalize_scenario_text(segment)
+            and not any(
+                previous.find(self._normalize_scenario_text(segment)) >= 0
+                for previous in normalized_previous
+            )
+        ]
+
+        if not unique_segments:
+            return summary
+        return "；".join(unique_segments) + "。"
+
+    def _dedupe_scenario_effects(
+        self,
+        summary: str,
+        expected_effects: str,
+    ) -> str:
+        normalized_summary = self._normalize_scenario_text(summary)
+        cleaned_effects = self._strip_scenario_effect_lead_in(expected_effects)
+        segments = [
+            segment.strip()
+            for segment in re.split(r"[；;。]", cleaned_effects)
+            if segment.strip()
+        ]
+        unique_segments = [
+            segment
+            for segment in segments
+            if self._normalize_scenario_text(segment)
+            and self._normalize_scenario_text(segment) not in normalized_summary
+        ]
+
+        if not unique_segments:
+            return cleaned_effects or expected_effects
+        return "；".join(unique_segments) + "。"
+
+    def _dedupe_scenario_effects_across_rows(
+        self,
+        expected_effects: str,
+        previous_effects: list[str],
+    ) -> str:
+        cleaned_effects = self._strip_scenario_effect_lead_in(expected_effects)
+        if not previous_effects:
+            return cleaned_effects or expected_effects
+
+        normalized_previous = [
+            self._normalize_scenario_text(
+                self._strip_scenario_effect_lead_in(previous),
+            )
+            for previous in previous_effects
+        ]
+        segments = [
+            segment.strip()
+            for segment in re.split(r"[；;。]", cleaned_effects)
+            if segment.strip()
+        ]
+        unique_segments = [
+            segment
+            for segment in segments
+            if self._normalize_scenario_text(segment)
+            and not any(
+                previous.find(self._normalize_scenario_text(segment)) >= 0
+                for previous in normalized_previous
+            )
+        ]
+
+        if not unique_segments:
+            return cleaned_effects or expected_effects
+        return "；".join(unique_segments) + "。"
 
     def _build_scenario_planning_section(
         self,

@@ -1,4 +1,4 @@
-# Meitai AI Business Innovation Agent Demo
+﻿# Meitai AI Business Innovation Agent Demo
 
 当前仓库实现的是一个可运行的咨询式 Demo，用结构化流程帮助企业完成从问卷到课后跟进的完整链路。
 
@@ -95,11 +95,11 @@ LLM_REPORT_ENABLED="true"
 
 ### 2. 安装依赖
 
-后端（需先配置 conda 环境 `rag-env`，Python 3.11）：
+后端（需先配置 conda 环境 `meitai-project`，Python 3.11）：
 
 ```powershell
 cd backend
-conda activate rag-env
+conda activate meitai-project
 ```
 
 项目依赖由 conda 环境管理，无需 pip install。
@@ -313,7 +313,7 @@ llm_config = {
 
 ```powershell
 cd backend
-python -m pytest tests/ -v
+conda run -n meitai-project python -m pytest tests/ -v
 # 20 passed, 1 skipped
 ```
 
@@ -329,7 +329,7 @@ E2E 全链路：
 
 ```powershell
 cd backend
-python -m pytest tests/test_e2e_full_chain.py -v -s
+conda run -n meitai-project python -m pytest tests/test_e2e_full_chain.py -v -s
 # 26 个步骤验证，涵盖画像→画布→突破→方向→竞争力→商业终局→
 #   场景→案例→报告→导出→分享→跟进→推送→讲师工作台→级联清空
 ```
