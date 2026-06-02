@@ -65,6 +65,7 @@ from app.schemas.direction import (
     DirectionExpansionResult,
     DirectionSelectionRequest,
     DirectionSelectionResponse,
+    DirectionSuggestion,
 )
 from app.schemas.competitiveness import (
     build_line_summary,
