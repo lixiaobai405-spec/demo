@@ -551,10 +551,23 @@ class ScenarioRecommender:
         directions = self._join_values(direction_titles, "、", "已确认方向")
         breakthroughs = self._join_values(breakthrough_labels, "、", "当前突破要素")
         base_summary = definition.summary.rstrip("。；; ")
-        return (
+        summary = (
             f"围绕“{directions}”，结合“{breakthroughs}”，在{definition.category}环节布局“{definition.name}”，"
             f"{base_summary}。"
         )
+        return self._trim_summary_lead_in(summary)
+
+    def _trim_summary_lead_in(self, summary: str) -> str:
+        trimmed = summary.strip()
+        if "围绕" not in trimmed or "结合" not in trimmed:
+            return trimmed
+
+        marker = re.search(r"[，,]\s*在", trimmed)
+        if marker is None:
+            return trimmed
+
+        shortened = trimmed[marker.start() + 1 :].strip()
+        return shortened or trimmed
 
     def _build_canvas_element_text(
         self,
