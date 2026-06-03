@@ -47,6 +47,7 @@ def init_db() -> None:
     from app.models.intake_session import AssessmentIntakeSession  # noqa: F401
     from app.models.push_record import PushRecord  # noqa: F401
     from app.models.scenario_recommendation import ScenarioRecommendation  # noqa: F401
+    from app.models.score_record import ScoreRecord  # noqa: F401
     from app.models.user import User  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
@@ -58,6 +59,7 @@ def init_db() -> None:
     _migrate_assessments_add_user_id()
     _migrate_assessment_intake_sessions_add_user_id()
     _migrate_scenario_recommendations_table()
+    _migrate_score_records_table()
 
 
 def _migrate_bmc_scorings_table() -> None:
@@ -279,6 +281,31 @@ def _migrate_scenario_recommendations_table() -> None:
         "active_scenario_ids_json": (
             "ALTER TABLE scenario_recommendations "
             "ADD COLUMN active_scenario_ids_json TEXT"
+        ),
+    }
+
+    with engine.begin() as connection:
+        for column_name, ddl in required_columns.items():
+            if column_name not in existing_columns:
+                connection.execute(text(ddl))
+
+
+def _migrate_score_records_table() -> None:
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    if "score_records" not in inspector.get_table_names():
+        return
+
+    existing_columns = {c["name"] for c in inspector.get_columns("score_records")}
+    required_columns = {
+        "note": "ALTER TABLE score_records ADD COLUMN note TEXT",
+        "export_markdown_path": (
+            "ALTER TABLE score_records ADD COLUMN export_markdown_path VARCHAR(500)"
+        ),
+        "export_pdf_path": (
+            "ALTER TABLE score_records ADD COLUMN export_pdf_path VARCHAR(500)"
         ),
     }
 

@@ -12,6 +12,7 @@ from app.api.routes.auth import router as auth_router
 from app.api.routes.bmc_scoring import router as bmc_scoring_router
 from app.api.routes.chat import router as chat_router
 from app.api.routes.reports import router as report_router
+from app.api.routes.score import router as score_router
 
 api_router = APIRouter()
 api_router.include_router(admin_router)
@@ -25,4 +26,5 @@ api_router.include_router(follow_up_router)
 api_router.include_router(push_router)
 api_router.include_router(chat_router)
 api_router.include_router(report_router)
+api_router.include_router(score_router)
 api_router.include_router(rag_router)
