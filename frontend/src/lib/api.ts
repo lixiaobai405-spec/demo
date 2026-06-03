@@ -53,8 +53,12 @@ import type {
   CreateInstructorRequest,
 } from "@/lib/types";
 
-export const apiBaseUrl =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+export function resolveApiBaseUrl(value: string | undefined): string {
+  const normalized = (value ?? "http://localhost:8000").trim();
+  return normalized.replace(/\/+$/, "");
+}
+
+export const apiBaseUrl = resolveApiBaseUrl(process.env.NEXT_PUBLIC_API_BASE_URL);
 
 function getAuthHeaders(): Record<string, string> {
   if (typeof window !== "undefined") {
