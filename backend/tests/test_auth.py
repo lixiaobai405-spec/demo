@@ -552,6 +552,103 @@ def test_forgot_password_sends_reset_email_via_smtp(
         assert user.reset_token_expires_at is not None
 
 
+def test_reset_password_by_token_succeeds_with_sqlite_naive_expiry(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+
+    from app.services import auth_service
+
+    register_response = client.post(
+        "/api/auth/register",
+        json=build_register_payload("token-reset@test.com", password="oldpass123"),
+    )
+    assert register_response.status_code == 201, register_response.text
+
+    class FakeSMTP:
+        def __init__(self, host: str, port: int, timeout: int):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def starttls(self):
+            pass
+
+        def ehlo(self):
+            pass
+
+        def login(self, username: str, password: str):
+            pass
+
+        def send_message(self, message):
+            pass
+
+    monkeypatch.setattr(
+        auth_service,
+        "settings",
+        SimpleNamespace(
+            smtp_enabled=True,
+            smtp_host="smtp.example.com",
+            smtp_port=587,
+            smtp_username="smtp-user",
+            smtp_password="smtp-pass",
+            smtp_from_email="noreply@example.com",
+            smtp_from_name="Meitai AI",
+            smtp_use_tls=True,
+            smtp_use_ssl=False,
+            password_reset_url="",
+            frontend_origin="http://localhost:3001",
+            jwt_expire_minutes=1440,
+            jwt_secret_key="test-secret",
+            jwt_algorithm="HS256",
+        ),
+    )
+    monkeypatch.setattr(auth_service.smtplib, "SMTP", FakeSMTP)
+
+    forgot_response = client.post(
+        "/api/auth/forgot-password",
+        json={"email": "token-reset@test.com"},
+    )
+    assert forgot_response.status_code == 200, forgot_response.text
+
+    with db_session.SessionLocal() as db:
+        user = db.query(User).filter(User.email == "token-reset@test.com").first()
+        assert user is not None
+        assert user.reset_token is not None
+        assert user.reset_token_expires_at is not None
+        assert user.reset_token_expires_at.tzinfo is None
+        reset_token = user.reset_token
+
+    reset_response = client.post(
+        "/api/auth/reset-password",
+        json={"token": reset_token, "new_password": "newpass123"},
+    )
+    assert reset_response.status_code == 200, reset_response.text
+
+    old_login_response = client.post(
+        "/api/auth/login",
+        json={"email": "token-reset@test.com", "password": "oldpass123"},
+    )
+    assert old_login_response.status_code == 401, old_login_response.text
+
+    new_login_response = client.post(
+        "/api/auth/login",
+        json={"email": "token-reset@test.com", "password": "newpass123"},
+    )
+    assert new_login_response.status_code == 200, new_login_response.text
+
+    with db_session.SessionLocal() as db:
+        user = db.query(User).filter(User.email == "token-reset@test.com").first()
+        assert user is not None
+        assert user.reset_token is None
+        assert user.reset_token_expires_at is None
+
+
 def test_forgot_password_smtp_failure_rolls_back_token(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
