@@ -188,6 +188,16 @@ class HtmlExporter:
                 f"{escape(card.highlight)}</div>"
             )
 
+        highlights_html = ""
+        if card.highlights:
+            highlights_html = "".join(
+                (
+                    f"<div style='margin-top:10px;padding:8px 12px;border-radius:10px;background:{c['accent_light']};color:{c['accent']};font-size:13px;font-weight:500;'>"
+                    f"{escape(item)}</div>"
+                )
+                for item in card.highlights
+            )
+
         bullets_html = ""
         if card.bullets:
             bullets_html = (
@@ -203,12 +213,17 @@ class HtmlExporter:
         if card.title == "核心竞争力提升路径":
             content_style += "white-space:pre-line;"
 
+        content_html = ""
+        if card.content:
+            content_html = f"<p style=\"{content_style}\">{escape(card.content)}</p>"
+
         return f"""
 <article style="padding:20px;border-radius:16px;background:{c['inset']};border:1px solid {c['border_light']};transition:box-shadow 0.2s;">
   <h3 style="margin:0;font-size:16px;line-height:1.4;color:{c['text']};font-weight:600;">{escape(card.title)}</h3>
   {subtitle_html}
   {highlight_html}
-  <p style="{content_style}">{escape(card.content)}</p>
+  {highlights_html}
+  {content_html}
   {bullets_html}
 </article>
 """.strip()

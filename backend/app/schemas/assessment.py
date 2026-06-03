@@ -271,6 +271,7 @@ class ReportCardData(BaseModel):
     content: str
     bullets: list[str] = Field(default_factory=list)
     highlight: str | None = None
+    highlights: list[str] = Field(default_factory=list)
 
 
 class ReportSectionData(BaseModel):

@@ -462,9 +462,12 @@ class ReportBuilder:
                 ReportCardData(
                     title="VP 重构输出",
                     subtitle="价值主张升级",
-                    content=vp.enhanced_vp,
-                    highlight=f"旧 VP：{vp.current_vp}",
-                    bullets=[f"交付逻辑变化：{vp.customer_value_shift}"],
+                    content="",
+                    highlights=[
+                        f"旧 VP：{vp.current_vp}",
+                        f"新 VP（AI 重构）：{vp.enhanced_vp}",
+                        f"VP 交付逻辑变化：{vp.customer_value_shift}",
+                    ],
                 ),
                 ReportCardData(
                     title="竞争优势差异化定位",
