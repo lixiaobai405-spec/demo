@@ -2,10 +2,13 @@ from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.db.session import get_db
+from app.models.user import User
 from app.schemas.assessment import ReportDocumentResponse
 from app.services.report_enrichment import ReportEnrichmentService
 from app.services.report_service import ReportService
+from app.services.payment_service import require_report_paid_access
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -18,9 +21,11 @@ router = APIRouter(prefix="/api/reports", tags=["reports"])
 def get_report(
     report_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ReportDocumentResponse:
     service = ReportService()
     record = service.get_report_or_404(db, report_id)
+    require_report_paid_access(db, record, current_user)
     return service.to_document_response(record)
 
 
@@ -31,9 +36,11 @@ def get_report(
 def export_report_markdown(
     report_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> FileResponse:
     service = ReportService()
     record = service.get_report_or_404(db, report_id)
+    require_report_paid_access(db, record, current_user)
     path = service.ensure_markdown_export(db, record)
     return FileResponse(
         path=path,
@@ -49,9 +56,11 @@ def export_report_markdown(
 def export_report_docx(
     report_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> FileResponse:
     service = ReportService()
     record = service.get_report_or_404(db, report_id)
+    require_report_paid_access(db, record, current_user)
     path = service.ensure_docx_export(db, record)
     return FileResponse(
         path=path,
@@ -68,9 +77,11 @@ def export_report_docx(
 def get_report_print_view(
     report_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> HTMLResponse:
     service = ReportService()
     record = service.get_report_or_404(db, report_id)
+    require_report_paid_access(db, record, current_user)
     return HTMLResponse(content=service.build_print_html(record))
 
 
@@ -81,9 +92,11 @@ def get_report_print_view(
 def export_report_pdf(
     report_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> FileResponse:
     service = ReportService()
     record = service.get_report_or_404(db, report_id)
+    require_report_paid_access(db, record, current_user)
     path = service.ensure_pdf_export(db, record)
     return FileResponse(
         path=path,
@@ -99,9 +112,11 @@ def export_report_pdf(
 def get_report_enrichment(
     report_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     service = ReportService()
     record = service.get_report_or_404(db, report_id)
+    require_report_paid_access(db, record, current_user)
     return JSONResponse(content=service.get_enrichment(record))
 
 
@@ -112,9 +127,11 @@ def get_report_enrichment(
 def get_report_quality(
     report_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     service = ReportService()
     record = service.get_report_or_404(db, report_id)
+    require_report_paid_access(db, record, current_user)
     return JSONResponse(content=service.get_quality_report(record))
 
 
@@ -146,9 +163,11 @@ def view_shared_report(
 def create_share_link(
     report_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     service = ReportService()
     record = service.get_report_or_404(db, report_id)
+    require_report_paid_access(db, record, current_user)
     token = service.generate_share_token(db, record)
     return JSONResponse(content={
         "share_url": f"/api/reports/{report_id}/share/{token}",

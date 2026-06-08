@@ -13,9 +13,11 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CompetitivenessEditor } from "@/components/competitiveness-editor";
 import { CompetitivenessPanel } from "@/components/competitiveness-panel";
+import { PaymentUnlockPanel } from "@/components/payment-unlock-panel";
 import { SyncFeedbackPanel } from "@/components/sync-feedback-panel";
 import { toast } from "@/hooks/use-toast";
 import { formatMutationError } from "@/lib/api";
+import { isPaymentRequired } from "@/lib/payment-entitlement";
 import type { UpdateCompetitivenessPayload } from "@/lib/types";
 
 export function CompetitivenessPageContent({
@@ -106,6 +108,7 @@ export function CompetitivenessPageContent({
   const companyName = detail.assessment.company_name;
   const industry = detail.assessment.industry;
   const competitiveness = detail.competitiveness;
+  const paymentRequired = isPaymentRequired(detail.entitlement);
   const editableCompetitiveness = competitiveness
     ? (({ generation_mode: _generationMode, ...rest }) => rest)(
         competitiveness.result,
@@ -140,7 +143,13 @@ export function CompetitivenessPageContent({
           </div>
         </section>
 
-        {competitiveness ? (
+        {paymentRequired ? (
+          <PaymentUnlockPanel
+            assessmentId={assessmentId}
+            entitlement={detail.entitlement}
+            onUnlocked={() => detailQuery.refetch()}
+          />
+        ) : competitiveness ? (
           <>
             <div className="flex items-center gap-3">
               <Button

@@ -8,7 +8,9 @@ import { useAssessmentDetail, useExpandDirections } from "@/hooks";
 import { useGetBMCScoring } from "@/hooks/use-bmc-scoring";
 import { toast } from "@/hooks/use-toast";
 import { formatMutationError } from "@/lib/api";
+import { isPaymentRequired } from "@/lib/payment-entitlement";
 import { BmcScoringMatrix } from "@/components/bmc-scoring-matrix";
+import { PaymentUnlockPanel } from "@/components/payment-unlock-panel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SyncFeedbackPanel } from "@/components/sync-feedback-panel";
@@ -21,7 +23,11 @@ export default function ScoringPage({
   const { assessmentId } = use(params);
   const router = useRouter();
   const detailQuery = useAssessmentDetail(assessmentId);
-  const savedScoringQuery = useGetBMCScoring(assessmentId);
+  const paymentRequired = isPaymentRequired(detailQuery.data?.entitlement);
+  const savedScoringQuery = useGetBMCScoring(
+    assessmentId,
+    Boolean(detailQuery.data) && !paymentRequired,
+  );
   const expandDirections = useExpandDirections();
 
   const hasBreakthrough =
@@ -81,6 +87,7 @@ export default function ScoringPage({
   const companyName = detail.assessment.company_name;
   const canvasDiagnosis = detail.canvas_diagnosis;
   const hasSavedScoring = savedScoringQuery.data?.scoring_result ?? null;
+  const detailPaymentRequired = isPaymentRequired(detail.entitlement);
 
   return (
     <main className="min-h-screen px-6 py-10">
@@ -111,7 +118,13 @@ export default function ScoringPage({
           </div>
         </section>
 
-        {!canvasDiagnosis ? (
+        {detailPaymentRequired ? (
+          <PaymentUnlockPanel
+            assessmentId={assessmentId}
+            entitlement={detail.entitlement}
+            onUnlocked={() => detailQuery.refetch()}
+          />
+        ) : !canvasDiagnosis ? (
           <div className="card-inset">
             <p className="section-label">画布诊断</p>
             <p className="mt-4 text-sm leading-7 text-muted-foreground">

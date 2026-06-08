@@ -24,6 +24,7 @@ from app.models.endgame_analysis import EndgameAnalysis
 from app.models.follow_up import FollowUpTask
 from app.models.generated_report import GeneratedReport
 from app.models.intake_session import AssessmentIntakeSession
+from app.models.payment import AssessmentEntitlement, PaymentOrder
 from app.models.push_record import PushRecord
 from app.models.scenario_recommendation import ScenarioRecommendation
 from app.schemas.assessment import (
@@ -94,6 +95,7 @@ from app.services.llm_enhancer import LLMEnhancer
 from app.services.report_builder import ReportBuilder
 from app.services.report_enrichment import ReportEnrichmentService
 from app.services.report_service import ReportService
+from app.services.payment_service import EntitlementService
 from app.services.scenario_recommender import ScenarioRecommender
 from app.services.scene_priority_scorer import ScenePriorityScorer
 from app.schemas.scene_priority import ScenePriorityInput
@@ -130,6 +132,15 @@ def _check_owner_or_instructor(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="无权访问此评估。",
         )
+
+
+def _require_paid_workflow_access(
+    db: Session,
+    assessment: Assessment,
+    current_user: User,
+) -> None:
+    _check_owner_or_instructor(assessment, current_user)
+    EntitlementService().require_paid_access(db, assessment, current_user)
 
 
 def _claim_orphaned_assessment_from_intake(
@@ -284,6 +295,15 @@ def delete_assessment(
     ).all():
         db.delete(record)
 
+    for record in db.scalars(
+        select(AssessmentEntitlement).where(AssessmentEntitlement.assessment_id == assessment_id)
+    ).all():
+        db.delete(record)
+    for record in db.scalars(
+        select(PaymentOrder).where(PaymentOrder.assessment_id == assessment_id)
+    ).all():
+        db.delete(record)
+
     # 4. 清除 intake session 中的关联
     intake = db.scalar(
         select(AssessmentIntakeSession).where(
@@ -313,6 +333,7 @@ def get_assessment_detail(
     assessment = _get_assessment_or_404(db, assessment_id)
     assessment = _claim_orphaned_assessment_from_intake(db, assessment, current_user)
     _check_owner_or_instructor(assessment, current_user)
+    entitlement = EntitlementService().get_status(db, assessment, current_user)
     report_service = ReportService()
     profile = _load_profile_from_assessment(assessment)
     canvas = _load_canvas_diagnosis(db, assessment_id)
@@ -343,8 +364,21 @@ def get_assessment_detail(
             updated_at=endgame.updated_at.isoformat() if endgame.updated_at else None,
         )
 
+    if not entitlement.can_continue:
+        breakthrough_keys = None
+        scenarios = None
+        cases = None
+        report_summary = None
+        direction_selection = None
+        direction_expansion = None
+        competitiveness = None
+        endgame = None
+        competitiveness_response = None
+        endgame_response = None
+
     return AssessmentDetailResponse(
         assessment=AssessmentResponse.model_validate(assessment, from_attributes=True),
+        entitlement=entitlement,
         company_profile=profile,
         canvas_diagnosis=canvas,
         breakthrough_selection=breakthrough_keys,
@@ -370,8 +404,10 @@ def get_assessment_detail(
 def get_report_context(
     assessment_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ReportContextResponse:
     assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
     profile, canvas, scenarios = _require_report_prerequisites(db, assessment)
     breakthrough_keys = _load_breakthrough_selection_keys(db, assessment_id) or []
 
@@ -394,8 +430,10 @@ def get_report_context(
 def generate_profile(
     assessment_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AssessmentProfileResponse:
     assessment = _get_assessment_or_404(db, assessment_id)
+    _check_owner_or_instructor(assessment, current_user)
     profile, generation_mode = _generate_and_store_profile(db, assessment)
 
     return AssessmentProfileResponse(
@@ -413,8 +451,10 @@ def generate_profile(
 def generate_canvas(
     assessment_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AssessmentCanvasResponse:
     assessment = _get_assessment_or_404(db, assessment_id)
+    _check_owner_or_instructor(assessment, current_user)
     profile, _ = _ensure_profile(db, assessment)
     llm_client = LLMClient()
     canvas_result, generation_mode = llm_client.generate_business_model_canvas(
@@ -478,6 +518,7 @@ def update_canvas(
 ) -> AssessmentCanvasResponse:
     """手动更新画布诊断内容，并清除下游数据以便基于新画布重新生成。"""
     assessment = _get_assessment_or_404(db, assessment_id)
+    _check_owner_or_instructor(assessment, current_user)
 
     # Build updated canvas result from payload
     canvas_blocks = [
@@ -518,8 +559,10 @@ def update_canvas(
 def recommend_breakthrough(
     assessment_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AssessmentBreakthroughResponse:
     assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
     canvas = _require_canvas(db, assessment_id)
 
     recommendation = None
@@ -552,8 +595,10 @@ def select_breakthrough(
     assessment_id: str,
     payload: BreakthroughSelectionRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> BreakthroughSelectionResponse:
-    _get_assessment_or_404(db, assessment_id)
+    assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
     canvas = _require_canvas(db, assessment_id)
     recommender = BreakthroughRecommender()
     recommendation = recommender.recommend(canvas)
@@ -579,8 +624,10 @@ def select_breakthrough(
 def get_breakthrough(
     assessment_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AssessmentBreakthroughResponse:
-    _get_assessment_or_404(db, assessment_id)
+    assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
     canvas = _require_canvas(db, assessment_id)
     recommender = BreakthroughRecommender()
     recommendation = recommender.recommend(canvas)
@@ -605,8 +652,10 @@ def get_breakthrough(
 def expand_directions(
     assessment_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AssessmentDirectionResponse:
-    _get_assessment_or_404(db, assessment_id)
+    assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
     breakthrough_keys = _load_breakthrough_selection_keys(db, assessment_id)
     if not breakthrough_keys or len(breakthrough_keys) < 2:
         raise HTTPException(
@@ -663,8 +712,10 @@ def select_directions(
     assessment_id: str,
     payload: DirectionSelectionRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> DirectionSelectionResponse:
-    _get_assessment_or_404(db, assessment_id)
+    assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
     breakthrough_keys = _load_breakthrough_selection_keys(db, assessment_id)
     if not breakthrough_keys or len(breakthrough_keys) < 2:
         raise HTTPException(
@@ -702,8 +753,10 @@ def select_directions(
 def get_directions(
     assessment_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AssessmentDirectionResponse:
     assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
     record = _load_direction_expansion(db, assessment_id)
     if record is None:
         raise HTTPException(
@@ -734,8 +787,10 @@ def get_directions(
 def generate_competitiveness(
     assessment_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> CompetitivenessResponse:
     assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
     canvas = _require_canvas(db, assessment_id)
     _require_scenarios(db, assessment_id)
     breakthrough_keys = _load_breakthrough_selection_keys(db, assessment_id)
@@ -783,8 +838,10 @@ def generate_competitiveness(
 def get_competitiveness(
     assessment_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> CompetitivenessResponse:
     assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
     existing = _load_competitiveness_analysis(db, assessment_id)
     if existing is None:
         raise HTTPException(
@@ -810,8 +867,10 @@ def update_competitiveness(
     assessment_id: str,
     payload: UpdateCompetitivenessRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> CompetitivenessResponse:
-    _get_assessment_or_404(db, assessment_id)
+    assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
     result = CompetitivenessResult(
         generation_mode="manual_edit",
         vp_reconstruction=payload.vp_reconstruction,
@@ -841,8 +900,10 @@ def update_competitiveness(
 def generate_endgame(
     assessment_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> EndgameResponse:
     assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
     canvas = _require_canvas(db, assessment_id)
     breakthrough_keys = _load_breakthrough_selection_keys(db, assessment_id) or []
     selected_directions = _load_selected_directions(db, assessment_id)
@@ -887,8 +948,10 @@ def generate_endgame(
 def get_endgame(
     assessment_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> EndgameResponse:
     assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
     existing = _load_endgame_analysis(db, assessment_id)
     if existing is None:
         raise HTTPException(
@@ -914,8 +977,10 @@ def update_endgame(
     assessment_id: str,
     payload: UpdateEndgameRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> EndgameResponse:
     assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
     result = EndgameResult(
         generation_mode="manual_edit",
         industry_essence=payload.industry_essence
@@ -951,6 +1016,7 @@ def recommend_scenarios(
     assessment_id: str,
     mode: str | None = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AssessmentScenarioRecommendationResponse:
     """生成 Top 3 AI 场景推荐。
 
@@ -958,6 +1024,7 @@ def recommend_scenarios(
     可通过 ?mode=legacy 回退到旧关键词评分算法（rule_based_v1）。
     """
     assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
     canvas = _require_canvas(db, assessment_id)
     profile = _load_profile_from_assessment(assessment)
     selected_directions = _load_selected_directions(db, assessment_id)
@@ -1036,6 +1103,7 @@ def recommend_scenarios(
 def recommend_scenarios_with_priority(
     assessment_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AssessmentScenarioRecommendationResponse:
     """使用四象限优先级评分引擎推荐 Top 3 AI 场景。
 
@@ -1052,6 +1120,7 @@ def recommend_scenarios_with_priority(
     - priority_recommendation: 推荐话术模板
     """
     assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
     selected_directions = _load_selected_directions(db, assessment_id)
     if not selected_directions:
         raise HTTPException(
@@ -1105,6 +1174,7 @@ def save_scenario_calibrations(
     assessment_id: str,
     body: ScenarioCalibrationRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AssessmentScenarioRecommendationResponse:
     """保存人工校准后的 X/Y 评分，重算所有 priority_* 字段并更新 Top3。
 
@@ -1113,6 +1183,7 @@ def save_scenario_calibrations(
     重新排序后更新 top_scenarios 和 all_scores。
     """
     assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
 
     record = db.scalar(
         select(ScenarioRecommendation).where(
@@ -1236,8 +1307,10 @@ def update_scenario_pool(
     assessment_id: str,
     payload: ScenarioPoolUpdateRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AssessmentScenarioRecommendationResponse:
     assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
     record = db.scalar(
         select(ScenarioRecommendation).where(
             ScenarioRecommendation.assessment_id == assessment_id
@@ -1323,8 +1396,10 @@ def update_scenario_pool(
 def match_cases(
     assessment_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AssessmentCaseResponse:
     assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
     profile = _require_profile(assessment)
     canvas = _require_canvas(db, assessment_id)
     scenarios = _require_scenarios(db, assessment_id)
@@ -1345,6 +1420,7 @@ def generate_report(
     assessment_id: str,
     mode: str = "template",
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ReportDocumentResponse:
     """Generate report with specified mode.
 
@@ -1357,6 +1433,7 @@ def generate_report(
     from app.services.llm_report_writer import LLMReportWriter
 
     assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
     profile, canvas, scenarios = _require_report_prerequisites(db, assessment)
 
     cases = _load_case_recommendation(db, assessment_id)

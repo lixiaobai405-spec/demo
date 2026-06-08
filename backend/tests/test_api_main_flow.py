@@ -92,7 +92,30 @@ def _create_assessment(client: TestClient, payload: dict[str, str]) -> str:
     assert response.status_code == 201
     body = response.json()
     assert body["company_name"] == payload["company_name"]
-    return body["id"]
+    assessment_id = body["id"]
+    _unlock_assessment(client, assessment_id)
+    return assessment_id
+
+
+def _unlock_assessment(client: TestClient, assessment_id: str) -> None:
+    order_response = client.post(
+        f"/api/assessments/{assessment_id}/payments/orders",
+        json={"provider": "wechat"},
+    )
+    if order_response.status_code == 409:
+        return
+    assert order_response.status_code == 201
+    order = order_response.json()
+    notify_response = client.post(
+        "/api/payments/wechat/notify",
+        json={
+            "out_trade_no": order["order_no"],
+            "total_amount_cents": order["amount_cents"],
+            "transaction_id": f"test-{order['order_no']}",
+            "trade_state": "SUCCESS",
+        },
+    )
+    assert notify_response.status_code == 200
 
 
 def _select_recommended_breakthroughs(client: TestClient, assessment_id: str) -> list[str]:

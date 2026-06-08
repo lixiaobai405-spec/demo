@@ -5,11 +5,11 @@ import Link from "next/link";
 
 import {
   ApiError,
+  downloadReportExport,
+  formatMutationError,
   getReport,
-  getReportDocxExportUrl,
-  getReportMarkdownExportUrl,
-  getReportPdfUrl,
-  getReportPrintUrl,
+  openReportPrintPage,
+  type ReportExportFormat,
 } from "@/lib/api";
 import type { ReportDocumentResponse } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -39,6 +39,9 @@ export function ReportDocumentViewer({ reportId }: { reportId: string }) {
   const [report, setReport] = useState<ReportDocumentResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [exportingFormat, setExportingFormat] = useState<
+    ReportExportFormat | "print" | null
+  >(null);
 
   const loadReport = useCallback(() => {
     let active = true;
@@ -73,6 +76,25 @@ export function ReportDocumentViewer({ reportId }: { reportId: string }) {
       cleanup();
     };
   }, [loadReport]);
+
+  const handleExport = useCallback(
+    async (format: ReportExportFormat | "print") => {
+      if (!report) return;
+      setExportingFormat(format);
+      try {
+        if (format === "print") {
+          await openReportPrintPage(report.report_id);
+        } else {
+          await downloadReportExport(report.report_id, format);
+        }
+      } catch (nextError) {
+        setError(formatMutationError(nextError, "报告导出"));
+      } finally {
+        setExportingFormat(null);
+      }
+    },
+    [report],
+  );
 
   if (isLoading) {
     return <ReportSkeleton />;
@@ -121,23 +143,37 @@ export function ReportDocumentViewer({ reportId }: { reportId: string }) {
         </div>
 
         <div className="mt-6 flex flex-wrap gap-3">
-          <a href={getReportPdfUrl(report.report_id)} className="btn-primary">
+          <Button
+            onClick={() => handleExport("pdf")}
+            loading={exportingFormat === "pdf"}
+            disabled={exportingFormat !== null}
+          >
             下载 PDF
-          </a>
-          <a href={getReportDocxExportUrl(report.report_id)} className="btn-success">
+          </Button>
+          <Button
+            variant="success"
+            onClick={() => handleExport("docx")}
+            loading={exportingFormat === "docx"}
+            disabled={exportingFormat !== null}
+          >
             下载 Word
-          </a>
-          <a href={getReportMarkdownExportUrl(report.report_id)} className="btn-secondary">
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleExport("markdown")}
+            loading={exportingFormat === "markdown"}
+            disabled={exportingFormat !== null}
+          >
             下载 Markdown
-          </a>
-          <a
-            href={getReportPrintUrl(report.report_id)}
-            target="_blank"
-            rel="noreferrer"
-            className="btn-secondary"
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleExport("print")}
+            loading={exportingFormat === "print"}
+            disabled={exportingFormat !== null}
           >
             打开打印版
-          </a>
+          </Button>
           <Link href={`/report/${report.assessment_id}`} className="btn-secondary">
             返回报告生成页
           </Link>

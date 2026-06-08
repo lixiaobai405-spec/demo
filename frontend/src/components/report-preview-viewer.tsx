@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { ApiError, generateAssessmentReport, getAssessmentDetail } from "@/lib/api";
+import { isPaymentRequired } from "@/lib/payment-entitlement";
 import type { AssessmentDetailResponse, ReportDocumentResponse } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { PaymentUnlockPanel } from "@/components/payment-unlock-panel";
 
 export function ReportPreviewViewer({ assessmentId }: { assessmentId: string }) {
   const router = useRouter();
@@ -17,7 +19,7 @@ export function ReportPreviewViewer({ assessmentId }: { assessmentId: string }) 
   const [isGenerating, setIsGenerating] = useState(false);
   const [reportMode, setReportMode] = useState<"template" | "llm">("template");
 
-  useEffect(() => {
+  const loadDetail = useCallback(() => {
     let active = true;
     setIsLoading(true); setError(null);
     getAssessmentDetail(assessmentId)
@@ -26,6 +28,14 @@ export function ReportPreviewViewer({ assessmentId }: { assessmentId: string }) 
       .finally(() => { if (active) setIsLoading(false); });
     return () => { active = false; };
   }, [assessmentId]);
+
+  useEffect(() => {
+    return loadDetail();
+  }, [loadDetail]);
+
+  const handlePaymentUnlocked = useCallback(() => {
+    loadDetail();
+  }, [loadDetail]);
 
   async function handleGenerateReport() {
     setIsGenerating(true); setError(null);
@@ -52,7 +62,7 @@ export function ReportPreviewViewer({ assessmentId }: { assessmentId: string }) 
         <p className="mt-2 opacity-90">{error}</p>
       </div>
       <div className="flex flex-wrap gap-3">
-        <Button variant="outline" size="sm" onClick={() => { setError(null); setIsLoading(true); }}>重试加载</Button>
+        <Button variant="outline" size="sm" onClick={loadDetail}>重试加载</Button>
         <Link href={`/assessment/${assessmentId}`} className="btn-secondary text-xs">返回 Assessment 工作台</Link>
       </div>
     </div>
@@ -65,6 +75,16 @@ export function ReportPreviewViewer({ assessmentId }: { assessmentId: string }) 
   const canvas = detail.canvas_diagnosis;
   const scenarios = detail.scenario_recommendation;
   const existingReport = detail.generated_report;
+
+  if (isPaymentRequired(detail.entitlement)) {
+    return (
+      <PaymentUnlockPanel
+        assessmentId={assessmentId}
+        entitlement={detail.entitlement}
+        onUnlocked={handlePaymentUnlocked}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
