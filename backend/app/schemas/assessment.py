@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.schemas.direction import DirectionExpansionResult, DirectionSelectionResponse
 from app.schemas.competitiveness import CompetitivenessResponse
 from app.schemas.endgame import EndgameResponse
+from app.schemas.payment import EntitlementResponse
 
 
 class AssessmentCardItem(BaseModel):
@@ -340,6 +341,7 @@ class AssessmentProgress(BaseModel):
 
 class AssessmentDetailResponse(BaseModel):
     assessment: AssessmentResponse
+    entitlement: EntitlementResponse
     company_profile: CompanyProfileResult | None
     canvas_diagnosis: CanvasDiagnosisResult | None
     breakthrough_selection: list[str] | None = None

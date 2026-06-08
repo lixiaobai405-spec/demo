@@ -7,9 +7,11 @@ import { useAssessmentDetail } from "@/hooks";
 import { BusinessCanvasGrid } from "@/components/business-canvas-grid";
 import { CompetitivenessPanel } from "@/components/competitiveness-panel";
 import { EndgamePanel } from "@/components/endgame-panel";
+import { PaymentUnlockPanel } from "@/components/payment-unlock-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SyncFeedbackPanel } from "@/components/sync-feedback-panel";
 import { ReportExportActions } from "@/app/assessment/[assessmentId]/results/report-export-actions";
+import { isPaymentRequired } from "@/lib/payment-entitlement";
 import type { ScenarioRecommendationItem } from "@/lib/types";
 
 const BREAKTHROUGH_LABELS: Record<string, string> = {
@@ -195,6 +197,7 @@ export function ResultsDashboardPageContent({
   );
   const competitivenessData = detail.competitiveness ?? null;
   const endgameData = detail.endgame ?? null;
+  const paymentRequired = isPaymentRequired(detail.entitlement);
 
   return (
     <main className="min-h-screen px-6 py-10">
@@ -219,18 +222,26 @@ export function ResultsDashboardPageContent({
               </p>
             ) : null}
 
-            <div className="rounded-2xl border border-warm-border-light bg-warm-surface p-4">
-              <p className="text-sm font-medium text-warm-text">导出报告</p>
-              <p className="mt-1 text-xs leading-6 text-muted-foreground">
-                可直接生成并导出 PDF / Word / Markdown。
-              </p>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <ReportExportActions
-                  assessmentId={assessmentId}
-                  initialReportId={detail.generated_report?.report_id ?? null}
-                />
+            {paymentRequired ? (
+              <PaymentUnlockPanel
+                assessmentId={assessmentId}
+                entitlement={detail.entitlement}
+                onUnlocked={() => detailQuery.refetch()}
+              />
+            ) : (
+              <div className="rounded-2xl border border-warm-border-light bg-warm-surface p-4">
+                <p className="text-sm font-medium text-warm-text">导出报告</p>
+                <p className="mt-1 text-xs leading-6 text-muted-foreground">
+                  可直接生成并导出 PDF / Word / Markdown。
+                </p>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <ReportExportActions
+                    assessmentId={assessmentId}
+                    initialReportId={detail.generated_report?.report_id ?? null}
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </section>
 

@@ -1,12 +1,9 @@
 import Link from "next/link";
 import { dehydrate, HydrationBoundary, QueryClient } from "@tanstack/react-query";
 import { getAssessmentDetail } from "@/lib/api";
+import { formatShortAssessmentId } from "@/lib/assessment-display";
 import { assessmentKeys } from "@/hooks/use-assessment";
 import { AssessmentWorkspace } from "@/components/assessment-workspace";
-
-export function formatShortAssessmentId(assessmentId: string) {
-  return assessmentId.slice(0, 8);
-}
 
 export default async function AssessmentDetailPage({
   params,

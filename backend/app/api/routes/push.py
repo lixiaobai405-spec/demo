@@ -2,7 +2,9 @@ from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.db.session import get_db
+from app.models.user import User
 from app.schemas.push import PushCycleResult, RecalibratePlanRequest
 from app.services.push_service import PushService
 
@@ -17,14 +19,17 @@ router = APIRouter(prefix="/api/assessments", tags=["push-recalibrate"])
 def trigger_case_push(
     assessment_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     from app.api.routes.assessments import (
         _get_assessment_or_404,
+        _require_paid_workflow_access,
         _require_canvas,
         _require_scenarios,
     )
 
     assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
     canvas = _require_canvas(db, assessment_id)
     scenarios = _require_scenarios(db, assessment_id)
 
@@ -39,7 +44,12 @@ def trigger_case_push(
 def get_push_history(
     assessment_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> list[PushCycleResult]:
+    from app.api.routes.assessments import _get_assessment_or_404, _require_paid_workflow_access
+
+    assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
     service = PushService()
     return service.get_push_history(db, assessment_id)
 
@@ -52,7 +62,12 @@ def recalibrate_plan(
     assessment_id: str,
     payload: RecalibratePlanRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
+    from app.api.routes.assessments import _get_assessment_or_404, _require_paid_workflow_access
+
+    assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
     service = PushService()
     result = service.recalibrate_plan(db, assessment_id, payload)
     return JSONResponse(content=result)

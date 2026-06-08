@@ -51,10 +51,18 @@ import type {
   UserResponse,
   AssessmentListResponse,
   CreateInstructorRequest,
+  AssessmentEntitlementResponse,
+  PaymentNotifyResponse,
+  PaymentOrderCreateRequest,
+  PaymentOrderResponse,
 } from "@/lib/types";
 
-export const apiBaseUrl =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+export function resolveApiBaseUrl(value: string | undefined): string {
+  const normalized = (value ?? "http://localhost:8000").trim();
+  return normalized.replace(/\/+$/, "");
+}
+
+export const apiBaseUrl = resolveApiBaseUrl(process.env.NEXT_PUBLIC_API_BASE_URL);
 
 function getAuthHeaders(): Record<string, string> {
   if (typeof window !== "undefined") {
@@ -132,6 +140,31 @@ export class ApiError extends Error {
   }
 }
 
+async function parseErrorResponse(response: Response): Promise<ApiError> {
+  const text = await response.text();
+  let detail: unknown = text;
+  let message = text || `HTTP ${response.status}`;
+
+  try {
+    const payload = JSON.parse(text) as { detail?: unknown };
+    detail = payload.detail ?? payload;
+    if (typeof payload.detail === "string" && payload.detail.trim()) {
+      message = payload.detail;
+    } else if (
+      payload.detail &&
+      typeof payload.detail === "object" &&
+      "message" in payload.detail &&
+      typeof (payload.detail as { message?: unknown }).message === "string"
+    ) {
+      message = (payload.detail as { message: string }).message;
+    }
+  } catch {
+    // Keep raw text when response is not JSON.
+  }
+
+  return new ApiError(message, response.status, detail);
+}
+
 async function request<T>(path: string, init?: RequestInit & { signal?: AbortSignal }): Promise<T> {
   const maxRetries = 2;
   let lastError: unknown;
@@ -151,27 +184,15 @@ async function request<T>(path: string, init?: RequestInit & { signal?: AbortSig
       });
 
       if (!response.ok) {
-        const text = await response.text();
-        let detail: unknown = text;
-        let message = text || `HTTP ${response.status}`;
-
-        try {
-          const payload = JSON.parse(text) as { detail?: unknown };
-          detail = payload.detail ?? payload;
-          if (typeof payload.detail === "string" && payload.detail.trim()) {
-            message = payload.detail;
-          }
-        } catch {
-          // Keep raw text when response is not JSON.
-        }
+        const apiError = await parseErrorResponse(response);
 
         if (response.status >= 500 && attempt < maxRetries) {
-          lastError = new ApiError(message, response.status, detail);
+          lastError = apiError;
           await new Promise((r) => setTimeout(r, (attempt + 1) * 800));
           continue;
         }
 
-        throw new ApiError(message, response.status, detail);
+        throw apiError;
       }
 
       if (response.status === 204) {
@@ -201,6 +222,24 @@ async function request<T>(path: string, init?: RequestInit & { signal?: AbortSig
   }
 
   throw lastError;
+}
+
+async function requestBlob(path: string, init?: RequestInit): Promise<Response> {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    cache: "no-store",
+    ...init,
+    headers: {
+      "ngrok-skip-browser-warning": "true",
+      ...getAuthHeaders(),
+      ...(init?.headers ?? {}),
+    },
+  });
+
+  if (!response.ok) {
+    throw await parseErrorResponse(response);
+  }
+
+  return response;
 }
 
 export function createAssessment(
@@ -258,6 +297,57 @@ export function getAssessmentDetail(
   assessmentId: string,
 ): Promise<AssessmentDetailResponse> {
   return request<AssessmentDetailResponse>(`/api/assessments/${assessmentId}`);
+}
+
+export function getAssessmentEntitlement(
+  assessmentId: string,
+): Promise<AssessmentEntitlementResponse> {
+  return request<AssessmentEntitlementResponse>(
+    `/api/assessments/${assessmentId}/entitlement`,
+  );
+}
+
+export function createPaymentOrder(
+  assessmentId: string,
+  payload: PaymentOrderCreateRequest,
+): Promise<PaymentOrderResponse> {
+  return request<PaymentOrderResponse>(
+    `/api/assessments/${assessmentId}/payments/orders`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function getPaymentOrder(orderId: string): Promise<PaymentOrderResponse> {
+  return request<PaymentOrderResponse>(`/api/payments/orders/${orderId}`);
+}
+
+export function completeMockPaymentOrder(
+  order: PaymentOrderResponse,
+): Promise<PaymentNotifyResponse> {
+  if (order.provider === "wechat") {
+    return request<PaymentNotifyResponse>("/api/payments/wechat/notify", {
+      method: "POST",
+      body: JSON.stringify({
+        out_trade_no: order.order_no,
+        transaction_id: `mock-${order.order_no}`,
+        trade_state: "SUCCESS",
+        total_amount_cents: order.amount_cents,
+      }),
+    });
+  }
+
+  return request<PaymentNotifyResponse>("/api/payments/alipay/notify", {
+    method: "POST",
+    body: JSON.stringify({
+      out_trade_no: order.order_no,
+      trade_no: `mock-${order.order_no}`,
+      trade_status: "TRADE_SUCCESS",
+      total_amount_cents: order.amount_cents,
+    }),
+  });
 }
 
 export function getReportContext(
@@ -513,6 +603,59 @@ export function getReportPdfUrl(reportId: string): string {
   return `${apiBaseUrl}/api/reports/${reportId}/export/pdf`;
 }
 
+export type ReportExportFormat = "markdown" | "docx" | "pdf";
+
+export function getReportExportPath(
+  reportId: string,
+  format: ReportExportFormat,
+): string {
+  return `/api/reports/${reportId}/export/${format}`;
+}
+
+function fallbackReportFilename(reportId: string, format: ReportExportFormat): string {
+  const extension = format === "markdown" ? "md" : format;
+  return `report-${reportId}.${extension}`;
+}
+
+function filenameFromContentDisposition(
+  value: string | null,
+  fallback: string,
+): string {
+  if (!value) return fallback;
+  const utf8Match = value.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) return decodeURIComponent(utf8Match[1]);
+  const asciiMatch = value.match(/filename="?([^";]+)"?/i);
+  return asciiMatch?.[1] ?? fallback;
+}
+
+export async function downloadReportExport(
+  reportId: string,
+  format: ReportExportFormat,
+): Promise<void> {
+  const response = await requestBlob(getReportExportPath(reportId, format));
+  const blob = await response.blob();
+  const filename = filenameFromContentDisposition(
+    response.headers.get("content-disposition"),
+    fallbackReportFilename(reportId, format),
+  );
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+export async function openReportPrintPage(reportId: string): Promise<void> {
+  const response = await requestBlob(`/api/reports/${reportId}/print`);
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  window.open(url, "_blank", "noopener,noreferrer");
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
 export function generateEndgame(
   assessmentId: string,
 ): Promise<EndgameResponse> {
@@ -632,6 +775,9 @@ export function createInstructor(payload: CreateInstructorRequest): Promise<User
 export function formatMutationError(error: unknown, fallback: string): string {
   if (error instanceof ApiError) {
     if (error.status === 0) return error.message;
+    if (error.status === 402) {
+      return error.message || "商业画布诊断免费，继续生成完整 AI 创新方案前请先解锁当前评估。";
+    }
     if (error.status >= 500) return `${fallback}时后端服务异常（${error.status}），请稍后重试。`;
     if (error.status === 400) return error.message || `${fallback}失败：请求参数不合法。`;
     if (error.status === 404) return error.message || `${fallback}失败：未找到目标资源。`;

@@ -8,10 +8,12 @@ import { useAssessmentDetail } from "@/hooks";
 import { useGenerateCompetitiveness } from "@/hooks/use-competitiveness";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PaymentUnlockPanel } from "@/components/payment-unlock-panel";
 import { ScenarioQuadrantView } from "@/components/scenario-quadrant-view";
 import { SyncFeedbackPanel } from "@/components/sync-feedback-panel";
 import { toast } from "@/hooks/use-toast";
 import { formatMutationError } from "@/lib/api";
+import { isPaymentRequired } from "@/lib/payment-entitlement";
 
 export function ScenariosPageContent({
   assessmentId,
@@ -75,6 +77,7 @@ export function ScenariosPageContent({
   const companyName = detail.assessment.company_name;
   const industry = detail.assessment.industry;
   const scenarios = detail.scenario_recommendation;
+  const paymentRequired = isPaymentRequired(detail.entitlement);
   const canGenerateCompetitiveness =
     Boolean(scenarios) && !detail.progress.has_competitiveness;
 
@@ -106,7 +109,13 @@ export function ScenariosPageContent({
           </div>
         </section>
 
-        {scenarios ? (
+        {paymentRequired ? (
+          <PaymentUnlockPanel
+            assessmentId={assessmentId}
+            entitlement={detail.entitlement}
+            onUnlocked={() => detailQuery.refetch()}
+          />
+        ) : scenarios ? (
           <>
             <ScenarioQuadrantView
               scenarioRecommendation={scenarios}

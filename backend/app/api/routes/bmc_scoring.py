@@ -7,10 +7,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
+from app.api.routes.assessments import _require_paid_workflow_access
 from app.db.session import get_db
 from app.models.assessment import Assessment
 from app.models.bmc_scoring import BMCScoring
 from app.models.breakthrough_selection import BreakthroughSelection
+from app.models.user import User
 from app.models.direction_expansion import DirectionExpansion
 from app.schemas.assessment import CanvasDiagnosisResult, BusinessModelCanvasResult
 from app.schemas.bmc_scoring import (
@@ -86,9 +89,11 @@ def calculate_bmc_scoring(
     assessment_id: str,
     payload: BMCScoringRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> BMCScoringResult:
     """计算三维评分，不持久化"""
-    _get_assessment_or_404(db, assessment_id)
+    assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
 
     service = BMCScoringService()
     return service.evaluate_all(payload.modules, assessment_id=assessment_id)
@@ -102,9 +107,11 @@ def calculate_bmc_scoring(
 def auto_derive_bmc_scores(
     assessment_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AutoDeriveResponse:
     """从画布诊断自动推导三维初始分"""
-    _get_assessment_or_404(db, assessment_id)
+    assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
     canvas = _load_canvas_diagnosis(db, assessment_id)
     if canvas is None:
         raise HTTPException(400, detail="请先生成商业画布诊断。")
@@ -123,9 +130,11 @@ def save_bmc_scoring(
     assessment_id: str,
     payload: BMCScoringSaveRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> BMCScoringResponse:
     """保存评分结果并同步 BreakthroughSelection"""
-    _get_assessment_or_404(db, assessment_id)
+    assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
 
     service = BMCScoringService()
     result = service.evaluate_all(payload.all_module_scores, assessment_id=assessment_id)
@@ -190,9 +199,11 @@ def save_bmc_scoring(
 def get_bmc_scoring(
     assessment_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> BMCScoringResponse:
     """查询已保存的评分结果"""
-    _get_assessment_or_404(db, assessment_id)
+    assessment = _get_assessment_or_404(db, assessment_id)
+    _require_paid_workflow_access(db, assessment, current_user)
     record = _load_bmc_scoring(db, assessment_id)
     if record is None:
         raise HTTPException(404, detail="尚未保存 BMC 评分。")

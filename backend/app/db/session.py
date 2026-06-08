@@ -45,8 +45,10 @@ def init_db() -> None:
     from app.models.follow_up import FollowUpTask  # noqa: F401
     from app.models.generated_report import GeneratedReport  # noqa: F401
     from app.models.intake_session import AssessmentIntakeSession  # noqa: F401
+    from app.models.payment import AssessmentEntitlement, PaymentOrder  # noqa: F401
     from app.models.push_record import PushRecord  # noqa: F401
     from app.models.scenario_recommendation import ScenarioRecommendation  # noqa: F401
+    from app.models.score_record import ScoreRecord  # noqa: F401
     from app.models.user import User  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
@@ -58,6 +60,8 @@ def init_db() -> None:
     _migrate_assessments_add_user_id()
     _migrate_assessment_intake_sessions_add_user_id()
     _migrate_scenario_recommendations_table()
+    _migrate_score_records_table()
+    _migrate_payment_tables()
 
 
 def _migrate_bmc_scorings_table() -> None:
@@ -292,6 +296,51 @@ def _migrate_scenario_recommendations_table() -> None:
         for column_name, ddl in required_columns.items():
             if column_name not in existing_columns:
                 connection.execute(text(ddl))
+
+
+def _migrate_score_records_table() -> None:
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    if "score_records" not in inspector.get_table_names():
+        return
+
+    existing_columns = {c["name"] for c in inspector.get_columns("score_records")}
+    required_columns = {
+        "note": "ALTER TABLE score_records ADD COLUMN note TEXT",
+        "export_markdown_path": (
+            "ALTER TABLE score_records ADD COLUMN export_markdown_path VARCHAR(500)"
+        ),
+        "export_pdf_path": (
+            "ALTER TABLE score_records ADD COLUMN export_pdf_path VARCHAR(500)"
+        ),
+    }
+
+    with engine.begin() as connection:
+        for column_name, ddl in required_columns.items():
+            if column_name not in existing_columns:
+                connection.execute(text(ddl))
+
+
+def _migrate_payment_tables() -> None:
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    table_names = set(inspector.get_table_names())
+    if "payment_orders" in table_names:
+        order_columns = {c["name"] for c in inspector.get_columns("payment_orders")}
+        required_columns = {
+            "provider_payload": "ALTER TABLE payment_orders ADD COLUMN provider_payload TEXT",
+            "provider_transaction_id": (
+                "ALTER TABLE payment_orders ADD COLUMN provider_transaction_id VARCHAR(128)"
+            ),
+        }
+        with engine.begin() as connection:
+            for column_name, ddl in required_columns.items():
+                if column_name not in order_columns:
+                    connection.execute(text(ddl))
 
 
 def get_db() -> Generator[Session, None, None]:

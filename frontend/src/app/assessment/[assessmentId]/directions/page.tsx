@@ -14,9 +14,11 @@ import { expandDirections, formatMutationError, getDirections } from "@/lib/api"
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DirectionExpansionPanel } from "@/components/direction-expansion-panel";
+import { PaymentUnlockPanel } from "@/components/payment-unlock-panel";
 import { SyncFeedbackPanel } from "@/components/sync-feedback-panel";
 import { useAssessmentStore } from "@/stores/assessment-store";
 import { toast } from "@/hooks/use-toast";
+import { isPaymentRequired } from "@/lib/payment-entitlement";
 import type { AssessmentDirectionResponse } from "@/lib/types";
 
 function extractCurrentDirectionIds(
@@ -41,11 +43,15 @@ export default function DirectionsPage({
   const detailQuery = useAssessmentDetail(assessmentId);
   const store = useAssessmentStore();
   const generateScenarios = useGenerateScenarios();
+  const shouldFetchDirections =
+    Boolean(assessmentId) &&
+    Boolean(detailQuery.data) &&
+    !isPaymentRequired(detailQuery.data?.entitlement);
 
   const directionsQuery = useQuery({
     queryKey: ["assessment", assessmentId, "directions"],
     queryFn: ({ signal }) => getDirections(assessmentId, { signal }),
-    enabled: Boolean(assessmentId),
+    enabled: shouldFetchDirections,
     refetchInterval: (query) => {
       if (query.state.data?.direction_expansion.llm_status === "pending") {
         return 3000;
@@ -166,6 +172,7 @@ export default function DirectionsPage({
   const companyName = detail.assessment.company_name;
   const industry = detail.assessment.industry;
   const hasCanvas = detail.canvas_diagnosis !== null;
+  const paymentRequired = isPaymentRequired(detail.entitlement);
 
   return (
     <main className="min-h-screen px-6 py-10">
@@ -195,7 +202,13 @@ export default function DirectionsPage({
           </div>
         </section>
 
-        {!hasCanvas ? (
+        {paymentRequired ? (
+          <PaymentUnlockPanel
+            assessmentId={assessmentId}
+            entitlement={detail.entitlement}
+            onUnlocked={() => detailQuery.refetch()}
+          />
+        ) : !hasCanvas ? (
           <div className="card-inset">
             <p className="section-label">前置条件</p>
             <p className="mt-4 text-sm leading-7 text-muted-foreground">

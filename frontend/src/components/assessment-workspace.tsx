@@ -9,7 +9,15 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AssessmentFormSection } from "@/components/assessment-form-section";
 import { IntakeImportSection } from "@/components/intake-import-section";
 import { AssessmentSkeleton } from "@/components/assessment-skeleton";
+import { PaymentUnlockPanel } from "@/components/payment-unlock-panel";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   ActionBtn,
   type WorkflowModule,
@@ -32,9 +40,14 @@ import {
   getResultsDashboardPath,
   getScenarioResultPath,
 } from "@/lib/assessment-result-routes";
+import {
+  isPaidWorkflowKey,
+  isPaymentRequired,
+} from "@/lib/payment-entitlement";
 import { ApiError, formatMutationError } from "@/lib/api";
 import type { AssessmentCreateRequest, AssessmentProgress } from "@/lib/types";
 import {
+  assessmentKeys,
   useAssessmentDetail,
   useExpandDirections,
   useGenerateCanvas,
@@ -72,6 +85,7 @@ type ResultCardItem = {
   done: boolean;
   statusLabel: string;
   link?: string;
+  paymentLocked?: boolean;
 };
 
 /**
@@ -103,6 +117,7 @@ export function AssessmentWorkspace({
   const [localPrefillSessionId, setLocalPrefillSessionId] = useState<
     string | null
   >(null);
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
 
   const effectivePrefillSessionId =
     !assessmentId
@@ -466,6 +481,21 @@ export function AssessmentWorkspace({
   }, [generateEndgame, store]);
 
   const currentAssessment = store.assessment ?? null;
+  const entitlement = detailQuery.data?.entitlement ?? null;
+  const requiresPayment = isPaymentRequired(entitlement);
+
+  const handleOpenPaymentDialog = useCallback(() => {
+    setIsPaymentDialogOpen(true);
+  }, []);
+
+  const handlePaymentUnlocked = useCallback(async () => {
+    setIsPaymentDialogOpen(false);
+    if (!currentAssessment?.id) return;
+    await queryClient.invalidateQueries({
+      queryKey: assessmentKeys.detail(currentAssessment.id),
+    });
+    await detailQuery.refetch();
+  }, [currentAssessment?.id, detailQuery, queryClient]);
 
   useEffect(() => {
     if (currentAssessment) {
@@ -557,32 +587,18 @@ export function AssessmentWorkspace({
   });
 
   const workflowModules: WorkflowModule[] = currentAssessment
-    ? workflowState.actionModules.map((module) => ({
-        ...module,
-        color:
-          module.key === "profile" || module.key === "scenarios"
-            ? "success"
-            : module.key === "breakthrough" || module.key === "competitiveness"
-              ? "warn"
-              : "accent",
-        disabled:
-          module.disabled ||
+    ? workflowState.actionModules.map((module) => {
+        const loading =
           (module.key === "profile" && generateProfile.isPending) ||
           (module.key === "canvas" && generateCanvas.isPending) ||
           (module.key === "directions" && expandDirections.isPending) ||
           (module.key === "scenarios" && generateScenarios.isPending) ||
           (module.key === "competitiveness" &&
             generateCompetitiveness.isPending) ||
-          (module.key === "endgame" && generateEndgame.isPending),
-        loading:
-          (module.key === "profile" && generateProfile.isPending) ||
-          (module.key === "canvas" && generateCanvas.isPending) ||
-          (module.key === "directions" && expandDirections.isPending) ||
-          (module.key === "scenarios" && generateScenarios.isPending) ||
-          (module.key === "competitiveness" &&
-            generateCompetitiveness.isPending) ||
-          (module.key === "endgame" && generateEndgame.isPending),
-        onClick:
+          (module.key === "endgame" && generateEndgame.isPending);
+        const paymentLocked =
+          hasCanvas && requiresPayment && isPaidWorkflowKey(module.key);
+        const onClick =
           module.key === "profile"
             ? handleGenerateProfile
             : module.key === "canvas"
@@ -595,14 +611,37 @@ export function AssessmentWorkspace({
                     ? handleGenerateScenarios
                     : module.key === "competitiveness"
                       ? handleGenerateCompetitiveness
-                      : handleGenerateEndgame,
-      }))
+                      : handleGenerateEndgame;
+
+        return {
+          ...module,
+          color:
+            module.key === "profile" || module.key === "scenarios"
+              ? "success"
+              : module.key === "breakthrough" || module.key === "competitiveness"
+                ? "warn"
+                : "accent",
+          disabled: paymentLocked ? false : module.disabled || loading,
+          loading: paymentLocked ? false : loading,
+          onClick: paymentLocked ? handleOpenPaymentDialog : onClick,
+          paymentLocked,
+        };
+      })
     : [];
 
   const resultCards: ResultCardItem[] = currentAssessment
-    ? workflowState.resultCards.map((card) => ({
-        ...card,
-        link: (() => {
+    ? workflowState.resultCards.map((card) => {
+        const paymentLocked =
+          hasCanvas && requiresPayment && isPaidWorkflowKey(card.key);
+        return {
+          ...card,
+          state: paymentLocked ? "locked" : card.state,
+          done: paymentLocked ? false : card.done,
+          statusLabel: paymentLocked ? "付费解锁" : card.statusLabel,
+          paymentLocked,
+          link: paymentLocked
+            ? undefined
+            : (() => {
           if (!card.isNavigable) return undefined;
           if (card.key === "profile") return `/assessment/${currentAssessment.id}/profile`;
           if (card.key === "canvas") return `/assessment/${currentAssessment.id}/canvas`;
@@ -614,7 +653,8 @@ export function AssessmentWorkspace({
           }
           return `/assessment/${currentAssessment.id}/endgame`;
         })(),
-      }))
+        };
+      })
     : [];
 
   const filledCount = Object.values(form).filter(
@@ -689,6 +729,14 @@ export function AssessmentWorkspace({
         )}
       </section>
 
+      {currentAssessment && hasCanvas && requiresPayment && entitlement ? (
+        <PaymentUnlockPanel
+          assessmentId={currentAssessment.id}
+          entitlement={entitlement}
+          onUnlocked={handlePaymentUnlocked}
+        />
+      ) : null}
+
       {/* 操作区 + 结果摘要区 */}
       {currentAssessment ? (
         <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
@@ -711,7 +759,11 @@ export function AssessmentWorkspace({
           <div className="space-y-2">
             <p className="section-label">结果摘要</p>
             {resultCards.map((card) => (
-              <ResultSummaryRow key={card.key} card={card} />
+              <ResultSummaryRow
+                key={card.key}
+                card={card}
+                onUnlockClick={handleOpenPaymentDialog}
+              />
             ))}
             <ResultSummaryRow
               card={{
@@ -729,11 +781,36 @@ export function AssessmentWorkspace({
         </div>
       ) : null}
 
+      {currentAssessment && entitlement ? (
+        <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+          <DialogContent className="sm:max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>解锁完整 AI 创新方案</DialogTitle>
+              <DialogDescription>
+                完成支付后仅解锁当前评估，后端会继续强制校验权益。
+              </DialogDescription>
+            </DialogHeader>
+            <PaymentUnlockPanel
+              assessmentId={currentAssessment.id}
+              entitlement={entitlement}
+              compact
+              onUnlocked={handlePaymentUnlocked}
+            />
+          </DialogContent>
+        </Dialog>
+      ) : null}
+
     </section>
   );
 }
 
-function ResultSummaryRow({ card }: { card: ResultCardItem }) {
+function ResultSummaryRow({
+  card,
+  onUnlockClick,
+}: {
+  card: ResultCardItem;
+  onUnlockClick?: () => void;
+}) {
   const isLocked = card.state === "locked";
   const badgeCls = card.done
     ? "badge-success"
@@ -747,7 +824,7 @@ function ResultSummaryRow({ card }: { card: ResultCardItem }) {
         isLocked
           ? "border-warm-border-light bg-warm-inset opacity-70"
           : "border-warm-border-light bg-warm-surface hover:shadow-sm transition"
-      } ${!isLocked && card.link ? "cursor-pointer" : ""}`}
+      } ${(!isLocked && card.link) || card.paymentLocked ? "cursor-pointer" : ""}`}
     >
       <span className={`font-medium text-sm ${isLocked ? "text-muted-foreground" : "text-warm-text"}`}>
         {card.label}
@@ -761,6 +838,17 @@ function ResultSummaryRow({ card }: { card: ResultCardItem }) {
       <Link href={card.link} target="_blank" rel="noopener noreferrer">
         {content}
       </Link>
+    );
+  }
+  if (card.paymentLocked) {
+    return (
+      <button
+        type="button"
+        onClick={onUnlockClick}
+        className="block w-full text-left"
+      >
+        {content}
+      </button>
     );
   }
   return content;

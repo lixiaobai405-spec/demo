@@ -88,6 +88,25 @@ def _create_assessment(client: TestClient) -> str:
     return body["id"]
 
 
+def _unlock_assessment(client: TestClient, assessment_id: str) -> None:
+    response = client.post(
+        f"/api/assessments/{assessment_id}/payments/orders",
+        json={"provider": "wechat"},
+    )
+    assert response.status_code == 201, response.text
+    order = response.json()
+    response = client.post(
+        "/api/payments/wechat/notify",
+        json={
+            "out_trade_no": order["order_no"],
+            "total_amount_cents": order["amount_cents"],
+            "transaction_id": f"e2e-{order['order_no']}",
+            "trade_state": "SUCCESS",
+        },
+    )
+    assert response.status_code == 200, response.text
+
+
 def _select_breakthroughs(client: TestClient, assessment_id: str) -> list[str]:
     response = client.post(f"/api/assessments/{assessment_id}/breakthrough/recommend")
     assert response.status_code == 200, response.text
@@ -153,6 +172,7 @@ class TestFullChainE2E:
         assert len(canvas["canvas"]["blocks"]) == 9
         assert 0 <= canvas["overall_score"] <= 100
 
+        _unlock_assessment(client, assessment_id)
         _select_breakthroughs(client, assessment_id)
         selected_direction_ids = _select_directions(client, assessment_id)
         assert len(selected_direction_ids) == 4

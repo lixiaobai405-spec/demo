@@ -15,6 +15,7 @@ export type WorkflowModule = {
   loading: boolean;
   hasResult: boolean;
   onClick: () => void;
+  paymentLocked?: boolean;
 };
 
 /**
@@ -158,11 +159,20 @@ export function ActionBtn({
   label,
   color,
   state,
+  paymentLocked = false,
 }: WorkflowModule) {
   const variant =
-    color === "success" ? "success" : color === "warn" ? "default" : "default";
+    paymentLocked
+      ? "outline"
+      : color === "success"
+        ? "success"
+        : color === "warn"
+          ? "default"
+          : "default";
   const actionLabel =
-    state === "pending-review"
+    paymentLocked
+      ? `解锁${label}`
+      : state === "pending-review"
       ? `继续确认${label}`
       : loading
         ? `${label}生成中...`

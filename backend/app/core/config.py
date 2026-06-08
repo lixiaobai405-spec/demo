@@ -137,6 +137,23 @@ class Settings:
     smtp_use_tls: bool = _resolve_bool("smtp_use_tls", "SMTP_USE_TLS", True)
     smtp_use_ssl: bool = _resolve_bool("smtp_use_ssl", "SMTP_USE_SSL", False)
     password_reset_url: str = _resolve("password_reset_url", "PASSWORD_RESET_URL", "").strip()
+    # Payment / entitlement settings
+    payment_provider_mode: str = _resolve("payment_provider_mode", "PAYMENT_PROVIDER_MODE", "mock").strip().lower()
+    payment_amount_cents: int = _resolve_int("payment_amount_cents", "PAYMENT_AMOUNT_CENTS", 9900)
+    payment_currency: str = _resolve("payment_currency", "PAYMENT_CURRENCY", "CNY").strip().upper()
+    payment_order_expire_minutes: int = _resolve_int("payment_order_expire_minutes", "PAYMENT_ORDER_EXPIRE_MINUTES", 30)
+    payment_notify_base_url: str = _resolve("payment_notify_base_url", "PAYMENT_NOTIFY_BASE_URL", "").strip()
+    wechat_pay_app_id: str = _resolve("wechat_pay_app_id", "WECHAT_PAY_APP_ID", "").strip()
+    wechat_pay_mch_id: str = _resolve("wechat_pay_mch_id", "WECHAT_PAY_MCH_ID", "").strip()
+    wechat_pay_merchant_serial_no: str = _resolve("wechat_pay_merchant_serial_no", "WECHAT_PAY_MERCHANT_SERIAL_NO", "").strip()
+    wechat_pay_merchant_private_key: str = _resolve("wechat_pay_merchant_private_key", "WECHAT_PAY_MERCHANT_PRIVATE_KEY", "").strip()
+    wechat_pay_api_v3_key: str = _resolve("wechat_pay_api_v3_key", "WECHAT_PAY_API_V3_KEY", "").strip()
+    wechat_pay_platform_public_key: str = _resolve("wechat_pay_platform_public_key", "WECHAT_PAY_PLATFORM_PUBLIC_KEY", "").strip()
+    wechat_pay_api_base_url: str = _resolve("wechat_pay_api_base_url", "WECHAT_PAY_API_BASE_URL", "https://api.mch.weixin.qq.com").strip()
+    alipay_app_id: str = _resolve("alipay_app_id", "ALIPAY_APP_ID", "").strip()
+    alipay_private_key: str = _resolve("alipay_private_key", "ALIPAY_PRIVATE_KEY", "").strip()
+    alipay_public_key: str = _resolve("alipay_public_key", "ALIPAY_PUBLIC_KEY", "").strip()
+    alipay_gateway_url: str = _resolve("alipay_gateway_url", "ALIPAY_GATEWAY_URL", "https://openapi.alipay.com/gateway.do").strip()
 
 
 settings = Settings()

@@ -13,5 +13,6 @@ export {
 export { useEndgame, useGenerateEndgame, useUpdateEndgame } from "./use-endgame";
 export { useCalculateBMCScoring, useSaveBMCScoring, useGetBMCScoring, useAutoDeriveBMCScoring, bmcScoringKeys } from "./use-bmc-scoring";
 export { useFollowUpPlan, useUpdateFollowUpTask, useRecalibrateFollowUp } from "./use-follow-up";
+export { useCompleteMockPayment, useCreatePaymentOrder } from "./use-payments";
 export { toast, useToast } from "./use-toast";
 export type { ToasterToast } from "./use-toast";

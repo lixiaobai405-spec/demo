@@ -42,11 +42,14 @@ export function useSaveBMCScoring() {
   });
 }
 
-export function useGetBMCScoring(assessmentId: string | undefined) {
+export function useGetBMCScoring(
+  assessmentId: string | undefined,
+  enabled = true,
+) {
   return useQuery({
     queryKey: bmcScoringKeys.all(assessmentId!),
     queryFn: () => getBMCScoring(assessmentId!),
-    enabled: Boolean(assessmentId),
+    enabled: Boolean(assessmentId) && enabled,
     staleTime: 5 * 60 * 1000,
   });
 }

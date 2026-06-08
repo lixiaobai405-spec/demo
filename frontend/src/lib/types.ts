@@ -262,6 +262,50 @@ export type AssessmentProgress = {
   ready_for_report: boolean;
 };
 
+export type PaymentProvider = "wechat" | "alipay";
+
+export type PaymentOrderStatus =
+  | "pending"
+  | "paid"
+  | "failed"
+  | "expired"
+  | "canceled";
+
+export type PaymentOrderCreateRequest = {
+  provider: PaymentProvider;
+};
+
+export type PaymentOrderResponse = {
+  order_id: string;
+  order_no: string;
+  assessment_id: string;
+  provider: PaymentProvider;
+  amount_cents: number;
+  currency: string;
+  status: PaymentOrderStatus;
+  qr_code_url: string | null;
+  expires_at: string;
+  paid_at: string | null;
+  created_at: string;
+};
+
+export type AssessmentEntitlementResponse = {
+  assessment_id: string;
+  is_unlocked: boolean;
+  can_continue: boolean;
+  locked_after_stage: "canvas";
+  unlock_type: string | null;
+  unlocked_at: string | null;
+  latest_order: PaymentOrderResponse | null;
+};
+
+export type PaymentNotifyResponse = {
+  status: PaymentOrderStatus;
+  order_no: string;
+  assessment_id: string;
+  is_unlocked: boolean;
+};
+
 export type AssessmentDetailResponse = {
   assessment: AssessmentResponse;
   company_profile: CompanyProfileResult | null;
@@ -275,6 +319,7 @@ export type AssessmentDetailResponse = {
   case_recommendation: CaseRecommendationResult | null;
   generated_report: ReportSummaryResponse | null;
   progress: AssessmentProgress;
+  entitlement: AssessmentEntitlementResponse;
 };
 
 export type ReportContextResponse = {

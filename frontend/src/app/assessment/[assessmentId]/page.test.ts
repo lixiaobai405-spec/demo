@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatShortAssessmentId } from "./page";
+import { formatShortAssessmentId } from "@/lib/assessment-display";
 
 describe("AssessmentDetailPage", () => {
   it("formats the assessment id as an 8-character display id", () => {
