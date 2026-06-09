@@ -1,6 +1,6 @@
 """LLM-based deep writing for AI Innovation Reports.
 
-Parallel generation: 13 sections split into 3 groups, fired concurrently.
+Parallel generation: dashboard-aligned sections split into groups, fired concurrently.
 Each group failure falls back to template for that group only.
 """
 
@@ -23,23 +23,17 @@ from app.schemas.assessment import (
     ReportTableData,
     ScenarioRecommendationResult,
 )
+from app.schemas.direction import DirectionSuggestion
 from app.services.report_builder import ReportBuilder
 
 logger = logging.getLogger(__name__)
 
 REQUIRED_SECTIONS: list[tuple[str, str]] = [
-    ("company_profile", "企业基本画像"),
     ("canvas_diagnosis", "当前商业模式画布诊断"),
     ("breakthrough", "突破要素"),
     ("direction_expansion", "创新方向延展"),
-    ("ai_readiness", "AI 成熟度评估"),
     ("priority_scenarios", "高优先级 AI 提效场景"),
-    ("scenario_planning", "推荐场景详细规划"),
     ("competitiveness", "差异化竞争力设计"),
-    ("cases", "参考案例与启示"),
-    ("roadmap", "三阶段 AI 创新路线图"),
-    ("risks", "风险与阻力"),
-    ("instructor_comments", "讲师点评区"),
     ("endgame", "商业终局设计"),
 ]
 
@@ -47,18 +41,18 @@ REQUIRED_SECTIONS: list[tuple[str, str]] = [
 SECTION_GROUPS: list[dict[str, Any]] = [
     {
         "name": "foundation",
-        "focus": "企业基本画像、商业模式画布诊断、突破要素、创新方向、AI成熟度",
-        "section_keys": ["company_profile", "canvas_diagnosis", "breakthrough", "direction_expansion", "ai_readiness"],
+        "focus": "商业模式画布诊断、突破要素、创新方向",
+        "section_keys": ["canvas_diagnosis", "breakthrough", "direction_expansion"],
     },
     {
         "name": "strategy",
-        "focus": "AI场景推荐、场景详细规划、差异化竞争力设计、参考案例",
-        "section_keys": ["priority_scenarios", "scenario_planning", "competitiveness", "cases"],
+        "focus": "AI场景推荐、差异化竞争力设计",
+        "section_keys": ["priority_scenarios", "competitiveness"],
     },
     {
         "name": "execution",
-        "focus": "路线图、风险管控、讲师点评、商业终局",
-        "section_keys": ["roadmap", "risks", "instructor_comments", "endgame"],
+        "focus": "商业终局",
+        "section_keys": ["endgame"],
     },
 ]
 
@@ -138,6 +132,7 @@ class LLMReportWriter:
         case_recommendation: CaseRecommendationResult | None,
         breakthrough_keys: list[str] | None = None,
         direction_labels: list[str] | None = None,
+        selected_directions: list[DirectionSuggestion] | None = None,
         competitiveness_result = None,
         enrichment_result = None,
         endgame_result = None,
@@ -163,6 +158,7 @@ class LLMReportWriter:
                 case_recommendation,
                 breakthrough_keys,
                 direction_labels,
+                selected_directions,
                 competitiveness_result,
                 enrichment_result,
                 endgame_result,
@@ -177,6 +173,7 @@ class LLMReportWriter:
             case_recommendation=case_recommendation,
             breakthrough_keys=breakthrough_keys,
             direction_labels=direction_labels,
+            selected_directions=selected_directions,
             competitiveness_result=competitiveness_result,
             enrichment_result=enrichment_result,
             endgame_result=endgame_result,
@@ -205,6 +202,7 @@ class LLMReportWriter:
             case_recommendation,
             breakthrough_keys,
             direction_labels,
+            selected_directions,
             competitiveness_result,
             enrichment_result,
             endgame_result,
@@ -220,6 +218,7 @@ class LLMReportWriter:
         case_recommendation: CaseRecommendationResult | None,
         breakthrough_keys: list[str] | None,
         direction_labels: list[str] | None,
+        selected_directions: list[DirectionSuggestion] | None,
         competitiveness_result,
         enrichment_result,
         endgame_result,
@@ -233,6 +232,7 @@ class LLMReportWriter:
             case_recommendation=case_recommendation,
             breakthrough_keys=breakthrough_keys,
             direction_labels=direction_labels,
+            selected_directions=selected_directions,
             competitiveness_result=competitiveness_result,
             enrichment_result=enrichment_result,
             endgame_result=endgame_result,
@@ -409,7 +409,15 @@ class LLMReportWriter:
         if llm_response is None:
             raise RuntimeError("LLM returned empty response")
 
-        parsed, parse_warnings, fatal = self._parse_llm_response(llm_response)
+        expected_sections = [
+            (key, dict(REQUIRED_SECTIONS)[key])
+            for key in group["section_keys"]
+            if key in dict(REQUIRED_SECTIONS)
+        ]
+        parsed, parse_warnings, fatal = self._parse_llm_response(
+            llm_response,
+            expected_sections=expected_sections,
+        )
         warnings.extend(parse_warnings)
         if fatal or parsed is None:
             raise RuntimeError(f"Failed to parse group '{group['name']}': {'; '.join(parse_warnings)}")
@@ -455,9 +463,11 @@ class LLMReportWriter:
     def _parse_llm_response(
         self,
         raw_response: str,
+        expected_sections: list[tuple[str, str]] | None = None,
     ) -> tuple[list[ReportSectionData] | None, list[str], bool]:
         warnings: list[str] = []
         fatal_error = False
+        required_sections = expected_sections or REQUIRED_SECTIONS
 
         try:
             json_str = self._extract_json_object(raw_response)
@@ -534,7 +544,7 @@ class LLMReportWriter:
             sections_by_title[title] = section
 
         missing_titles = [
-            title for _, title in REQUIRED_SECTIONS if title not in sections_by_title
+            title for _, title in required_sections if title not in sections_by_title
         ]
         if missing_titles:
             warnings.append(
@@ -543,7 +553,7 @@ class LLMReportWriter:
             fatal_error = True
 
         ordered_sections: list[ReportSectionData] = []
-        for key, title in REQUIRED_SECTIONS:
+        for key, title in required_sections:
             section = sections_by_title.get(title)
             if section is None:
                 continue
@@ -553,7 +563,7 @@ class LLMReportWriter:
                 fatal_error = True
             ordered_sections.append(section)
 
-        if len(ordered_sections) != len(REQUIRED_SECTIONS):
+        if len(ordered_sections) != len(required_sections):
             fatal_error = True
 
         return ordered_sections if ordered_sections else None, self._deduplicate_warnings(warnings), fatal_error

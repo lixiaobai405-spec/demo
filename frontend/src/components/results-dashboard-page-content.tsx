@@ -30,6 +30,105 @@ function resolveBreakthroughLabel(value: string) {
   return BREAKTHROUGH_LABELS[value] ?? value;
 }
 
+function normalizeScenarioText(value: string) {
+  return value.replace(/\s+/g, "").replace(/[：:；;，,。.!！?？]/g, "");
+}
+
+function stripScenarioEffectLeadIn(expectedEffects: string) {
+  return expectedEffects.replace(/^支撑方向：.*?[；;]/, "").trim();
+}
+
+function trimScenarioSummaryLeadIn(summary: string) {
+  const trimmed = summary.trim();
+  if (!trimmed.includes("围绕") || !trimmed.includes("结合")) {
+    return trimmed;
+  }
+
+  const shortened = trimmed.replace(
+    /^围绕[\s\S]+?结合[\s\S]+?(?:[，,；;。]\s*)?(?=在)/,
+    "",
+  );
+  return shortened.length > 0 ? shortened : trimmed;
+}
+
+function dedupeScenarioEffects(summary: string, expectedEffects: string) {
+  const normalizedSummary = normalizeScenarioText(summary);
+  const cleanedEffects = stripScenarioEffectLeadIn(expectedEffects);
+  const segments = cleanedEffects
+    .split(/[；;。]/)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+  const uniqueSegments = segments.filter((segment) => {
+    const normalizedSegment = normalizeScenarioText(segment);
+    return normalizedSegment && !normalizedSummary.includes(normalizedSegment);
+  });
+
+  if (uniqueSegments.length === 0) {
+    return cleanedEffects || expectedEffects;
+  }
+
+  return uniqueSegments.join("；") + "。";
+}
+
+function dedupeScenarioEffectsAcrossCards(
+  expectedEffects: string,
+  previousEffects: string[],
+) {
+  const cleanedEffects = stripScenarioEffectLeadIn(expectedEffects);
+  if (previousEffects.length === 0) {
+    return cleanedEffects || expectedEffects;
+  }
+
+  const normalizedPrevious = previousEffects.map((effect) =>
+    normalizeScenarioText(stripScenarioEffectLeadIn(effect)),
+  );
+  const segments = cleanedEffects
+    .split(/[；;。]/)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+  const uniqueSegments = segments.filter((segment) => {
+    const normalizedSegment = normalizeScenarioText(segment);
+    return (
+      normalizedSegment &&
+      !normalizedPrevious.some((previous) => previous.includes(normalizedSegment))
+    );
+  });
+
+  if (uniqueSegments.length === 0) {
+    return cleanedEffects || expectedEffects;
+  }
+
+  return uniqueSegments.join("；") + "。";
+}
+
+function dedupeScenarioSummary(summary: string, previousSummaries: string[]) {
+  if (previousSummaries.length === 0) {
+    return summary;
+  }
+
+  const normalizedPrevious = previousSummaries.map(normalizeScenarioText);
+  const segments = summary
+    .split(/[；;。]/)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+  const uniqueSegments = segments.filter((segment) => {
+    const normalizedSegment = normalizeScenarioText(segment);
+    return (
+      normalizedSegment &&
+      !normalizedPrevious.some((previous) => previous.includes(normalizedSegment))
+    );
+  });
+
+  if (uniqueSegments.length === 0) {
+    return summary;
+  }
+
+  return uniqueSegments.join("；") + "。";
+}
+
 export function ResultsDashboardPageContent({
   assessmentId,
 }: {
@@ -81,6 +180,21 @@ export function ResultsDashboardPageContent({
   const selectedDirections =
     detail.direction_selection?.selected_directions ?? [];
   const topScenarios = detail.scenario_recommendation?.top_scenarios ?? [];
+  const trimmedScenarioSummaries = topScenarios.map((scenario) =>
+    trimScenarioSummaryLeadIn(scenario.summary),
+  );
+  const dedupedScenarioSummaries = topScenarios.map((scenario, index) =>
+    dedupeScenarioSummary(
+      trimmedScenarioSummaries[index] ?? scenario.summary,
+      trimmedScenarioSummaries.slice(0, index),
+    ),
+  );
+  const dedupedScenarioEffects = topScenarios.map((scenario, index) =>
+    dedupeScenarioEffectsAcrossCards(
+      scenario.expected_effects,
+      topScenarios.slice(0, index).map((item) => item.expected_effects),
+    ),
+  );
   const competitivenessData = detail.competitiveness ?? null;
   const endgameData = detail.endgame ?? null;
   const paymentRequired = isPaymentRequired(detail.entitlement);
@@ -186,6 +300,10 @@ export function ResultsDashboardPageContent({
                     key={scenario.scenario_id}
                     scenario={scenario}
                     index={index}
+                    summary={dedupedScenarioSummaries[index] ?? scenario.summary}
+                    expectedEffects={
+                      dedupedScenarioEffects[index] ?? scenario.expected_effects
+                    }
                   />
                 ))}
               </div>
@@ -273,10 +391,16 @@ function SummaryCard({
 function ScenarioSummaryCard({
   scenario,
   index,
+  summary,
+  expectedEffects,
 }: {
   scenario: ScenarioRecommendationItem;
   index: number;
+  summary: string;
+  expectedEffects: string;
 }) {
+  const dedupedEffects = dedupeScenarioEffects(summary, expectedEffects);
+
   return (
     <article className="rounded-2xl border border-warm-border-light bg-warm-surface p-6">
       <div className="flex items-start justify-between gap-4">
@@ -292,8 +416,8 @@ function ScenarioSummaryCard({
       </div>
 
       <div className="mt-4 space-y-3">
-        <ScenarioField label="场景描述" content={scenario.summary} />
-        <ScenarioField label="预期效果" content={scenario.expected_effects} />
+        <ScenarioField label="场景描述" content={summary} />
+        <ScenarioField label="预期效果" content={dedupedEffects} />
         {scenario.canvas_elements ? (
           <ScenarioField label="切入模块" content={scenario.canvas_elements} />
         ) : null}

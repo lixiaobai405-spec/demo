@@ -57,11 +57,6 @@ class DocxExporter:
         revenue.add_run("营收范围：").bold = True
         revenue.add_run(report_data.annual_revenue_range)
 
-        score = document.add_paragraph()
-        score.add_run("AI 就绪度评分：").bold = True
-        score.add_run(str(report_data.ai_readiness_score))
-        score.add_run(f"  |  {report_data.ai_readiness_summary}")
-
         document.add_paragraph(
             "本报告基于当前问卷、结构化诊断结果和模板规则生成，不使用自由写作式 LLM 深度生成。"
         )
@@ -103,11 +98,6 @@ class DocxExporter:
 
         if section.table:
             self._render_table(document, section.table)
-
-        if section.note:
-            note = document.add_paragraph()
-            note.add_run("备注：").bold = True
-            note.add_run(section.note)
 
     def _render_card(self, document: Document, card: ReportCardData) -> None:
         document.add_heading(card.title, level=2)

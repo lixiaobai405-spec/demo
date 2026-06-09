@@ -66,6 +66,7 @@ from app.schemas.direction import (
     DirectionExpansionResult,
     DirectionSelectionRequest,
     DirectionSelectionResponse,
+    DirectionSuggestion,
 )
 from app.schemas.competitiveness import (
     build_line_summary,
@@ -106,18 +107,11 @@ from app.schemas.assessment import AssessmentCardItem, AssessmentListResponse
 router = APIRouter(prefix="/api/assessments", tags=["assessments"])
 
 REPORT_OUTLINE = [
-    "企业基本画像",
     "当前商业模式画布诊断",
     "突破要素",
     "创新方向延展",
-    "AI 成熟度评估",
     "高优先级 AI 提效场景",
-    "推荐场景详细规划",
     "差异化竞争力设计",
-    "参考案例与启示",
-    "三阶段 AI 创新路线图",
-    "风险与阻力",
-    "讲师点评区",
     "商业终局设计",
 ]
 
@@ -1442,6 +1436,7 @@ def generate_report(
 
     breakthrough_keys = _load_breakthrough_selection_keys(db, assessment_id) or []
     direction_labels = _load_direction_labels(db, assessment_id)
+    selected_directions = _load_selected_directions(db, assessment_id)
     competitiveness_record = _load_competitiveness_analysis(db, assessment_id)
     competitiveness_result = _build_competitiveness_result_from_record(competitiveness_record) if competitiveness_record else None
 
@@ -1478,6 +1473,7 @@ def generate_report(
         case_recommendation=cases,
         breakthrough_keys=breakthrough_keys,
         direction_labels=direction_labels,
+        selected_directions=selected_directions,
         competitiveness_result=competitiveness_result,
         enrichment_result=enrichment,
         endgame_result=endgame_result,
@@ -2581,8 +2577,6 @@ def _load_direction_labels(
     db: Session,
     assessment_id: str,
 ) -> list[str] | None:
-    from app.schemas.direction import DirectionSuggestion
-
     record = _load_direction_selection_record(db, assessment_id)
     if record is None:
         return None
@@ -2597,6 +2591,33 @@ def _load_direction_labels(
     ]
     labels = [l for l in labels if l]
     return labels if labels else None
+
+
+def _load_selected_directions(
+    db: Session,
+    assessment_id: str,
+) -> list[DirectionSuggestion] | None:
+    from app.schemas.direction import DirectionSuggestion
+
+    record = _load_direction_selection_record(db, assessment_id)
+    if record is None:
+        return None
+
+    raw_directions = _parse_json_raw(
+        record.directions_json,
+        "Failed to parse direction selection for report export.",
+    )
+    selected_directions: list[DirectionSuggestion] = []
+    for item in raw_directions:
+        if isinstance(item, DirectionSuggestion):
+            selected_directions.append(item)
+            continue
+        if isinstance(item, dict):
+            try:
+                selected_directions.append(DirectionSuggestion.model_validate(item))
+            except Exception:
+                continue
+    return selected_directions if selected_directions else None
 
 
 def _upsert_direction_selection(
@@ -2919,6 +2940,7 @@ def _upsert_endgame_analysis(
     record.strategic_paths_json = json.dumps(
         [p.model_dump() for p in result.strategic_paths], ensure_ascii=False
     )
+    record.industry_essence = result.industry_essence
     record.overall_narrative = result.overall_narrative
 
     db.add(record)
@@ -2958,7 +2980,7 @@ def _build_endgame_result_from_record(
 
     return EndgameResult(
         generation_mode=record.generation_mode,
-        industry_essence=_derive_industry_essence(industry),
+        industry_essence=record.industry_essence or _derive_industry_essence(industry),
         private_domain=PrivateDomainDesign.model_validate(pd_raw),
         ecosystem=EcosystemDesign.model_validate(eco_raw),
         opc=OPCDesign.model_validate(opc_raw),

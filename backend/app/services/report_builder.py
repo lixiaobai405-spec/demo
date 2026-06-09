@@ -1,3 +1,5 @@
+import re
+
 from app.models.assessment import Assessment
 from app.schemas.assessment import (
     CanvasDiagnosisResult,
@@ -12,6 +14,7 @@ from app.schemas.assessment import (
     ScenarioRecommendationResult,
 )
 from app.schemas.breakthrough import ELEMENT_KEY_TO_TITLE
+from app.schemas.direction import DirectionSuggestion
 
 
 class ReportBuilder:
@@ -24,6 +27,7 @@ class ReportBuilder:
         case_recommendation: CaseRecommendationResult | None,
         breakthrough_keys: list[str] | None = None,
         direction_labels: list[str] | None = None,
+        selected_directions: list[DirectionSuggestion] | None = None,
         competitiveness_result = None,
         enrichment_result = None,
         endgame_result = None,
@@ -33,24 +37,17 @@ class ReportBuilder:
             canvas_diagnosis=canvas_diagnosis,
             scenario_recommendation=scenario_recommendation,
         )
-        roadmap = self._build_roadmap(canvas_diagnosis, scenario_recommendation)
         breakthrough_labels = self._resolve_breakthrough_labels(breakthrough_keys or [])
         direction_labels = direction_labels or []
+        selected_directions = selected_directions or []
         canvas_blocks = canvas_diagnosis.canvas.blocks
 
         sections = [
-            self._build_company_profile_section(profile),
             self._build_canvas_section(canvas_diagnosis),
             self._build_breakthrough_section(breakthrough_labels, canvas_blocks),
-            self._build_direction_section(direction_labels),
-            self._build_ai_readiness_section(ai_readiness_score, profile, canvas_diagnosis),
+            self._build_direction_section(direction_labels, selected_directions),
             self._build_priority_scenarios_section(scenario_recommendation),
-            self._build_scenario_planning_section(scenario_recommendation),
             self._build_competitiveness_section(profile, canvas_diagnosis, scenario_recommendation, competitiveness_result),
-            self._build_cases_section(case_recommendation),
-            self._build_roadmap_section(roadmap),
-            self._build_risk_section(profile, canvas_diagnosis, scenario_recommendation),
-            self._build_instructor_section(profile, scenario_recommendation, enrichment_result),
             self._build_endgame_section(endgame_result, profile, canvas_diagnosis),
         ]
 
@@ -220,42 +217,41 @@ class ReportBuilder:
         scenario_recommendation: ScenarioRecommendationResult,
     ) -> ReportSectionData:
         is_four_quadrant = scenario_recommendation.scoring_method == "four_quadrant_v1"
-        has_priority = any(
-            getattr(item, "priority_lps_display", None) is not None
-            for item in scenario_recommendation.top_scenarios
-        )
 
-        if is_four_quadrant and has_priority:
-            columns = [
-                "推荐场景", "类别", "象限归属", "结构化程度",
-                "实施复杂度", "综合优先级得分", "推荐等级", "核心数据需求",
-            ]
-            rows = []
-            for item in scenario_recommendation.top_scenarios:
-                rows.append([
-                    item.name,
-                    item.category,
-                    getattr(item, "priority_quadrant", "") or "",
-                    str(getattr(item, "priority_structuredness_x", "") or ""),
-                    str(getattr(item, "priority_complexity_y", "") or ""),
-                    str(getattr(item, "priority_lps_display", "") or ""),
-                    getattr(item, "recommendation_level", None) or getattr(item, "priority_tier", None) is not None and {
-                        1: "立即启动", 2: "规划推进", 3: "观察",
-                    }.get(getattr(item, "priority_tier"), "观察") or "",
-                    item.core_data_requirements,
-                ])
-        else:
-            columns = ["推荐场景", "类别", "对应画布要素", "预期效果", "核心数据需求"]
-            rows = [
-                [
-                    item.name,
-                    item.category,
-                    item.canvas_elements,
+        columns = ["推荐场景", "场景描述", "预期效果", "切入模块"]
+        trimmed_summaries = [
+            self._trim_scenario_summary_lead_in(item.summary)
+            for item in scenario_recommendation.top_scenarios
+        ]
+        display_summaries = [
+            self._dedupe_scenario_summary(
+                trimmed_summaries[index],
+                trimmed_summaries[:index],
+            )
+            for index, _item in enumerate(scenario_recommendation.top_scenarios)
+        ]
+        display_effects = [
+            self._dedupe_scenario_effects(
+                display_summaries[index],
+                self._dedupe_scenario_effects_across_rows(
                     item.expected_effects,
-                    item.core_data_requirements,
-                ]
-                for item in scenario_recommendation.top_scenarios
+                    [
+                        previous.expected_effects
+                        for previous in scenario_recommendation.top_scenarios[:index]
+                    ],
+                ),
+            )
+            for index, item in enumerate(scenario_recommendation.top_scenarios)
+        ]
+        rows = []
+        for index, item in enumerate(scenario_recommendation.top_scenarios):
+            row = [
+                item.name,
+                display_summaries[index],
+                display_effects[index],
+                item.canvas_elements,
             ]
+            rows.append(row)
 
         table = ReportTableData(columns=columns, rows=rows)
 
@@ -275,6 +271,114 @@ class ReportBuilder:
             content=content,
             table=table,
         )
+
+    @staticmethod
+    def _normalize_scenario_text(value: str) -> str:
+        return re.sub(r"[：:；;，,。.!！?？\s]+", "", value)
+
+    @staticmethod
+    def _strip_scenario_effect_lead_in(expected_effects: str) -> str:
+        return re.sub(r"^支撑方向：.*?[；;]", "", expected_effects).strip()
+
+    def _trim_scenario_summary_lead_in(self, summary: str) -> str:
+        trimmed = summary.strip()
+        if "围绕" not in trimmed or "结合" not in trimmed:
+            return trimmed
+
+        shortened = re.sub(
+            r"^围绕[\s\S]+?结合[\s\S]+?(?:[，,；;。]\s*)?(?=在)",
+            "",
+            trimmed,
+        ).strip()
+        return shortened or trimmed
+
+    def _dedupe_scenario_summary(
+        self,
+        summary: str,
+        previous_summaries: list[str],
+    ) -> str:
+        if not previous_summaries:
+            return summary
+
+        normalized_previous = [
+            self._normalize_scenario_text(previous)
+            for previous in previous_summaries
+        ]
+        segments = [
+            segment.strip()
+            for segment in re.split(r"[；;。]", summary)
+            if segment.strip()
+        ]
+        unique_segments = [
+            segment
+            for segment in segments
+            if self._normalize_scenario_text(segment)
+            and not any(
+                previous.find(self._normalize_scenario_text(segment)) >= 0
+                for previous in normalized_previous
+            )
+        ]
+
+        if not unique_segments:
+            return summary
+        return "；".join(unique_segments) + "。"
+
+    def _dedupe_scenario_effects(
+        self,
+        summary: str,
+        expected_effects: str,
+    ) -> str:
+        normalized_summary = self._normalize_scenario_text(summary)
+        cleaned_effects = self._strip_scenario_effect_lead_in(expected_effects)
+        segments = [
+            segment.strip()
+            for segment in re.split(r"[；;。]", cleaned_effects)
+            if segment.strip()
+        ]
+        unique_segments = [
+            segment
+            for segment in segments
+            if self._normalize_scenario_text(segment)
+            and self._normalize_scenario_text(segment) not in normalized_summary
+        ]
+
+        if not unique_segments:
+            return cleaned_effects or expected_effects
+        return "；".join(unique_segments) + "。"
+
+    def _dedupe_scenario_effects_across_rows(
+        self,
+        expected_effects: str,
+        previous_effects: list[str],
+    ) -> str:
+        cleaned_effects = self._strip_scenario_effect_lead_in(expected_effects)
+        if not previous_effects:
+            return cleaned_effects or expected_effects
+
+        normalized_previous = [
+            self._normalize_scenario_text(
+                self._strip_scenario_effect_lead_in(previous),
+            )
+            for previous in previous_effects
+        ]
+        segments = [
+            segment.strip()
+            for segment in re.split(r"[；;。]", cleaned_effects)
+            if segment.strip()
+        ]
+        unique_segments = [
+            segment
+            for segment in segments
+            if self._normalize_scenario_text(segment)
+            and not any(
+                previous.find(self._normalize_scenario_text(segment)) >= 0
+                for previous in normalized_previous
+            )
+        ]
+
+        if not unique_segments:
+            return cleaned_effects or expected_effects
+        return "；".join(unique_segments) + "。"
 
     def _build_scenario_planning_section(
         self,
@@ -358,9 +462,12 @@ class ReportBuilder:
                 ReportCardData(
                     title="VP 重构输出",
                     subtitle="价值主张升级",
-                    content=vp.enhanced_vp,
-                    highlight=f"旧 VP：{vp.current_vp}",
-                    bullets=[f"交付逻辑变化：{vp.customer_value_shift}"],
+                    content="",
+                    highlights=[
+                        f"旧 VP：{vp.current_vp}",
+                        f"新 VP（AI 重构）：{vp.enhanced_vp}",
+                        f"VP 交付逻辑变化：{vp.customer_value_shift}",
+                    ],
                 ),
                 ReportCardData(
                     title="竞争优势差异化定位",
@@ -372,9 +479,11 @@ class ReportBuilder:
                 ReportCardData(
                     title="核心竞争力提升路径",
                     subtitle="短中长期推进",
-                    content=f"短期：{cr.delivery_strategy.phase_1_quick_win}",
-                    highlight=f"中期：{cr.delivery_strategy.phase_2_scale}",
-                    bullets=[f"长期：{cr.delivery_strategy.phase_3_moat}"],
+                    content="\n".join([
+                        f"短期：{cr.delivery_strategy.phase_1_quick_win}",
+                        f"中期：{cr.delivery_strategy.phase_2_scale}",
+                        f"长期：{cr.delivery_strategy.phase_3_moat}",
+                    ]),
                 ),
             ]
 
@@ -699,12 +808,15 @@ class ReportBuilder:
         return ReportSectionData(
             key="endgame",
             title="商业终局设计",
-            content=er.overall_narrative,
+            content="本评估的核心商业终局判断如下：",
             bullets=[
                 f"私域目标模型：{pd.target_model}",
                 f"客户留存飞轮：{pd.customer_retention_loop}",
                 f"生态定位：{eco.ecosystem_positioning}",
                 f"OPC运营平台：{opc.data_flywheel_effect}",
+                f"三阶段推进：{er.three_stage_strategy.stage_1.title}先{er.three_stage_strategy.stage_1.focus}，"
+                f"{er.three_stage_strategy.stage_2.title}再{er.three_stage_strategy.stage_2.focus}，"
+                f"{er.three_stage_strategy.stage_3.title}最终{er.three_stage_strategy.stage_3.focus}。",
                 f"推荐路径含有 {len(er.strategic_paths)} 种策略可选",
             ],
             cards=path_cards if path_cards else None,
@@ -820,6 +932,7 @@ class ReportBuilder:
     def _build_direction_section(
         self,
         direction_labels: list[str],
+        selected_directions: list[DirectionSuggestion],
     ) -> ReportSectionData:
         if not direction_labels:
             return ReportSectionData(
@@ -830,6 +943,11 @@ class ReportBuilder:
             )
 
         joined = "、".join(direction_labels[:10])
+        description_by_title = {
+            item.title.strip(): item.description.strip()
+            for item in selected_directions
+            if item.title.strip() and item.description.strip()
+        }
         return ReportSectionData(
             key="direction_expansion",
             title="创新方向延展",
@@ -845,7 +963,7 @@ class ReportBuilder:
             cards=[
                 ReportCardData(
                     title=label,
-                    content=f"选定创新方向：{label}。详细描述和预期影响请参考方向延展工作台。",
+                    content=description_by_title.get(label.strip(), ""),
                 )
                 for label in direction_labels
             ],

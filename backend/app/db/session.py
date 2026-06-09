@@ -195,16 +195,22 @@ def _migrate_endgame_analyses_table() -> None:
         return
 
     existing_columns = {column["name"] for column in inspector.get_columns("endgame_analyses")}
-    if "three_stage_strategy_json" in existing_columns:
-        return
 
     with engine.begin() as connection:
-        connection.execute(
-            text(
-                "ALTER TABLE endgame_analyses "
-                "ADD COLUMN three_stage_strategy_json TEXT NOT NULL DEFAULT '{}'"
+        if "three_stage_strategy_json" not in existing_columns:
+            connection.execute(
+                text(
+                    "ALTER TABLE endgame_analyses "
+                    "ADD COLUMN three_stage_strategy_json TEXT NOT NULL DEFAULT '{}'"
+                )
             )
-        )
+        if "industry_essence" not in existing_columns:
+            connection.execute(
+                text(
+                    "ALTER TABLE endgame_analyses "
+                    "ADD COLUMN industry_essence TEXT"
+                )
+            )
 
 
 def _migrate_users_table() -> None:

@@ -92,11 +92,7 @@ export default function EndgamePage({
   const endgameData = detail.endgame;
   const paymentRequired = isPaymentRequired(detail.entitlement);
   const editableEndgame = endgameData
-    ? (({
-        generation_mode: _generationMode,
-        industry_essence: _industryEssence,
-        ...rest
-      }) => rest)(endgameData.result)
+    ? (({ generation_mode: _generationMode, ...rest }) => rest)(endgameData.result)
     : null;
 
   return (

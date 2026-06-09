@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import json
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -32,6 +33,39 @@ from app.schemas.endgame import (
     ThreeStageStrategyStage,
 )
 from app.services.report_builder import ReportBuilder
+from app.services.llm_report_writer import LLMReportWriter
+
+
+def test_llm_report_writer_validates_only_target_group_sections() -> None:
+    writer = LLMReportWriter()
+    payload = {
+        "sections": [
+            {
+                "title": "当前商业模式画布诊断",
+                "content": "围绕价值主张、客户关系和关键资源说明当前画布诊断。",
+                "bullets": ["价值主张需要聚焦", "关键资源可进一步数字化"],
+            },
+            {
+                "title": "突破要素",
+                "content": "建议优先围绕客户触达和运营效率选择突破要素。",
+                "bullets": ["客户触达", "运营效率"],
+            },
+        ],
+        "warnings": [],
+    }
+
+    sections, warnings, fatal = writer._parse_llm_response(
+        json.dumps(payload, ensure_ascii=False),
+        expected_sections=[
+            ("canvas_diagnosis", "当前商业模式画布诊断"),
+            ("breakthrough", "突破要素"),
+        ],
+    )
+
+    assert fatal is False
+    assert warnings == []
+    assert sections is not None
+    assert [section.key for section in sections] == ["canvas_diagnosis", "breakthrough"]
 
 
 def _long_text(prefix: str) -> str:
@@ -243,6 +277,15 @@ def test_report_builder_does_not_emit_ellipsis_or_removed_labels() -> None:
         endgame_result=_build_endgame(),
     )
 
+    assert [section.key for section in report.sections] == [
+        "canvas_diagnosis",
+        "breakthrough",
+        "direction_expansion",
+        "priority_scenarios",
+        "competitiveness",
+        "endgame",
+    ]
+
     payload = report.model_dump_json()
 
     assert "..." not in payload
@@ -251,10 +294,89 @@ def test_report_builder_does_not_emit_ellipsis_or_removed_labels() -> None:
     assert "待补充信息" not in payload
     assert "投资需求" not in payload
     assert "时间范围" not in payload
+    assert "企业基本画像" not in payload
+    assert "AI 成熟度评估" not in payload
+    assert "推荐场景详细规划" not in payload
+    assert "参考案例与启示" not in payload
+    assert "三阶段 AI 创新路线图" not in payload
+    assert "风险与阻力" not in payload
+    assert "讲师点评区" not in payload
 
-    # 验证四象限评分字段出现在报告中
+    # 验证四象限评分说明保留在章节描述中，但表格不额外追加优先级字段
     assert "四象限优先级评分" in payload
-    assert "自动化主战场" in payload
-    assert "象限归属" in payload
-    assert "综合优先级得分" in payload
-    assert "推荐意见" in payload
+    priority_section = next(
+        section for section in report.sections if section.key == "priority_scenarios"
+    )
+    assert priority_section.table is not None
+    assert priority_section.table.columns == ["推荐场景", "场景描述", "预期效果", "切入模块"]
+    assert "自动化主战场" not in payload
+    assert "象限归属" not in payload
+    assert "综合优先级得分" not in payload
+
+
+def test_priority_scenarios_table_uses_dashboard_style_display_text() -> None:
+    """报告场景表格应复用仪表盘口径，去掉跨卡片重复的场景描述和支撑方向。"""
+    repeated_setup = (
+        "围绕“客户数据平台与智能分群推荐引擎、基于LBS的精准推送、供应商智能推荐引擎”，"
+        "结合“关键资源、渠道通路、关键合作伙伴”"
+    )
+    repeated_direction = "构建智能客户数据平台、基于LBS的精准推送、供应商智能推荐引擎"
+    scenarios = ScenarioRecommendationResult(
+        scoring_method="four_quadrant_v1",
+        evaluated_count=3,
+        top_scenarios=[
+            ScenarioRecommendationItem(
+                scenario_id="scenario-1",
+                name="回款风险预警",
+                category="财务经营",
+                summary=f"{repeated_setup}，在财务经营环节布局“回款风险预警”。",
+                canvas_elements="关键资源",
+                expected_effects=(
+                    f"支撑方向：{repeated_direction}；"
+                    "通过回款风险预警，预期可优化回款、降低风险、经营稳健。"
+                ),
+                core_data_requirements="客户账期数据",
+            ),
+            ScenarioRecommendationItem(
+                scenario_id="scenario-2",
+                name="销售线索优先级排序",
+                category="销售增长",
+                summary=f"{repeated_setup}；在销售增长环节布局“销售线索优先级排序”。",
+                canvas_elements="渠道通路",
+                expected_effects=(
+                    f"支撑方向：{repeated_direction}；"
+                    "通过销售线索优先级排序，预期可销售转化、成交、增长。"
+                ),
+                core_data_requirements="销售线索数据",
+            ),
+            ScenarioRecommendationItem(
+                scenario_id="scenario-3",
+                name="门店销量预测",
+                category="零售运营",
+                summary=f"{repeated_setup}。在零售运营环节布局“门店销量预测”。",
+                canvas_elements="关键合作伙伴",
+                expected_effects=(
+                    f"支撑方向：{repeated_direction}；"
+                    "通过门店销量预测，预期可提升效率、优化库存、销售增长。"
+                ),
+                core_data_requirements="门店销售数据",
+            ),
+        ],
+    )
+
+    section = ReportBuilder()._build_priority_scenarios_section(scenarios)
+
+    assert section.table is not None
+    assert section.table.columns == ["推荐场景", "场景描述", "预期效果", "切入模块"]
+    rows = section.table.rows
+    assert rows[0][1] == "在财务经营环节布局“回款风险预警”。"
+    assert rows[1][1] == "在销售增长环节布局“销售线索优先级排序”。"
+    assert rows[2][1] == "在零售运营环节布局“门店销量预测”。"
+    assert rows[0][2] == "通过回款风险预警，预期可优化回款、降低风险、经营稳健。"
+    assert rows[1][2] == "通过销售线索优先级排序，预期可销售转化、成交、增长。"
+    assert rows[2][2] == "通过门店销量预测，预期可提升效率、优化库存、销售增长。"
+
+    payload = section.model_dump_json()
+    assert repeated_setup not in payload
+    assert repeated_direction not in payload
+    assert "支撑方向" not in payload

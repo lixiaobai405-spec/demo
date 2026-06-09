@@ -59,3 +59,15 @@ def test_priority_recommendation_limits_scenario_pool_to_18() -> None:
     assert {item.scenario_id for item in result.top_scenarios}.issubset(
         {item.scenario_id for item in result.all_scores},
     )
+
+
+def test_build_template_summary_trims_repeated_direction_lead_in() -> None:
+    recommender = ScenarioRecommender()
+    summary = recommender._trim_summary_lead_in(
+        "围绕“客户数据平台与智能分群推荐引擎、基于位置的个性化触达引擎、AI驱动的供应商发现与匹配引擎”，"
+        "结合“关键资源、渠道通路、关键合作伙伴”，在财务经营环节布局“回款风险预警”，"
+        "对账期异常、逾期概率和重点客户回款风险进行监控与预警。"
+    )
+
+    assert summary.startswith("在财务经营环节布局“回款风险预警”")
+    assert "围绕“客户数据平台与智能分群推荐引擎" not in summary

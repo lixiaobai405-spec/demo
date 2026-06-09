@@ -50,11 +50,6 @@ class HtmlExporter:
         <h1 style="margin:20px 0 10px;font-family:'Noto Serif SC','PingFang SC',serif;font-size:36px;line-height:1.25;font-weight:700;">{escape(report_data.title)}</h1>
         <p style="margin:0;color:#D5C8B5;font-size:15px;line-height:1.6;">{escape(report_data.subtitle)}</p>
       </div>
-      <div style="min-width:200px;padding:20px 22px;border-radius:18px;background:rgba(255,255,255,0.08);text-align:center;">
-        <div style="font-size:11px;color:#C4B59D;letter-spacing:0.1em;text-transform:uppercase;">AI 就绪度</div>
-        <div style="margin-top:6px;font-size:44px;font-weight:800;line-height:1;">{report_data.ai_readiness_score}</div>
-        <p style="margin:10px 0 0;color:#C4B59D;font-size:13px;line-height:1.7;">{escape(report_data.ai_readiness_summary)}</p>
-      </div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:22px;">
       {self._meta_tag(f"企业：{report_data.company_name}")}
@@ -161,11 +156,6 @@ class HtmlExporter:
             )
 
         note_html = ""
-        if section.note:
-            note_html = (
-                f"<div style='margin-top:18px;padding:14px 18px;border-radius:14px;background:{c['accent_light']};color:{c['text_secondary']};font-size:13px;line-height:1.8;border-left:4px solid {c['accent']};'>"
-                f"<strong>备注：</strong>{escape(section.note)}</div>"
-            )
 
         return f"""
 <section style="margin-bottom:28px;padding:32px 30px;border-radius:20px;border:1px solid {c['border_light']};background:{c['surface']};box-shadow:{c['shadow_card']};">
@@ -198,6 +188,16 @@ class HtmlExporter:
                 f"{escape(card.highlight)}</div>"
             )
 
+        highlights_html = ""
+        if card.highlights:
+            highlights_html = "".join(
+                (
+                    f"<div style='margin-top:10px;padding:8px 12px;border-radius:10px;background:{c['accent_light']};color:{c['accent']};font-size:13px;font-weight:500;'>"
+                    f"{escape(item)}</div>"
+                )
+                for item in card.highlights
+            )
+
         bullets_html = ""
         if card.bullets:
             bullets_html = (
@@ -209,12 +209,21 @@ class HtmlExporter:
                 + "</ul>"
             )
 
+        content_style = f"margin:12px 0 0;color:{c['text_secondary']};font-size:14px;line-height:1.85;"
+        if card.title == "核心竞争力提升路径":
+            content_style += "white-space:pre-line;"
+
+        content_html = ""
+        if card.content:
+            content_html = f"<p style=\"{content_style}\">{escape(card.content)}</p>"
+
         return f"""
 <article style="padding:20px;border-radius:16px;background:{c['inset']};border:1px solid {c['border_light']};transition:box-shadow 0.2s;">
   <h3 style="margin:0;font-size:16px;line-height:1.4;color:{c['text']};font-weight:600;">{escape(card.title)}</h3>
   {subtitle_html}
   {highlight_html}
-  <p style="margin:12px 0 0;color:{c['text_secondary']};font-size:14px;line-height:1.85;">{escape(card.content)}</p>
+  {highlights_html}
+  {content_html}
   {bullets_html}
 </article>
 """.strip()

@@ -225,7 +225,14 @@ class TestFullChainE2E:
         assert response.status_code == 200, response.text
         context = response.json()
         assert context["assessment_id"] == assessment_id
-        assert len(context["report_outline"]) == 13
+        assert context["report_outline"] == [
+            "当前商业模式画布诊断",
+            "突破要素",
+            "创新方向延展",
+            "高优先级 AI 提效场景",
+            "差异化竞争力设计",
+            "商业终局设计",
+        ]
         assert len(context["selected_breakthrough_elements"]) == 2
 
         response = client.post(f"/api/assessments/{assessment_id}/report?mode=template")
@@ -234,24 +241,17 @@ class TestFullChainE2E:
         report_id = report["report_id"]
         assert report["generation_mode"] == "template"
         assert report["used_llm"] is False
-        assert len(report["sections"]) == 13
+        assert len(report["sections"]) == 6
 
         section_keys = {section["key"] for section in report["content_json"]["sections"]}
-        assert {
-            "company_profile",
+        assert section_keys == {
             "canvas_diagnosis",
             "breakthrough",
             "direction_expansion",
-            "ai_readiness",
             "priority_scenarios",
-            "scenario_planning",
             "competitiveness",
-            "cases",
-            "roadmap",
-            "risks",
-            "instructor_comments",
             "endgame",
-        } <= section_keys
+        }
 
         response = client.get(f"/api/reports/{report_id}/export/markdown")
         assert response.status_code == 200, response.text
@@ -281,7 +281,7 @@ class TestFullChainE2E:
         assert response.status_code == 200, response.text
         quality = response.json()
         assert 0 <= quality["overall_score"] <= 100
-        assert len(quality["sections"]) == 13
+        assert len(quality["sections"]) == 6
 
         response = client.post(f"/api/reports/{report_id}/share")
         assert response.status_code == 200, response.text
