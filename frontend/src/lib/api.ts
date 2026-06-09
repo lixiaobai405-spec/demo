@@ -58,7 +58,7 @@ import type {
 } from "@/lib/types";
 
 export function resolveApiBaseUrl(value: string | undefined): string {
-  const normalized = (value ?? "http://localhost:8000").trim();
+  const normalized = (value ?? "").trim();
   return normalized.replace(/\/+$/, "");
 }
 
