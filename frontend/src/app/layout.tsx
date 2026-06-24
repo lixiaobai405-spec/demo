@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { QueryProvider } from "@/providers/query-provider";
 import { AuthProvider } from "@/providers/auth-provider";
 import { NavBar } from "@/components/nav-bar";
+import { SiteFooter } from "@/components/site-footer";
 import { AIChatPanel } from "@/components/ai-chat-panel";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -41,8 +42,13 @@ export default function RootLayout({
         </a>
         <QueryProvider>
           <AuthProvider>
-            <NavBar />
-            <main id="main-content">{children}</main>
+            <div className="flex min-h-screen flex-col">
+              <NavBar />
+              <main id="main-content" className="flex-1">
+                {children}
+              </main>
+              <SiteFooter />
+            </div>
             <AIChatPanel />
             <Toaster />
           </AuthProvider>
